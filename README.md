@@ -1,0 +1,4 @@
+# dependenies:
+nmap
+libvirt
+netifaces
