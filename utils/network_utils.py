@@ -1,8 +1,6 @@
-__author__ = 'i.pavlov'
 # depends on packages: netifaces
-
 import netifaces
-import SystemUtils
+from utils import system_utils
 
 
 def get_interface_subnet(inteface):
@@ -14,11 +12,11 @@ def get_interface_subnet(inteface):
 
 
 def nmap_ping_scan(subnet):
-    return SystemUtils.run_command(["nmap", "-sP", "-T4", subnet])
+    return system_utils.run_command(["nmap", "-sP", "-T4", subnet])
 
 
 def arp_numeric():
-    return SystemUtils.run_command(["arp", "--numeric"])
+    return system_utils.run_command(["arp", "--numeric"])
 
 
 def get_ip_by_mac(mac):

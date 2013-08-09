@@ -1,5 +1,3 @@
-__author__ = 'i.pavlov'
-
 import subprocess
 import sys
 
