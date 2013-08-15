@@ -5,11 +5,12 @@ import libvirt
 from xml.dom import minidom
 
 # paths
-from utils import utils
-from core.dumpxml import dumpxml
-from core.network.network import Network
+from vmmaster.core import dumpxml
+from vmmaster.core.network.network import Network
 
 from config import Config
+from vmmaster.utils import utils
+
 
 class CloneManager(object):
     clone_list = []

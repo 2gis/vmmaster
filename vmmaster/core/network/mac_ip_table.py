@@ -1,6 +1,5 @@
 import virtinst.util
 
-from network_xml import NetworkXml
 
 class NoMacError(Exception):
     pass

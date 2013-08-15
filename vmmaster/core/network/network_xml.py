@@ -1,6 +1,7 @@
 from xml.dom import minidom
-from utils import utils
 from config import Config
+from vmmaster.utils import utils
+
 
 class NetworkXml(object):
     def __init__(self, name, uuid, bridge_name, table):

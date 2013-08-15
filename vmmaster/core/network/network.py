@@ -1,7 +1,7 @@
-from core.network.network_xml import NetworkXml
-from core.network.mac_ip_table import MacIpTable
-
 import virtinst.util
+
+from vmmaster.core.network.network_xml import NetworkXml
+from vmmaster.core.network.mac_ip_table import MacIpTable
 
 
 class Network(MacIpTable):

@@ -1,6 +1,6 @@
 # depends on packages: netifaces
 import netifaces
-from utils import system_utils
+from vmmaster.utils import system_utils
 
 
 def get_interface_subnet(inteface):

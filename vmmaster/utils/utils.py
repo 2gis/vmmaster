@@ -1,6 +1,6 @@
-from core import commands
-import system_utils
+from vmmaster.core import commands
 from config import Config
+from vmmaster.utils import system_utils
 
 CLONES_DIR = Config.CLONES_DIR
 ORIGINS_DIR = Config.ORIGINS_DIR
