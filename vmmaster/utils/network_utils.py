@@ -1,7 +1,6 @@
-# depends on packages: netifaces
 import netifaces
 from vmmaster.utils import system_utils
-
+import time
 
 def get_interface_subnet(inteface):
     ip = netifaces.ifaddresses(inteface)[2][0]["addr"]
@@ -33,3 +32,19 @@ def get_ip_by_mac(mac):
         return None
 
     return line.split(" ")[0]
+
+
+def ping(ip, port, timeout):
+    command = ['nc', '-z', ip, port]
+
+    start = time.time()
+    print "connecting"
+    returncode, output = system_utils.run_command(command, True)
+    while returncode:
+        returncode, output = system_utils.run_command(command, True)
+        if time.time() - start > timeout:
+            return 1
+
+    # time.sleep(5)
+    return 0
+

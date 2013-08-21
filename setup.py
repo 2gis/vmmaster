@@ -22,4 +22,7 @@ setup(name='vmmaster',
           'vmmaster.utils': 'vmmaster/utils',
           'vmmaster.core.server': 'vmmaster/core/server',
       },
+      requires=[
+          "netifaces==0.8",
+      ]
 )

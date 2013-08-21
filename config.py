@@ -10,3 +10,5 @@ class Config:
     SESSION_DIR = BASE_DIR + "/session"
 
     ORIGIN_POSTFIX = "origin"
+
+    selenium_port = "4455"

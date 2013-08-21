@@ -1,6 +1,5 @@
-from vmmaster.core import commands
 from config import Config
-from vmmaster.utils import system_utils
+from vmmaster.utils import system_utils, commands
 
 CLONES_DIR = Config.CLONES_DIR
 ORIGINS_DIR = Config.ORIGINS_DIR
@@ -38,15 +37,21 @@ def create_qcow2_clone(origin_name, clone_name):
     return clone_path
 
 
+def write_clone_dumpxml(clone_name, xml):
+    # saving to dir
+    dumpxml_path = "{clones_dir}/{clone_name}.xml".format(
+        clones_dir=CLONES_DIR,
+        clone_name=clone_name
+    )
+    file_handler = open(dumpxml_path, "w")
+    xml.writexml(file_handler)
+    return dumpxml_path
+
+
 def create_img_clone(origin_name, clone_name):
     clone_path = "{clones_dir}/{clone_name}.img".format(
         clones_dir=CLONES_DIR,
         clone_name=clone_name
-    )
-    origin_path = "{origins_dir}/{origin_name}-{postfix}.img".format(
-        origins_dir=ORIGINS_DIR,
-        origin_name=origin_name,
-        postfix=ORIGIN_POSTFIX
     )
 
     print "cloning {} into {}".format(origin_name, clone_name)
