@@ -11,6 +11,7 @@ from vmmaster.core.clone_factory import CloneFactory
 from vmmaster.utils import network_utils
 from vmmaster.core.network.sessions import Sessions
 from vmmaster.core.network.network import Network
+from vmmaster.core.logger import log
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -149,11 +150,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.transparent("DELETE")
         return
 
-        # def log_request(self, code=None, size=None):
-        #     print('Request')
-        #
-        # def log_message(self, format, *args):
-        #     print('Message')
+    def log_request(self, code=None, size=None):
+        host, port = self.client_address
+        log.info("{client} - {request} {code}".format(
+            client=host,
+            request=self.raw_requestline.rstrip(),
+            code=code)
+        )
+
+    # def log_message(self, format, *args):
+    #     return
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):

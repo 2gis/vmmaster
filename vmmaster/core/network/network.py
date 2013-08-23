@@ -4,6 +4,7 @@ import libvirt
 from vmmaster.core.network.network_xml import NetworkXml
 from vmmaster.core.network.mac_ip_table import MacIpTable
 from vmmaster.core.connection import Virsh
+from vmmaster.core.logger import log
 
 
 class Network(MacIpTable):
@@ -36,7 +37,7 @@ class Network(MacIpTable):
             pass
 
     def delete(self):
-        print "deleting network: {}".format(self.name)
+        log.info("deleting network: {}".format(self.name))
         net = self.conn.networkLookupByName(self.name)
         net.destroy()
         net.undefine()

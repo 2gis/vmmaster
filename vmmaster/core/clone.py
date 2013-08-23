@@ -1,12 +1,13 @@
 from xml.dom import minidom
+import logging
 
 import virtinst.util
 
 from vmmaster.core.dumpxml import dumpxml
 from vmmaster.core.network.network import Network
 from vmmaster.core.connection import Virsh
+from vmmaster.core.logger import log
 from vmmaster.utils import utils
-
 
 class Clone(object):
     def __init__(self, number, platform):
@@ -17,7 +18,7 @@ class Clone(object):
         self.network = Network()
 
     def delete(self):
-        print "deleting clone: {}".format(self.name)
+        log.info("deleting clone: {}".format(self.name))
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
         domain = self.conn.lookupByName(self.name)
@@ -26,13 +27,14 @@ class Clone(object):
         self.network.append_free_mac(self.mac)
 
     def create(self):
+        log.info("creating clone of {platform}".format(platform=self.platform))
         origin = self.platform
         self.dumpxml_file = self.clone_origin(origin)
 
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
         self.ip = self.get_clone_ip(self.name)
-        print "created clone on ip: {ip}".format(ip=self.ip)
+        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.ip))
         return self
 
     def clone_origin(self, origin_name):
@@ -66,7 +68,7 @@ class Clone(object):
         return clone_xml
 
     def define_clone(self, clone_dumpxml_file):
-        print "defining from {}".format(clone_dumpxml_file)
+        log.info("defining from {}".format(clone_dumpxml_file))
         file_handler = open(clone_dumpxml_file, "r")
         self.conn.defineXML(file_handler.read())
 
@@ -74,22 +76,22 @@ class Clone(object):
         pass
 
     def start_virtual_machine(self, machine):
-        print "starting {}".format(machine)
+        log.info("starting {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.create()
 
     def shutdown_virtual_machine(self, machine):
-        print "shutting down {}".format(machine)
+        log.info("shutting down {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.shutdown()
 
     def destroy_clone(self, machine):
-        print "destroying {}".format(machine)
+        log.info("destroying {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.destroy()
 
     def undefine_clone(self, machine):
-        print "undefining {}".format(machine)
+        log.info("undefining {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.undefine()
 

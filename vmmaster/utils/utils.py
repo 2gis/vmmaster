@@ -51,20 +51,6 @@ def write_clone_dumpxml(clone_name, xml):
     return dumpxml_path
 
 
-def create_img_clone(origin_name, clone_name):
-    clone_path = "{clones_dir}/{clone_name}.img".format(
-        clones_dir=CLONES_DIR,
-        clone_name=clone_name
-    )
-
-    print "cloning {} into {}".format(origin_name, clone_name)
-    #phrase = "hello {}!".format(machine)
-    command = ["virt-clone", "-o", origin_name, "-n", clone_name, "-f", clone_path, "--connect=qemu:///system"]
-    print command
-    system_utils.run_command(command)
-    return clone_path
-
-
 def delete_file(filename):
     try:
         os.remove(filename)

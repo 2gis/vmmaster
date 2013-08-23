@@ -1,6 +1,8 @@
+import logging
+
 from vmmaster.core.clone import Clone
 from vmmaster.core.connection import Virsh
-from config import Config
+from vmmaster.core.logger import log
 
 
 class PlatformException(Exception):
@@ -9,16 +11,16 @@ class PlatformException(Exception):
 
 class CloneFactory(object):
     def __init__(self):
-        print "initializing clone factory"
+        log.info("initializing clone factory")
         self.conn = Virsh()
         self.clone_list = {}
         for origin in self.conn.listDefinedDomains():
             self.clone_list[origin] = []
 
-        print self.clone_list
+        log.info("starting with " + str(self.clone_list))
 
     def delete(self):
-        print "deleting clone factory"
+        log.info("deleting clone factory")
         running_clones = []
         for platform in self.clone_list:
             for clone in self.clone_list[platform]:
@@ -43,5 +45,5 @@ class CloneFactory(object):
     def utilize_clone(self, clone):
         self.clone_list[clone.platform].remove(clone)
         clone.delete()
-        print self.clone_list
+        log.debug(self.clone_list)
         return
