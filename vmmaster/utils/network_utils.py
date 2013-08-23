@@ -34,17 +34,22 @@ def get_ip_by_mac(mac):
     return line.split(" ")[0]
 
 
-def ping(ip, port, timeout):
+def ping(ip, port, timeout=180):
     command = ['nc', '-z', ip, port]
 
     start = time.time()
     print "connecting"
     returncode, output = system_utils.run_command(command, True)
     while returncode:
+        time.sleep(0.1)
         returncode, output = system_utils.run_command(command, True)
         if time.time() - start > timeout:
+            print "ping failed: timeout {ip}:{port}".format(ip=ip, port=port)
             return 1
 
-    # time.sleep(5)
-    return 0
+    print "ping successful: {ip}:{port}".format(ip=ip, port=port)
 
+    ### @todo: add some more tools to define, if virtual machine is ready (selenium status?)
+    time.sleep(1)
+    print "sleep 1 more second"
+    return 0

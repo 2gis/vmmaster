@@ -1,22 +1,24 @@
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
-from SocketServer import ThreadingMixIn
+from SocketServer import ThreadingMixIn, ForkingMixIn
 import httplib
 import copy
 import json
 import StringIO
-import threading
 
 from config import Config
 from vmmaster.core.clone_factory import CloneFactory
 from vmmaster.utils import network_utils
 from vmmaster.core.network.sessions import Sessions
-
-clone_factory = CloneFactory()
-sessions = Sessions()
+from vmmaster.core.network.network import Network
 
 
 class RequestHandler(BaseHTTPRequestHandler):
+    def __init__(self, clone_factory, sessions, *args):
+        self.clone_factory = clone_factory
+        self.sessions = sessions
+        BaseHTTPRequestHandler.__init__(self, *args)
+
     @property
     def body(self):
         """get request body."""
@@ -36,8 +38,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     def make_request(self, method, url, headers, body):
         """ Make request to selenium-server-standalone
             and return the response. """
-        ip = sessions.get_ip(self.get_session())
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=Config.selenium_port))
+        clone = self.sessions.get_clone(self.get_session())
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=Config.selenium_port))
         conn.request(method=method, url=url, headers=headers, body=body)
 
         response = conn.getresponse()
@@ -67,15 +69,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         return
 
     def transparent(self, method):
-        session = self.get_session()
-        print session
         code, headers, response_body = self.make_request(method, self.path, self.headers.dict, self.body)
         self.send_reply(code, headers, response_body)
-
-    def do_GET(self):
-        """GET request."""
-        self.transparent("GET")
-        return
 
     def replace_platform_with_any(self):
         body = json.loads(self.body)
@@ -105,10 +100,10 @@ class RequestHandler(BaseHTTPRequestHandler):
     def create_session(self):
         platform = self.get_platform()
         self.replace_platform_with_any()
-        ip = clone_factory.create_clone(platform)
-        network_utils.ping(ip, Config.selenium_port, 3600)
+        clone = self.clone_factory.create_clone(platform)
+        network_utils.ping(clone.ip, Config.selenium_port)
 
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=Config.selenium_port))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=Config.selenium_port))
         conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
 
         response = conn.getresponse()
@@ -120,11 +115,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             response_body = response.read(content_length)
         conn.close()
 
-        print response_body
         sessionId = json.loads(response_body)["sessionId"]
-        sessions.add_session(sessionId, ip)
+        self.sessions.add_session(sessionId, clone)
 
         self.send_reply(response.status, response.getheaders(), response_body)
+        return
+
+    def delete_session(self):
+        self.transparent("DELETE")
+        clone = self.sessions.get_clone(self.get_session())
+        self.clone_factory.utilize_clone(clone)
         return
 
     def do_POST(self):
@@ -135,9 +135,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.transparent("POST")
         return
 
+    def do_GET(self):
+        """GET request."""
+        # self.send_reply(200, {}, "")
+        self.transparent("GET")
+        return
+
     def do_DELETE(self):
         """DELETE request."""
-        self.transparent("DELETE")
+        if self.path.split("/")[-2] == "session":
+            self.delete_session()
+        else:
+            self.transparent("DELETE")
         return
 
         # def log_request(self, code=None, size=None):
@@ -151,10 +160,30 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
 
 
+class ForkedHTTPServer(ForkingMixIn, HTTPServer):
+    """Handle requests in a separate process."""
+
+
 class VMMasterServer(object):
     def __init__(self, server_address):
+        # creating network
+        self.network = Network()
+        self.clone_factory = CloneFactory()
+        self.sessions = Sessions()
+
+        # server props
         self.server_address = server_address
+        self.handler = self.handleRequestsUsing(self.clone_factory, self.sessions)
+
+    def __del__(self):
+        self.network.delete()
+        self.clone_factory.delete()
+
+    def handleRequestsUsing(self, clone_factory, sessions):
+        return lambda *args: RequestHandler(clone_factory, sessions, *args)
 
     def run(self):
-        server = ThreadedHTTPServer(self.server_address, RequestHandler)
+        server = ThreadedHTTPServer(self.server_address, self.handler)
+        # server = ForkedHTTPServer(self.server_address, RequestHandler)
+        # server = HTTPServer(self.server_address, self.handler)
         server.serve_forever()

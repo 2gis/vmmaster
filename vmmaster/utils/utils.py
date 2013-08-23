@@ -1,3 +1,6 @@
+import os
+import errno
+
 from config import Config
 from vmmaster.utils import system_utils, commands
 
@@ -62,14 +65,15 @@ def create_img_clone(origin_name, clone_name):
     return clone_path
 
 
-def delete_clone_drive(drive_name):
-    system_utils.run_command(
-        ["rm",
-         "{clones_dir}/{drive_name}".format(
-             clones_dir=CLONES_DIR,
-             drive_name=drive_name
-         )]
-    )
+def delete_file(filename):
+    try:
+        os.remove(filename)
+    # this would be "except OSError as e:" in python 3.x
+    except OSError, e:
+        # errno.ENOENT = no such file or directory
+        if e.errno != errno.ENOENT:
+            # re-raise exception if a different error occured
+            raise
 
 
 def write_xml_file(path, filename, xml):

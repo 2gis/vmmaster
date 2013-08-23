@@ -1,28 +1,47 @@
-# depends on packages: kvm
-import os
-
-from vmmaster.core.network.network import Network
 from vmmaster.core.clone import Clone
+from vmmaster.core.connection import Virsh
+from config import Config
+
+
+class PlatformException(Exception):
+    pass
 
 
 class CloneFactory(object):
-    clone_list = []
-
     def __init__(self):
-        pass
+        print "initializing clone factory"
+        self.conn = Virsh()
+        self.clone_list = {}
+        for origin in self.conn.listDefinedDomains():
+            self.clone_list[origin] = []
 
-    def __del__(self):
-        self.network.__del__()
-        for clone_name, clone_files in self.clone_list:
-            domain = self.conn.lookupByName(clone_name)
-            domain.destroy()
-            domain.undefine()
-            for file in clone_files:
-                try:
-                    os.remove(file)
-                except (OSError, AttributeError):
-                    pass
+        print self.clone_list
+
+    def delete(self):
+        print "deleting clone factory"
+        running_clones = []
+        for platform in self.clone_list:
+            for clone in self.clone_list[platform]:
+                running_clones.append(clone)
+
+        for clone in running_clones:
+            self.utilize_clone(clone)
 
     def create_clone(self, platform):
-        clone = Clone(len(self.clone_list), platform)
-        return clone.create()
+        if platform not in self.clone_list:
+            raise PlatformException("no such a platform")
+
+        ### @todo: limit by count of clones
+
+        clone = Clone(len(self.clone_list[platform]), platform)
+        self.clone_list[platform].append(clone)
+        try:
+            return clone.create()
+        except:
+            self.utilize_clone(clone)
+
+    def utilize_clone(self, clone):
+        self.clone_list[clone.platform].remove(clone)
+        clone.delete()
+        print self.clone_list
+        return
