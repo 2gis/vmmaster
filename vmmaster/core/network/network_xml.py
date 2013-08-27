@@ -1,5 +1,5 @@
 from xml.dom import minidom
-from config import Config
+from vmmaster.core.config import config
 from vmmaster.utils import utils
 
 
@@ -48,4 +48,4 @@ class NetworkXml(object):
         return xml
 
     def saveXml(self):
-        return utils.write_xml_file(Config.SESSION_DIR, self.name, self.xml)
+        return utils.write_xml_file(config.SESSION_DIR, self.name, self.xml)

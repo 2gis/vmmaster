@@ -1,2 +1,4 @@
+log/
+clear.sh
 .idea
 *.pyc

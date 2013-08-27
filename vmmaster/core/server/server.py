@@ -6,11 +6,11 @@ import copy
 import json
 import StringIO
 
-from config import Config
 from vmmaster.core.clone_factory import CloneFactory
 from vmmaster.utils import network_utils
 from vmmaster.core.network.sessions import Sessions
 from vmmaster.core.network.network import Network
+from vmmaster.core.config import config
 from vmmaster.core.logger import log
 
 
@@ -40,7 +40,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         """ Make request to selenium-server-standalone
             and return the response. """
         clone = self.sessions.get_clone(self.get_session())
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=Config.selenium_port))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=config.SELENIUM_PORT))
         conn.request(method=method, url=url, headers=headers, body=body)
 
         response = conn.getresponse()
@@ -102,9 +102,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         platform = self.get_platform()
         self.replace_platform_with_any()
         clone = self.clone_factory.create_clone(platform)
-        network_utils.ping(clone.ip, Config.selenium_port)
+        network_utils.ping(clone.ip, config.SELENIUM_PORT)
 
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=Config.selenium_port))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=config.SELENIUM_PORT))
         conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
 
         response = conn.getresponse()
@@ -166,10 +166,6 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""
 
 
-class ForkedHTTPServer(ForkingMixIn, HTTPServer):
-    """Handle requests in a separate process."""
-
-
 class VMMasterServer(object):
     def __init__(self, server_address):
         # creating network
@@ -190,6 +186,4 @@ class VMMasterServer(object):
 
     def run(self):
         server = ThreadedHTTPServer(self.server_address, self.handler)
-        # server = ForkedHTTPServer(self.server_address, RequestHandler)
-        # server = HTTPServer(self.server_address, self.handler)
         server.serve_forever()

@@ -1,21 +1,17 @@
 import os
 import errno
 
-from config import Config
+from vmmaster.core.config import config
 from vmmaster.utils import system_utils, commands
-
-CLONES_DIR = Config.CLONES_DIR
-ORIGINS_DIR = Config.ORIGINS_DIR
-ORIGIN_POSTFIX = Config.ORIGIN_POSTFIX
 
 
 def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
     command = commands.convert_img_to_qcow2(
         img_file,
         "{origins_dir}/{qcow2_origin_name}-{origin_postfix}.qcow2".format(
-            origins_dir=ORIGINS_DIR,
+            origins_dir=config.ORIGINS_DIR,
             qcow2_origin_name=qcow2_origin_name,
-            origin_postfix=ORIGIN_POSTFIX
+            origin_postfix=config.ORIGIN_POSTFIX
         )
     )
     system_utils.run_command(command)
@@ -23,13 +19,13 @@ def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
 
 def create_qcow2_clone(origin_name, clone_name):
     clone_path = "{clones_dir}/{clone_name}.qcow2".format(
-        clones_dir=CLONES_DIR,
+        clones_dir=config.CLONES_DIR,
         clone_name=clone_name
     )
     origin_path = "{origins_dir}/{origin_name}-{postfix}.qcow2".format(
-        origins_dir=ORIGINS_DIR,
+        origins_dir=config.ORIGINS_DIR,
         origin_name=origin_name,
-        postfix=ORIGIN_POSTFIX
+        postfix=config.ORIGIN_POSTFIX
     )
 
     command = commands.clone_qcow2_image(
@@ -43,7 +39,7 @@ def create_qcow2_clone(origin_name, clone_name):
 def write_clone_dumpxml(clone_name, xml):
     # saving to dir
     dumpxml_path = "{clones_dir}/{clone_name}.xml".format(
-        clones_dir=CLONES_DIR,
+        clones_dir=config.CLONES_DIR,
         clone_name=clone_name
     )
     file_handler = open(dumpxml_path, "w")
