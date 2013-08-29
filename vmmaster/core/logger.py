@@ -28,7 +28,7 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
     log = logging.getLogger('')
     log.setLevel(loglevel)
 
-    log_formatter = logging.Formatter("%(asctime)s - %(levelname)-6s :: %(name)-6s :: %(message)s")
+    log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
     if txtlog:
         txt_handler = RotatingFileHandler(os.path.join(logdir, "vmmaster.log"), backupCount=5)

@@ -41,3 +41,4 @@ class Network(MacIpTable):
         net = self.conn.networkLookupByName(self.name)
         net.destroy()
         net.undefine()
+        del self

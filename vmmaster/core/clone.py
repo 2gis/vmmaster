@@ -1,5 +1,4 @@
 from xml.dom import minidom
-import logging
 
 import virtinst.util
 
@@ -9,6 +8,7 @@ from vmmaster.core.connection import Virsh
 from vmmaster.core.logger import log
 from vmmaster.utils import utils
 
+
 class Clone(object):
     def __init__(self, number, platform):
         self.number = number
@@ -16,6 +16,7 @@ class Clone(object):
         self.name = self.platform + "-clone" + str(self.number)
         self.conn = Virsh()
         self.network = Network()
+        self.__timer = None
 
     def delete(self):
         log.info("deleting clone: {}".format(self.name))
@@ -25,6 +26,8 @@ class Clone(object):
         domain.destroy()
         domain.undefine()
         self.network.append_free_mac(self.mac)
+        del self.__timer
+        del self
 
     def create(self):
         log.info("creating clone of {platform}".format(platform=self.platform))
@@ -33,8 +36,8 @@ class Clone(object):
 
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
-        self.ip = self.get_clone_ip(self.name)
-        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.ip))
+        self.__ip = self.__network_ip()
+        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.get_ip()))
         return self
 
     def clone_origin(self, origin_name):
@@ -108,7 +111,16 @@ class Clone(object):
     def get_origin_dumpxml(self, origin_name):
         return self.get_virtual_machine_dumpxml(origin_name)
 
-    def get_clone_ip(self, clone_name):
-        xml = self.get_virtual_machine_dumpxml(clone_name)
+    def __network_ip(self):
+        xml = self.get_virtual_machine_dumpxml(self.name)
         mac = dumpxml.get_mac(xml)
         return self.network.get_ip(mac)
+
+    def get_ip(self):
+        return self.__ip
+
+    def get_timer(self):
+        return self.__timer
+
+    def set_timer(self, timer):
+        self.__timer = timer

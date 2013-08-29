@@ -40,8 +40,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         """ Make request to selenium-server-standalone
             and return the response. """
         clone = self.sessions.get_clone(self.get_session())
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=config.SELENIUM_PORT))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
         conn.request(method=method, url=url, headers=headers, body=body)
+
+        clone.get_timer().restart()
 
         response = conn.getresponse()
 
@@ -102,9 +104,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         platform = self.get_platform()
         self.replace_platform_with_any()
         clone = self.clone_factory.create_clone(platform)
-        network_utils.ping(clone.ip, config.SELENIUM_PORT)
+        network_utils.ping(clone.get_ip(), config.SELENIUM_PORT, config.PING_TIMEOUT)
 
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.ip, port=config.SELENIUM_PORT))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
         conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
 
         response = conn.getresponse()
