@@ -26,14 +26,24 @@ class Network(MacIpTable):
             try:
                 self.conn.networkDefineXML(self.dumpxml_file)
             except libvirt.libvirtError:
-                net = self.conn.networkLookupByName(self.name)
-                net.destroy()
-                net.undefine()
+                self.clear_previous_network_session()
                 self.conn.networkDefineXML(self.dumpxml_file)
+
             net = self.conn.networkLookupByName(self.name)
             net.create()
             self.initialized = True
         else:
+            pass
+
+    def clear_previous_network_session(self):
+        net = self.conn.networkLookupByName(self.name)
+        try:
+            net.destroy()
+        except libvirt.libvirtError:
+            pass
+        try:
+            net.undefine()
+        except libvirt.libvirtError:
             pass
 
     def delete(self):

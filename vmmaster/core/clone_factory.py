@@ -123,7 +123,7 @@ class CloneFactory(object):
 
     def utilize_clone(self, clone, timeouted=False):
         if timeouted:
-            log.warning("{clone} TIMEOUTED".format(clone=clone.name))
+            log.warning("TIMEOUT {clone}".format(clone=clone.name))
         self.clone_list.remove_clone(clone)
         clone.delete()
         if timeouted:

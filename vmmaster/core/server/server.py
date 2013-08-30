@@ -14,6 +14,10 @@ from vmmaster.core.config import config
 from vmmaster.core.logger import log
 
 
+class StatusException():
+    pass
+
+
 class RequestHandler(BaseHTTPRequestHandler):
     def __init__(self, clone_factory, sessions, *args):
         self.clone_factory = clone_factory
@@ -100,11 +104,39 @@ class RequestHandler(BaseHTTPRequestHandler):
         session = parts[pos + 1]
         return session
 
+    def creation_status(self, ip, port):
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
+
+        parts = self.path.split("/")
+        parts[-1] = "status"
+        status = "/".join(parts)
+
+        # try to get status for 3 times
+        for check in range(3):
+            conn.request(method="GET", url=status)
+            response = conn.getresponse()
+            if response.status == httplib.OK:
+                log.debug("SUCCESS get selenium-server-standalone status for {}:{}".format(ip, port))
+                log.debug(response.read())
+                conn.close()
+                return True
+            else:
+                log.debug("FAIL    get selenium-server-standalone status for {}:{}".format(ip, port))
+
+        conn.close()
+        return False
+
     def create_session(self):
         platform = self.get_platform()
         self.replace_platform_with_any()
         clone = self.clone_factory.create_clone(platform)
+
+        # ping ip:port
         network_utils.ping(clone.get_ip(), config.SELENIUM_PORT, config.PING_TIMEOUT)
+
+        # check status
+        if not self.creation_status(clone.get_ip(), config.SELENIUM_PORT):
+            raise StatusException("failed get status of selenium-server-standalone")
 
         conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
         conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
@@ -140,7 +172,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """GET request."""
-        # self.send_reply(200, {}, "")
         self.transparent("GET")
         return
 

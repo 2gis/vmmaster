@@ -52,8 +52,4 @@ def ping(ip, port, timeout=180):
             return 1
 
     log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
-
-    ### @todo: add some more tools to define, if virtual machine is ready (selenium status?)
-    time.sleep(1)
-    log.debug("sleep 1 more second instead of normal selenium status check")
     return 0
