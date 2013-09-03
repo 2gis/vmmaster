@@ -104,7 +104,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         session = parts[pos + 1]
         return session
 
-    def creation_status(self, ip, port):
+    def selenium_status(self, ip, port):
         conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
 
         parts = self.path.split("/")
@@ -126,6 +126,24 @@ class RequestHandler(BaseHTTPRequestHandler):
         conn.close()
         return False
 
+    def session_response(self, ip, port):
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
+
+        # try to get status for 3 times
+        for check in range(3):
+            conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
+            response = conn.getresponse()
+            if response.status == httplib.OK:
+                conn.close()
+                return response
+
+            # need to read response
+            body = response.read()
+            log.info("{status} : {body}".format(status=response.status, body=body))
+
+        conn.close()
+        return response
+
     def create_session(self):
         platform = self.get_platform()
         self.replace_platform_with_any()
@@ -135,23 +153,24 @@ class RequestHandler(BaseHTTPRequestHandler):
         network_utils.ping(clone.get_ip(), config.SELENIUM_PORT, config.PING_TIMEOUT)
 
         # check status
-        if not self.creation_status(clone.get_ip(), config.SELENIUM_PORT):
-            raise StatusException("failed get status of selenium-server-standalone")
+        if not self.selenium_status(clone.get_ip(), config.SELENIUM_PORT):
+            self.clone_factory.utilize_clone(clone)
+            ### @todo: every exception got to be sent back to client
+            raise StatusException("failed to get status of selenium-server-standalone")
 
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
-        conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
-
-        response = conn.getresponse()
+        response = self.session_response(clone.get_ip(), config.SELENIUM_PORT)
 
         if response.getheader('Content-Length') is None:
             response_body = None
         else:
             content_length = int(response.getheader('Content-Length'))
             response_body = response.read(content_length)
-        conn.close()
 
-        sessionId = json.loads(response_body)["sessionId"]
-        self.sessions.add_session(sessionId, clone)
+        if response.status != httplib.OK:
+            self.clone_factory.utilize_clone(clone)
+        else:
+            sessionId = json.loads(response_body)["sessionId"]
+            self.sessions.add_session(sessionId, clone)
 
         self.send_reply(response.status, response.getheaders(), response_body)
         return
@@ -211,8 +230,8 @@ class VMMasterServer(object):
         self.handler = self.handleRequestsUsing(self.clone_factory, self.sessions)
 
     def __del__(self):
-        self.network.delete()
         self.clone_factory.delete()
+        self.network.delete()
 
     def handleRequestsUsing(self, clone_factory, sessions):
         return lambda *args: RequestHandler(clone_factory, sessions, *args)
