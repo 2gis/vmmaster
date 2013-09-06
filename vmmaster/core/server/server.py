@@ -19,6 +19,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.sessions = sessions
         BaseHTTPRequestHandler.__init__(self, *args)
 
+    def handle(self):
+        try:
+            BaseHTTPRequestHandler.handle(self)
+        except Exception, e:
+            import traceback
+            self.send_reply(code=500, headers={}, body=traceback.format_exc())
+            self.wfile.flush()
+            raise e
+
     @property
     def body(self):
         """get request body."""

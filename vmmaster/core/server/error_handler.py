@@ -1,0 +1,2 @@
+class ErrorHandler(object):
+    pass

@@ -62,12 +62,16 @@ def session_response(self, ip, port):
         conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
         response = conn.getresponse()
         if response.status == httplib.OK:
+            log.debug("SUCCESS start selenium-server-standalone session for {}:{}".format(ip, port))
             conn.close()
             return response
 
-        # need to read response
+        # need to read response to keep sending requests
         body = response.read()
-        log.info("{status} : {body}".format(status=response.status, body=body))
+        log.info("FAIL    start selenium-server-standalone session - {status} : {body}".format(
+            status=response.status,
+            body=body)
+        )
 
     conn.close()
     return response
