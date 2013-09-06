@@ -25,7 +25,7 @@ class Clone(object):
         domain = self.conn.lookupByName(self.name)
         domain.destroy()
         domain.undefine()
-        self.network.append_free_mac(self.mac)
+        self.network.append_free_mac(self.__mac)
         del self.__timer
         del self
 
@@ -41,7 +41,7 @@ class Clone(object):
         return self
 
     def clone_origin(self, origin_name):
-        self.drive_path = utils.create_qcow2_clone(origin_name, self.name)
+        self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
 
         origin_dumpxml = self.get_origin_dumpxml(origin_name)
         self.dumpxml = self.create_dumpxml(origin_dumpxml)
@@ -59,8 +59,8 @@ class Clone(object):
         dumpxml.set_uuid(clone_xml, uuid)
 
         # setting mac
-        self.mac = self.network.get_free_mac()
-        dumpxml.set_mac(clone_xml, self.mac)
+        self.__mac = self.network.get_free_mac()
+        dumpxml.set_mac(clone_xml, self.__mac)
 
         # setting drive file
         dumpxml.set_disk_file(clone_xml, self.drive_path)
@@ -112,8 +112,9 @@ class Clone(object):
         return self.get_virtual_machine_dumpxml(origin_name)
 
     def __network_ip(self):
-        xml = self.get_virtual_machine_dumpxml(self.name)
-        mac = dumpxml.get_mac(xml)
+        # xml = self.get_virtual_machine_dumpxml(self.name)
+        # mac = dumpxml.get_mac(xml)
+        mac = self.__mac
         return self.network.get_ip(mac)
 
     def get_ip(self):

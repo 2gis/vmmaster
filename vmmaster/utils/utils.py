@@ -17,7 +17,7 @@ def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
     system_utils.run_command(command)
 
 
-def create_qcow2_clone(origin_name, clone_name):
+def clone_qcow2_drive(origin_name, clone_name):
     clone_path = "{clones_dir}/{clone_name}.qcow2".format(
         clones_dir=config.CLONES_DIR,
         clone_name=clone_name
@@ -28,7 +28,7 @@ def create_qcow2_clone(origin_name, clone_name):
         postfix=config.ORIGIN_POSTFIX
     )
 
-    command = commands.clone_qcow2_image(
+    command = commands.clone_qcow2_drive(
         origin_path,
         clone_path
     )
