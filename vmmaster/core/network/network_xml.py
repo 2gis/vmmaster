@@ -1,6 +1,7 @@
 from xml.dom import minidom
-from utils import utils
-from config import Config
+from vmmaster.core.config import config
+from vmmaster.utils import utils
+
 
 class NetworkXml(object):
     def __init__(self, name, uuid, bridge_name, table):
@@ -39,7 +40,7 @@ class NetworkXml(object):
         dhcp_element = xml.getElementsByTagName('dhcp')[0]
         for raw in self.table:
             host = xml.createElement('host')
-            host.setAttribute('name', str(raw["name"]))
+            # host.setAttribute('name', str(raw["name"]))
             host.setAttribute('mac', str(raw["mac"]))
             host.setAttribute('ip', str(raw["ip"]))
             dhcp_element.appendChild(host)
@@ -47,4 +48,4 @@ class NetworkXml(object):
         return xml
 
     def saveXml(self):
-        return utils.write_xml_file(Config.SESSION_DIR, self.name, self.xml)
+        return utils.write_xml_file(config.SESSION_DIR, self.name, self.xml)
