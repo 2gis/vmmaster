@@ -1,5 +1,3 @@
 log/
-clear.sh
-deploy.sh
 .idea
 *.pyc
