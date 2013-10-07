@@ -92,6 +92,15 @@ class CloneList(object):
     def get_platforms(self):
         return self.list
 
+    def get_free_clone_number(self, platform):
+        clone_numbers = [clone.number for clone in self.list[platform]]
+        print self.list[platform]
+        for number in range(0, config.MAX_CLONE_COUNT+1):
+            if number not in clone_numbers:
+                return number
+
+        raise Exception(clone_numbers)
+
 
 class CloneFactory(object):
     def __init__(self):
@@ -108,7 +117,7 @@ class CloneFactory(object):
         del self
 
     def create_clone(self, platform):
-        clone = Clone(self.clone_list.clones_count(platform), platform)
+        clone = Clone(self.clone_list.get_free_clone_number(platform), platform)
         self.clone_list.add_clone(clone)
 
         try:
