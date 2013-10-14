@@ -34,6 +34,7 @@ setup(
     },
     install_requires=[
         "netifaces>=0.8",
+	"graypy==0.2.9"
     ],
     data_files=home_directory_skeleton
 )
