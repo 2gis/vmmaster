@@ -1,5 +1,5 @@
 # install lib
-#pip uninstall vmmaster
+# pip uninstall vmmaster
 python setup.py sdist
 pip install dist/vmmaster-0.1.tar.gz
 

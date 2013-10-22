@@ -15,10 +15,6 @@ class ClonesException(Exception):
     pass
 
 
-class CloneException(Exception):
-    pass
-
-
 class TimeoutException(Exception):
     pass
 
@@ -28,9 +24,11 @@ class CloneShutdownTimer(object):
         self.__timeout = timeout
         self.__callback = callback
         self.__args = args
+        self.__start_time = 0
         self.__timer = Timer(self.__timeout, self.__callback, self.__args)
 
     def __del__(self):
+        log.debug("CloneShutdownTimer __del__")
         self.__timer.cancel()
         del self.__timer
 
@@ -55,22 +53,33 @@ class CloneList(object):
     def __init__(self):
         self.list = dict()
         conn = Virsh()
+
+        self.__clone_numbers = [i for i in reversed(range(0, config.MAX_CLONE_COUNT))]
+
         for platform in conn.listDefinedDomains():
             self.list[platform] = []
 
         log.debug("starting with " + str(self.list))
 
-    def add_clone(self, clone):
-        if clone.platform not in self.list:
+    def _check_platform(self, platform):
+        if platform not in self.list:
             raise PlatformException("no such a platform")
 
-        if self.total_count >= config.MAX_CLONE_COUNT:
+    def _check_clone_count(self):
+        print len(self.__clone_numbers)
+        if len(self.__clone_numbers) == 0:
             raise ClonesException("maximum clones count already running")
 
+    def _check_clone(self, clone):
+        self._check_platform(clone.platform)
+        self._check_clone_count()
+
+    def add_clone(self, clone):
         self.list[clone.platform].append(clone)
 
     def remove_clone(self, clone):
         self.list[clone.platform].remove(clone)
+        self.add_free_clone_number(clone.number)
 
     def get_clones(self, platform):
         return self.list[platform]
@@ -93,13 +102,15 @@ class CloneList(object):
         return self.list
 
     def get_free_clone_number(self, platform):
-        clone_numbers = [clone.number for clone in self.list[platform]]
-        print self.list[platform]
-        for number in range(0, config.MAX_CLONE_COUNT+1):
-            if number not in clone_numbers:
-                return number
+        self._check_platform(platform)
+        self._check_clone_count()
+        self.list[platform]
+        # clone_numbers = [clone.number for clone in self.list[platform]]
+        clone_numbers = self.__clone_numbers
+        return clone_numbers.pop()
 
-        raise Exception(clone_numbers)
+    def add_free_clone_number(self, number):
+        self.__clone_numbers.append(number)
 
 
 class CloneFactory(object):
