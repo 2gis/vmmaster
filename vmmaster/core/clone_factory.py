@@ -66,7 +66,6 @@ class CloneList(object):
             raise PlatformException("no such a platform")
 
     def _check_clone_count(self):
-        print len(self.__clone_numbers)
         if len(self.__clone_numbers) == 0:
             raise ClonesException("maximum clones count already running")
 
