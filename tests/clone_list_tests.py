@@ -1,5 +1,4 @@
 import unittest
-import libvirt
 
 from vmmaster.core.clone_factory import CloneList
 from vmmaster.core.clone import Clone

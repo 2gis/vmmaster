@@ -5,8 +5,10 @@ from vmmaster.core.clone_factory import CloneShutdownTimer
 from vmmaster.core.clone import Clone
 from vmmaster.core.config import setup_config, config
 
+
 def nothing():
-    print "nothing"
+    pass
+
 
 class TestCloneShutdownTimer(unittest.TestCase):
     def setUp(self):

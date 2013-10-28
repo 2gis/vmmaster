@@ -102,12 +102,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         return
 
     def log_request(self, code=None, size=None):
-        # host, port = self.client_address
-        # log.info("{client} - {request} {code}".format(
-        #     client=host,
-        #     request=self.raw_requestline.rstrip(),
-        #     code=code)
-        # )
+        host, port = self.client_address
+        log.debug("{client} - {request} {code}".format(
+            client=host,
+            request=self.raw_requestline.rstrip(),
+            code=code)
+        )
         return
 
     # def log_message(self, format, *args):
@@ -138,4 +138,5 @@ class VMMasterServer(object):
 
     def run(self):
         server = ThreadedHTTPServer(self.server_address, self.handler)
+        server.timeout = 1
         server.serve_forever()

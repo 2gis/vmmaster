@@ -57,9 +57,9 @@ def create_session(self):
 def session_response(self, ip, port):
     conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
 
+    conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
     # try to get status for 3 times
     for check in range(3):
-        conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
         response = conn.getresponse()
         if response.status == httplib.OK:
             log.debug("SUCCESS start selenium-server-standalone session for {}:{}".format(ip, port))
@@ -68,11 +68,16 @@ def session_response(self, ip, port):
 
         # need to read response to keep sending requests
         body = response.read()
-        log.info("FAIL    start selenium-server-standalone session - {status} : {body}".format(
+        log.info("FAIL {check} start selenium-server-standalone session for {ip}:{port} - {status} : {body}".format(
+            check=check,
+            ip=ip,
+            port=port,
             status=response.status,
             body=body)
         )
+        conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
 
+    response = conn.getresponse()
     conn.close()
     return response
 
