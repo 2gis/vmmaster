@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+
+"""vmmaster.
+
+Usage:
+  vmmaster run
+  vmmaster init
+  vmmaster (-h | --help)
+  vmmaster (-v | --version)
+
+Options:
+  -h --help     Show this screen.
+  -v --version  Show version.
+"""
+from docopt import docopt
+
+from vmmaster.core.config import setup_config, config
+from vmmaster.core.logger import setup_logging, log
+from vmmaster.core.server.server import VMMasterServer
+from vmmaster.console.init import init, home_dir
+from vmmaster.utils.utils import change_user_vmmaster
+
+
+def main():
+    setup_config('%s/config.py' % home_dir())
+    setup_logging(config.LOG_DIR)
+
+    server_address = ('', config.PORT)
+    server = VMMasterServer(server_address)
+
+    log.info('Starting server, use <Ctrl-C> to stop')
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        log.info("shutting down...")
+        del server
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version='0.1')
+    if arguments['init'] is True:
+        init()
+    else:
+        change_user_vmmaster()
+    if arguments['run'] is True:
+        main()

@@ -1,5 +1,6 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import logging.handlers
+import graypy
 import os
 import sys
 
@@ -30,11 +31,15 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
 
     log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
+    graylog_handler = graypy.GELFHandler('logserver.test', 12201)
+    graylog_handler.setFormatter(log_formatter)
+    log.addHandler(graylog_handler)
+
     if txtlog:
-        txt_handler = RotatingFileHandler(os.path.join(logdir, "vmmaster.log"), backupCount=5)
-        # txt_handler.doRollover()
+        txt_handler = logging.handlers.RotatingFileHandler(os.path.join(logdir, "vmmaster.log"), backupCount=5)
         txt_handler.setFormatter(log_formatter)
         log.addHandler(txt_handler)
+        
         log.info("Logger initialised.")
 
     if scrnlog:

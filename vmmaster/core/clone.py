@@ -26,6 +26,7 @@ class Clone(object):
         domain.destroy()
         domain.undefine()
         self.network.append_free_mac(self.__mac)
+        self.__timer.stop()
         del self.__timer
         del self
 

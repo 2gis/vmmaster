@@ -1,6 +1,8 @@
-class Config:
-    #BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    BASE_DIR = "/home/vmmaster/vmmaster"
+import os
+
+
+class Config(object):
+    BASE_DIR = os.path.dirname(os.path.realpath(__file__))
     PORT = 9000
 
     # relative to BASE_DIR
