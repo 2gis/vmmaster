@@ -1,0 +1,64 @@
+import subprocess
+import crypt
+import os
+from os.path import expanduser
+
+from .print_utils import cin, cout, OKGREEN, WARNING, FAIL
+
+from vmmaster import package_dir
+from vmmaster.utils.system_utils import run_command
+from vmmaster.utils.utils import change_user_vmmaster
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+HOME_PATH = 'home_path'
+
+
+def files(path):
+    for path, subdirs, files in os.walk(path):
+        for name in files:
+            yield os.path.join(path, name)
+
+
+# useradd --create-home --home-dir=/var/lib/vmmaster -p $pass --groups=libvirtd --shell=/bin/bash vmmaster
+def useradd(home):
+    password = 'vmmaster'
+    encrypted_password = crypt.crypt(password, "22")
+    shell = '/bin/bash'
+    group = 'libvirtd'
+
+    subprocess.call(
+        ["sudo", "/usr/sbin/useradd",
+            "--create-home", "--home-dir=%s" % home,
+            "--groups=%s" % group,
+            "--shell=%s" % shell,
+            "-p", encrypted_password,
+            "vmmaster"]
+    )
+
+
+def copy_files_to_home(home):
+    copy = ["/bin/cp", "-r", package_dir() + "home" + os.sep + ".", home]
+    change_user_vmmaster()
+    return_code, output = run_command(copy)
+    if return_code != 0:
+        cout("\nFailed to copy files to home dir: %s\n" % home_dir(), color=FAIL)
+        exit(output)
+
+
+def home_dir():
+    home = expanduser("~vmmaster")
+    return home
+
+
+def init():
+    home = '/var/lib/vmmaster'
+    cout("Please input absolute path to home directory for 'vmmaster'\n")
+    cout("[default:%s]:" % home, color=WARNING)
+    abspath = cin()
+    abspath = abspath.strip()
+    if abspath:
+        home = abspath
+
+    useradd(home)
+    copy_files_to_home(home)
+    cout("\nvmmaster successfully inited in %s\n" % home_dir(), color=OKGREEN)

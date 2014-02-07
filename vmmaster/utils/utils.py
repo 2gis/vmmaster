@@ -1,8 +1,22 @@
 import os
 import errno
+import pwd
+import grp
 
 from vmmaster.core.config import config
 from vmmaster.utils import system_utils, commands
+
+
+class UserNotFound(Exception):
+    pass
+
+
+class GroupNotFound(Exception):
+    pass
+
+
+class NoPermission(Exception):
+    pass
 
 
 def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
@@ -67,3 +81,34 @@ def write_xml_file(path, filename, xml):
     file_handler = open(xmlfile, "w")
     xml.writexml(file_handler)
     return xmlfile
+
+
+def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
+    if os.getuid() != 0:
+        # We're not root so, like, whatever dude
+        return
+
+    # Get the uid/gid from the name
+    try:
+        running_uid = pwd.getpwnam(uid_name).pw_uid
+    except KeyError:
+        raise UserNotFound("User '%s' not found." % uid_name)
+
+    try:
+        running_gid = grp.getgrnam(gid_name).gr_gid
+    except KeyError:
+        raise GroupNotFound("Group '%s' not found." % gid_name)
+
+    # Remove group privileges
+    os.setgroups([])
+
+    # Try setting the new uid/gid
+    os.setgid(running_gid)
+    os.setuid(running_uid)
+
+    # Ensure a very conservative umask
+    old_umask = os.umask(077)
+
+
+def change_user_vmmaster():
+    drop_privileges('vmmaster', 'libvirtd')

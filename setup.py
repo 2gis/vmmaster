@@ -1,40 +1,26 @@
-from setuptools import setup
+from setuptools import setup,  find_packages
+import os
 
-
-# .gitignore is included for directory creation
-home_directory_skeleton = [
-    ('/var/lib/vmmaster', ['config.py']),
-    ('/var/lib/vmmaster/clones', ['clones/.gitignore']),
-    ('/var/lib/vmmaster/origins', ['origins/.gitignore']),
-    ('/var/lib/vmmaster/session', ['session/.gitignore']),
-]
-
-init_script = ('/etc/init.d', '')
+home = []
+for path, subdirs, files in os.walk('vmmaster/home'):
+    path = path.replace('vmmaster/', '')
+    for name in files:
+        home.append(os.path.join(path, name))
 
 setup(
     name='vmmaster',
     version='0.1',
     description='Python KVM-based virtual machine environment system for selenium testing',
     url='https://github.com/nwlunatic/vmmaster',
-    packages=[
-        'vmmaster',
-        'vmmaster.core',
-        'vmmaster.core.dumpxml',
-        'vmmaster.core.network',
-        'vmmaster.utils',
-        'vmmaster.core.server',
-    ],
-    package_dir={
-        'vmmaster': 'vmmaster',
-        'vmmaster.core': 'vmmaster/core',
-        'vmmaster.core.dumpxml': 'vmmaster/core/dumpxml',
-        'vmmaster.core.network': 'vmmaster/core/network',
-        'vmmaster.utils': 'vmmaster/utils',
-        'vmmaster.core.server': 'vmmaster/core/server',
-    },
+    packages=find_packages(),
     install_requires=[
         "netifaces>=0.8",
-	"graypy==0.2.9"
+        "graypy==0.2.9",
+        "docopt==0.6.1"
     ],
-    data_files=home_directory_skeleton
+    scripts=['bin/vmmaster'],
+    package_data={
+        'vmmaster': home,
+    },
+    include_package_data=True,
 )

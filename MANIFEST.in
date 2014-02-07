@@ -1,4 +1,1 @@
-include config.py
-include clones/.gitignore
-include origins/.gitignore
-include session/.gitignore
+recursive-include vmmaster/home *

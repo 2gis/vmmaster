@@ -37,7 +37,6 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(os.path.join(logdir, "vmmaster.log"), backupCount=5)
-        # txt_handler.doRollover()
         txt_handler.setFormatter(log_formatter)
         log.addHandler(txt_handler)
         
