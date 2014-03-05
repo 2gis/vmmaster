@@ -22,10 +22,9 @@ class NoPermission(Exception):
 def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
     command = commands.convert_img_to_qcow2(
         img_file,
-        "{origins_dir}/{qcow2_origin_name}-{origin_postfix}.qcow2".format(
+        "{origins_dir}/{qcow2_origin_name}.qcow2".format(
             origins_dir=config.ORIGINS_DIR,
             qcow2_origin_name=qcow2_origin_name,
-            origin_postfix=config.ORIGIN_POSTFIX
         )
     )
     system_utils.run_command(command)
@@ -36,10 +35,9 @@ def clone_qcow2_drive(origin_name, clone_name):
         clones_dir=config.CLONES_DIR,
         clone_name=clone_name
     )
-    origin_path = "{origins_dir}/{origin_name}-{postfix}.qcow2".format(
+    origin_path = "{origins_dir}/{origin_name}.qcow2".format(
         origins_dir=config.ORIGINS_DIR,
         origin_name=origin_name,
-        postfix=config.ORIGIN_POSTFIX
     )
 
     command = commands.clone_qcow2_drive(

@@ -25,8 +25,6 @@ class TestCloneFactory(unittest.TestCase):
         self.clone_factory = CloneFactory()
         Clone.create = create
         Clone.delete = delete
-        # Clone.drive_path = "None"
-        # Clone.dumpxml_file = "None"
 
     def tearDown(self):
         self.clone_factory.delete()

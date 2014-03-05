@@ -12,7 +12,6 @@ class Config(object):
     LOG_DIR = BASE_DIR + "/log"
 
     # clones related stuff
-    ORIGIN_POSTFIX = "origin"
     MAX_CLONE_COUNT = 2
     CLONE_TIMEOUT = 360
     PING_TIMEOUT = 180
