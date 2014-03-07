@@ -18,7 +18,7 @@ class TestCloneList(unittest.TestCase):
         platform_ubuntu = "ubuntu-13.04-x64"
         clones = [Clone(self.clone_list.get_free_clone_number(platform_ubuntu), platform_ubuntu) for i in range(5)]
         clone_numbers = [clone.number for clone in clones]
-        self.assertEquals(clone_numbers, [0,1,2,3,4])
+        self.assertEquals(clone_numbers, [0, 1, 2, 3, 4])
 
     def test_clone_add(self):
         platform_ubuntu = "ubuntu-13.04-x64"

@@ -95,7 +95,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         """DELETE request."""
-        if self.path.split("/")[-2] == "session":
+        if self.path.split("/")[-3] == "session":
             commands.delete_session(self)
         else:
             self.transparent("DELETE")
