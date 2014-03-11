@@ -9,17 +9,13 @@ from vmmaster import package_dir
 from vmmaster.utils.system_utils import run_command
 from vmmaster.utils.utils import change_user_vmmaster
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-HOME_PATH = 'home_path'
-
 
 def files(path):
-    for path, subdirs, files in os.walk(path):
-        for name in files:
-            yield os.path.join(path, name)
+    for path, subdirs, filenames in os.walk(path):
+        for filename in filenames:
+            yield os.path.join(path, filename)
 
 
-# useradd --create-home --home-dir=/var/lib/vmmaster -p $pass --groups=libvirtd --shell=/bin/bash vmmaster
 def useradd(home):
     password = 'vmmaster'
     encrypted_password = crypt.crypt(password, "22")

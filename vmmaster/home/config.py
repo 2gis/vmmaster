@@ -16,4 +16,8 @@ class Config(object):
     CLONE_TIMEOUT = 360
     PING_TIMEOUT = 180
 
+    # additional logging
+    # GRAYLOG = ('logserver', 12201)
+
+    # selenium
     SELENIUM_PORT = "4455"

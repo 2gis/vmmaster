@@ -4,6 +4,8 @@ import graypy
 import os
 import sys
 
+from .config import config
+
 
 class StreamToLogger(object):
     """
@@ -31,9 +33,10 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
 
     log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
-    graylog_handler = graypy.GELFHandler('logserver.test', 12201)
-    graylog_handler.setFormatter(log_formatter)
-    log.addHandler(graylog_handler)
+    if hasattr(config, 'GRAYLOG'):
+        graylog_handler = graypy.GELFHandler(config.GRAYLOG)
+        graylog_handler.setFormatter(log_formatter)
+        log.addHandler(graylog_handler)
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(os.path.join(logdir, "vmmaster.log"), backupCount=5)

@@ -12,6 +12,7 @@ virtualenv .env
 source .env/bin/activate
 
 mkdir .env/etc/
+mkdir .env/etc/init
 #rm -rf .env/lib/python2.7/site-packages/urlgrabber
 #rm -f .env/lib/python2.7/site-packages/libvirt*
 

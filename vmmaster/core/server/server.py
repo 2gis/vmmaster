@@ -9,7 +9,6 @@ from vmmaster.core.network.sessions import Sessions
 from vmmaster.core.network.network import Network
 from vmmaster.core.config import config
 from vmmaster.core.logger import log
-
 from vmmaster.core.server import commands
 
 
