@@ -17,7 +17,6 @@ setup(
         "netifaces>=0.8",
         "graypy==0.2.9",
         "docopt==0.6.1",
-        "python-daemon==1.6"
     ],
     scripts=['bin/vmmaster'],
     package_data={
@@ -25,7 +24,6 @@ setup(
     },
     include_package_data=True,
     data_files=[
-        # ('/etc/init', ['etc/init/vmmaster.conf']),
         ('/etc/init.d', ['etc/init.d/vmmaster'])
     ]
 )
