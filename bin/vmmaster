@@ -5,7 +5,7 @@
 Usage:
   vmmaster
   vmmaster init
-  vmmaster --background
+  vmmaster --daemon
   vmmaster (-h | --help)
   vmmaster (-v | --version)
 
@@ -15,6 +15,7 @@ Options:
 """
 
 from docopt import docopt
+from threading import Thread
 
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.logger import setup_logging, log
@@ -24,6 +25,15 @@ from vmmaster.console.init import init, home_dir
 from vmmaster.utils.utils import change_user_vmmaster
 
 
+def kill_thread(thread):
+    # An evil hack to kill the thread.
+    # Got from http://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread-in-python
+    # Works on cPython 2.7.x.
+    from ctypes import py_object, pythonapi, c_long
+    exc = py_object(SystemExit)
+    pythonapi.PyThreadState_SetAsyncExc(c_long(thread.ident), exc)
+
+
 def main():
     change_user_vmmaster()
     setup_config('%s/config.py' % home_dir())
@@ -31,15 +41,17 @@ def main():
 
     server_address = ('', config.PORT)
     server = VMMasterServer(server_address)
-
-    log.info('Starting server...')
+    th = Thread(target=server.run, name='vmmaster_server')
+    th.daemon = True
+    th.start()
     try:
-        server.run()
+        while True:
+            pass
     except KeyboardInterrupt:
-        pass
+        kill_thread(th)
     finally:
-        log.info("shutting down...")
-        del server
+        th.join()
+        log.info("Bye!")
 
 
 class VMMasterDaemon(Daemon):
@@ -52,7 +64,7 @@ if __name__ == '__main__':
     if arguments['init'] is True:
         init()
 
-    if arguments['--background'] is True:
+    if arguments['--daemon'] is True:
         daemon = VMMasterDaemon('/var/run/vmmaster.pid')
         daemon.start()
     else:
