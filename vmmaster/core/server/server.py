@@ -136,6 +136,11 @@ class VMMasterServer(object):
         return lambda *args: RequestHandler(clone_factory, sessions, *args)
 
     def run(self):
+        log.info('Starting server on %s ...' % str(self.server_address))
         server = ThreadedHTTPServer(self.server_address, self.handler)
         server.timeout = 1
-        server.serve_forever()
+        try:
+            server.serve_forever()
+        finally:
+            log.info("shutting down...")
+            del server
