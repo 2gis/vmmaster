@@ -1,1 +1,1 @@
-PYTHONPATH=`pwd` .env/bin/lode_runner -s $@
+PYTHONPATH=`pwd` lode_runner $@

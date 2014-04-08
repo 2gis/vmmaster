@@ -57,7 +57,7 @@ def create_session(self):
 def session_response(self, ip, port):
     conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
 
-    conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
+    conn.request(method="POST", url=self.path, headers=self.headers, body=self.body)
     # try to get status for 3 times
     for check in range(3):
         response = conn.getresponse()
@@ -75,7 +75,7 @@ def session_response(self, ip, port):
             status=response.status,
             body=body)
         )
-        conn.request(method="POST", url=self.path, headers=self.headers.dict, body=self.body)
+        conn.request(method="POST", url=self.path, headers=self.headers, body=self.body)
 
     response = conn.getresponse()
     conn.close()
@@ -112,10 +112,9 @@ def replace_platform_with_any(self):
     desired_capabilities["platform"] = u"ANY"
     body["desiredCapabilities"] = desired_capabilities
 
-    new_body = StringIO.StringIO(json.dumps(body))
-    self.rfile = new_body
-    self.headers.dict["content-length"] = len(self.body)
-    return
+    new_body = json.dumps(body)
+    self.body = new_body
+    self.headers["content-length"] = len(self.body)
 
 
 def get_platform(self):
