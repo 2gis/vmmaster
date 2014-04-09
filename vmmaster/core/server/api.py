@@ -9,7 +9,8 @@ class StatusResource(Resource):
     def render(self, request):
         clone_list = self.server.clone_factory.clone_list.list
         request.setHeader("content-type", "text/plain")
-        return str(clone_list)
+        import json
+        return json.dumps(clone_list)
 
 
 class ApiServer(Site):
