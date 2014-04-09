@@ -3,6 +3,11 @@
 + libvirt
 + netifaces
 
+# install
+```bash
+sudo -E pip install -U git+https://github.com/nwlunatic/vmmaster.git#egg=vmmaster
+```
+
 # commands to create qcow2 VM's origins
 ## create qcow2 drive
 ```bash
