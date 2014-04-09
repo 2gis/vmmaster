@@ -2,8 +2,9 @@ import httplib
 import copy
 
 from twisted.internet import protocol
+from twisted.internet.threads import deferToThread
 from twisted.web.proxy import Proxy
-from twisted.web.http import Request
+from twisted.web.http import Request, HTTPFactory
 
 from vmmaster.core.server import commands
 from vmmaster.core.config import config
@@ -45,17 +46,29 @@ class RequestHandler(Request):
         del data
         return self._body
 
+    def requestReceived(self, command, path, version):
+        print "%s %s %s" % (command, path, version)
+        Request.requestReceived(self, command, path, version)
+
+    def connectionLost(self, reason):
+        print "connection lost: " + str(reason.getTraceback())
+        Request.connectionLost(self, reason)
+
+    def finish(self):
+        print 'finish'
+        Request.finish(self)
+
+    def handle_exception(self, failure):
+        tb = failure.getTraceback()
+        log.error(tb)
+        self.send_reply(code=500, headers={}, body=tb)
+        return self
+
     def process(self):
         method = getattr(self, "do_" + self.method)
-        try:
-            method()
-        except:
-            import traceback
-            tb = traceback.format_exc()
-            self.send_reply(code=500, headers={}, body=tb)
-            log.error(tb)
-
-        self.finish()
+        d = deferToThread(method)
+        d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
+        d.addBoth(RequestHandler.finish)
 
     def make_request(self, method, url, headers, body):
         """ Make request to selenium-server-standalone
@@ -76,7 +89,7 @@ class RequestHandler(Request):
 
         conn.close()
 
-        return response.status, response.getheaders(), response_body
+        return response.status, dict(x for x in response.getheaders()), response_body
 
     def send_reply(self, code, headers, body):
         """ Send reply to client. """
@@ -84,7 +97,7 @@ class RequestHandler(Request):
         self.setResponseCode(code)
 
         # reply headers
-        for keyword, value in headers:
+        for keyword, value in headers.items():
             self.setHeader(keyword, value)
 
         # reply body
@@ -100,12 +113,12 @@ class RequestHandler(Request):
             commands.create_session(self)
         else:
             self.transparent("POST")
-        return
+        return self
 
     def do_GET(self):
         """GET request."""
         self.transparent("GET")
-        return
+        return self
 
     def do_DELETE(self):
         """DELETE request."""
@@ -113,17 +126,22 @@ class RequestHandler(Request):
             commands.delete_session(self)
         else:
             self.transparent("DELETE")
-        return
+        return self
 
 
-class Proxy(Proxy):
+class RequestProxy(Proxy):
     requestFactory = RequestHandler
 
+    def requestDone(self, request):
+        print "requestDone"
+        Proxy.requestDone(self, request)
 
-class ProxyFactory(protocol.Factory):
+
+class ProxyFactory(HTTPFactory):
     log = lambda *args: None
-    protocol = Proxy
+    protocol = RequestProxy
 
     def __init__(self, clone_factory, sessions):
+        HTTPFactory.__init__(self)
         self.clone_factory = clone_factory
         self.sessions = sessions

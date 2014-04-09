@@ -1,5 +1,4 @@
 import json
-import StringIO
 import httplib
 
 from vmmaster.utils import network_utils
@@ -16,10 +15,10 @@ class StatusException():
 
 
 def delete_session(self):
-    self.transparent("DELETE")
+    code, headers, response_body = self.make_request("DELETE", self.path, self.headers, self.body)
     clone = self.sessions.get_clone(get_session(self))
     self.clone_factory.utilize_clone(clone)
-    return
+    self.send_reply(code, headers, response_body)
 
 
 def create_session(self):
@@ -50,8 +49,7 @@ def create_session(self):
         sessionId = json.loads(response_body)["sessionId"]
         self.sessions.add_session(sessionId, clone)
 
-    self.send_reply(response.status, response.getheaders(), response_body)
-    return
+    self.send_reply(response.status, dict(x for x in response.getheaders()), response_body)
 
 
 def session_response(self, ip, port):
@@ -79,7 +77,6 @@ def session_response(self, ip, port):
 
     response = conn.getresponse()
     conn.close()
-    return response
 
 
 def selenium_status(self, ip, port):
