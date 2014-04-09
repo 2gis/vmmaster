@@ -15,6 +15,10 @@ class RequestHandler(Request):
     _headers = None
     _body = None
 
+    _reply_code = None
+    _reply_headers = None
+    _reply_body = None
+
     def __init__(self, *args):
         Request.__init__(self, *args)
         self.clone_factory = self.channel.factory.clone_factory
@@ -46,22 +50,14 @@ class RequestHandler(Request):
         del data
         return self._body
 
-    def requestReceived(self, command, path, version):
-        print "%s %s %s" % (command, path, version)
-        Request.requestReceived(self, command, path, version)
-
-    def connectionLost(self, reason):
-        print "connection lost: " + str(reason.getTraceback())
-        Request.connectionLost(self, reason)
-
     def finish(self):
-        print 'finish'
+        self.perform_reply()
         Request.finish(self)
 
     def handle_exception(self, failure):
         tb = failure.getTraceback()
         log.error(tb)
-        self.send_reply(code=500, headers={}, body=tb)
+        self.form_reply(code=500, headers={}, body=tb)
         return self
 
     def process(self):
@@ -91,21 +87,34 @@ class RequestHandler(Request):
 
         return response.status, dict(x for x in response.getheaders()), response_body
 
-    def send_reply(self, code, headers, body):
+    def form_reply(self, code, headers, body):
         """ Send reply to client. """
         # reply code
-        self.setResponseCode(code)
+        self._reply_code = code
+        # self.setResponseCode(code)
 
         # reply headers
+        self._reply_headers = {}
         for keyword, value in headers.items():
-            self.setHeader(keyword, value)
+            self._reply_headers[keyword] = value
+            # self.setHeader(keyword, value)
 
         # reply body
-        self.write(body)
+        self._reply_body = body
+        # self.write(body)
+
+    def perform_reply(self):
+        """ Perform reply to client. """
+        self.setResponseCode(self._reply_code)
+
+        for keyword, value in self._reply_headers.items():
+            self.setHeader(keyword, value)
+
+        self.write(self._reply_body)
 
     def transparent(self, method):
         code, headers, response_body = self.make_request(method, self.path, self.headers, self.body)
-        self.send_reply(code, headers, response_body)
+        self.form_reply(code, headers, response_body)
 
     def do_POST(self):
         """POST request."""
@@ -131,10 +140,6 @@ class RequestHandler(Request):
 
 class RequestProxy(Proxy):
     requestFactory = RequestHandler
-
-    def requestDone(self, request):
-        print "requestDone"
-        Proxy.requestDone(self, request)
 
 
 class ProxyFactory(HTTPFactory):

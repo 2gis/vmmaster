@@ -15,10 +15,9 @@ class StatusException():
 
 
 def delete_session(self):
-    code, headers, response_body = self.make_request("DELETE", self.path, self.headers, self.body)
+    self.transparent("DELETE")
     clone = self.sessions.get_clone(get_session(self))
     self.clone_factory.utilize_clone(clone)
-    self.send_reply(code, headers, response_body)
 
 
 def create_session(self):
@@ -49,7 +48,7 @@ def create_session(self):
         sessionId = json.loads(response_body)["sessionId"]
         self.sessions.add_session(sessionId, clone)
 
-    self.send_reply(response.status, dict(x for x in response.getheaders()), response_body)
+    self.form_reply(response.status, dict(x for x in response.getheaders()), response_body)
 
 
 def session_response(self, ip, port):
