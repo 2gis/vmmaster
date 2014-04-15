@@ -1,6 +1,8 @@
 import httplib
 import copy
 import time
+import uuid
+import base64
 
 from twisted.internet.threads import deferToThread
 from twisted.web.proxy import Proxy
@@ -9,6 +11,7 @@ from twisted.web.http import Request, HTTPFactory
 from vmmaster.core.server import commands
 from vmmaster.core.config import config
 from vmmaster.core.logger import log
+from vmmaster.utils.utils import write_file
 
 
 class RequestHandler(Request):
@@ -63,7 +66,7 @@ class RequestHandler(Request):
         return self._session_id
 
     @property
-    def _db_session(self):
+    def db_session(self):
         try:
             session = self.session_id
         except:
@@ -73,9 +76,9 @@ class RequestHandler(Request):
 
     def requestReceived(self, command, path, version):
         self.path = path
-        if self._db_session:
+        if self.db_session:
             self._log_step = self.database.createLogStep(
-                session_id=self._db_session.id,
+                session_id=self.db_session.id,
                 control_line="%s %s %s" % (command, path, version),
                 headers=str(self.headers),
                 time=time.time())
@@ -92,7 +95,7 @@ class RequestHandler(Request):
         return self
 
     def try_screenshot(self):
-        words = ["session", "url", "click", "execute", "keys"]
+        words = ["url", "click", "execute", "keys"]
         if set(words) & set(self.path.split("/")):
             clone = self.sessions.get_clone(self.session_id)
             return commands.take_screenshot(clone.get_ip(), 9000)
@@ -142,9 +145,9 @@ class RequestHandler(Request):
 
     def perform_reply(self):
         """ Perform reply to client. """
-        if self._db_session:
+        if self.db_session:
             self.database.createLogStep(
-                session_id=self._db_session.id,
+                session_id=self.db_session.id,
                 control_line="%s %s" % (self.clientproto, self._reply_code),
                 headers=str(self._reply_headers),
                 time=time.time())
@@ -169,7 +172,9 @@ class RequestHandler(Request):
         screenshot = self.try_screenshot()
         if screenshot:
             if self._log_step:
-                self._log_step.screenshot = screenshot
+                path = config.BASE_DIR + "/images/" + str(self.db_session.id) + "/" + str(self._log_step.id) + ".png"
+                write_file(path, base64.b64decode(screenshot))
+                self._log_step.screenshot = path
                 self.database.update(self._log_step)
         return self
 

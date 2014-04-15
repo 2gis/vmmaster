@@ -70,6 +70,16 @@ def delete_file(filename):
             raise
 
 
+def write_file(path, content):
+    basedir = os.path.dirname(path)
+    if not os.path.exists(basedir):
+        os.makedirs(basedir)
+
+    with open(path, "w") as f:
+        f.write(content)
+        f.close()
+
+
 def write_xml_file(path, filename, xml):
     # saving to dir
     xmlfile = "{path}/{filename}.xml".format(

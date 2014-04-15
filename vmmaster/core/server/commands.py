@@ -126,8 +126,6 @@ def get_session(path):
 
 def take_screenshot(ip, port):
     conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
-
-    log.info("Take screenshot at {}:{}".format(ip, port))
     conn.request(method="GET", url="/takeScreenshot", headers={}, body="")
     response = conn.getresponse()
     if response.status == httplib.OK:
