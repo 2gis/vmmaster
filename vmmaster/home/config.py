@@ -2,15 +2,15 @@ import os
 
 
 class Config(object):
-    BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+    BASEDIR = os.path.dirname(os.path.realpath(__file__))
     PORT = 9000
-    DATABASE = "sqlite:///" + BASE_DIR + "/vmmaster.db"
+    DATABASE = "sqlite:///" + BASEDIR + "/vmmaster.db"
 
-    # relative to BASE_DIR
-    CLONES_DIR = BASE_DIR + "/clones"
-    ORIGINS_DIR = BASE_DIR + "/origins"
-    SESSION_DIR = BASE_DIR + "/session"
-    LOG_DIR = BASE_DIR + "/log"
+    CLONES_DIR = BASEDIR + "/clones"
+    ORIGINS_DIR = BASEDIR + "/origins"
+    SESSION_DIR = BASEDIR + "/session"
+    LOG_DIR = BASEDIR + "/log"
+    SCREENSHOTS_DIR = BASEDIR + "/screenshots"
 
     # clones related stuff
     MAX_CLONE_COUNT = 2

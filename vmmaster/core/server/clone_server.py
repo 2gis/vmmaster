@@ -172,7 +172,7 @@ class RequestHandler(Request):
         screenshot = self.try_screenshot()
         if screenshot:
             if self._log_step:
-                path = config.BASE_DIR + "/images/" + str(self.db_session.id) + "/" + str(self._log_step.id) + ".png"
+                path = config.SCREENSHOTS_DIR + "/" + str(self.db_session.id) + "/" + str(self._log_step.id) + ".png"
                 write_file(path, base64.b64decode(screenshot))
                 self._log_step.screenshot = path
                 self.database.update(self._log_step)
