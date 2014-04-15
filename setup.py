@@ -15,6 +15,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "twisted==13.2.0",
+        "sqlalchemy==0.9.4",
         "netifaces>=0.8",
         "graypy==0.2.9",
         "docopt==0.6.1",

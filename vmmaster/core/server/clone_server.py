@@ -1,7 +1,7 @@
 import httplib
 import copy
+import time
 
-from twisted.internet import protocol
 from twisted.internet.threads import deferToThread
 from twisted.web.proxy import Proxy
 from twisted.web.http import Request, HTTPFactory
@@ -19,10 +19,14 @@ class RequestHandler(Request):
     _reply_headers = None
     _reply_body = None
 
+    _log_step = None
+    _session_id = None
+
     def __init__(self, *args):
         Request.__init__(self, *args)
         self.clone_factory = self.channel.factory.clone_factory
         self.sessions = self.channel.factory.sessions
+        self.database = self.channel.factory.database
 
     @property
     def headers(self):
@@ -50,6 +54,33 @@ class RequestHandler(Request):
         del data
         return self._body
 
+    @property
+    def session_id(self):
+        if self._session_id:
+            return self._session_id
+
+        self._session_id = commands.get_session(self.path)
+        return self._session_id
+
+    @property
+    def _db_session(self):
+        try:
+            session = self.session_id
+        except:
+            return None
+        else:
+            return self.sessions.get_db_session(session)
+
+    def requestReceived(self, command, path, version):
+        self.path = path
+        if self._db_session:
+            self._log_step = self.database.createLogStep(
+                session_id=self._db_session.id,
+                control_line="%s %s %s" % (command, path, version),
+                headers=str(self.headers),
+                time=time.time())
+        Request.requestReceived(self, command, path, version)
+
     def finish(self):
         self.perform_reply()
         Request.finish(self)
@@ -60,6 +91,12 @@ class RequestHandler(Request):
         self.form_reply(code=500, headers={}, body=tb)
         return self
 
+    def try_screenshot(self):
+        words = ["session", "url", "click", "execute", "keys"]
+        if set(words) & set(self.path.split("/")):
+            clone = self.sessions.get_clone(self.session_id)
+            return commands.take_screenshot(clone.get_ip(), 9000)
+
     def process(self):
         method = getattr(self, "do_" + self.method)
         d = deferToThread(method)
@@ -69,7 +106,7 @@ class RequestHandler(Request):
     def make_request(self, method, url, headers, body):
         """ Make request to selenium-server-standalone
             and return the response. """
-        clone = self.sessions.get_clone(commands.get_session(self))
+        clone = self.sessions.get_clone(self.session_id)
         conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
         conn.request(method=method, url=url, headers=headers, body=body)
 
@@ -105,6 +142,13 @@ class RequestHandler(Request):
 
     def perform_reply(self):
         """ Perform reply to client. """
+        if self._db_session:
+            self.database.createLogStep(
+                session_id=self._db_session.id,
+                control_line="%s %s" % (self.clientproto, self._reply_code),
+                headers=str(self._reply_headers),
+                time=time.time())
+
         self.setResponseCode(self._reply_code)
 
         for keyword, value in self._reply_headers.items():
@@ -122,6 +166,11 @@ class RequestHandler(Request):
             commands.create_session(self)
         else:
             self.transparent("POST")
+        screenshot = self.try_screenshot()
+        if screenshot:
+            if self._log_step:
+                self._log_step.screenshot = screenshot
+                self.database.update(self._log_step)
         return self
 
     def do_GET(self):
@@ -146,7 +195,8 @@ class ProxyFactory(HTTPFactory):
     log = lambda *args: None
     protocol = RequestProxy
 
-    def __init__(self, clone_factory, sessions):
+    def __init__(self, clone_factory, sessions, database):
         HTTPFactory.__init__(self)
         self.clone_factory = clone_factory
         self.sessions = sessions
+        self.database = database

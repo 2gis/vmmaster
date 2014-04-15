@@ -126,3 +126,9 @@ class Clone(object):
 
     def set_timer(self, timer):
         self.__timer = timer
+
+    @property
+    def vnc_port(self):
+        xml = self.get_virtual_machine_dumpxml(self.name)
+        graphics = xml.getElementsByTagName('graphics')[0]
+        return graphics.getAttribute('port')

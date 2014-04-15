@@ -6,17 +6,13 @@ from vmmaster.core.config import config
 from vmmaster.core.logger import log
 
 
-class Command(object):
-    pass
-
-
-class StatusException():
+class StatusException(Exception):
     pass
 
 
 def delete_session(self):
     self.transparent("DELETE")
-    clone = self.sessions.get_clone(get_session(self))
+    clone = self.sessions.get_clone(self.session_id)
     self.clone_factory.utilize_clone(clone)
 
 
@@ -45,8 +41,9 @@ def create_session(self):
     if response.status != httplib.OK:
         self.clone_factory.utilize_clone(clone)
     else:
-        sessionId = json.loads(response_body)["sessionId"]
-        self.sessions.add_session(sessionId, clone)
+        self._session_id = json.loads(response_body)["sessionId"]
+        db_session = self.database.createSession(name=self.session_id)
+        self.sessions.add_session(self.session_id, clone, db_session)
 
     self.form_reply(response.status, dict(x for x in response.getheaders()), response_body)
 
@@ -120,9 +117,23 @@ def get_platform(self):
     return platform
 
 
-def get_session(self):
-    path = self.path
+def get_session(path):
     parts = path.split("/")
     pos = parts.index("session")
     session = parts[pos + 1]
     return session
+
+
+def take_screenshot(ip, port):
+    conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
+
+    log.info("Take screenshot at {}:{}".format(ip, port))
+    conn.request(method="GET", url="/takeScreenshot", headers={}, body="")
+    response = conn.getresponse()
+    if response.status == httplib.OK:
+        json_response = json.loads(response.read())
+        conn.close()
+        return json_response["screenshot"]
+    else:
+        conn.close()
+        return None

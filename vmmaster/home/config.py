@@ -4,6 +4,7 @@ import os
 class Config(object):
     BASE_DIR = os.path.dirname(os.path.realpath(__file__))
     PORT = 9000
+    DATABASE = "sqlite:///" + BASE_DIR + "/vmmaster.db"
 
     # relative to BASE_DIR
     CLONES_DIR = BASE_DIR + "/clones"
