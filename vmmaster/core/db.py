@@ -49,8 +49,8 @@ class Database(object):
         self.Base.metadata.create_all(self.engine)
 
     @transaction
-    def createSession(self, name, session=None):
-        _session = Session(name=name)
+    def createSession(self, name, time=time(), session=None):
+        _session = Session(name=name, time=time)
         session.add(_session)
         session.commit()
         db_session = session.query(Session).filter_by(id=_session.id).first()
@@ -58,10 +58,10 @@ class Database(object):
         return db_session
 
     @transaction
-    def createLogStep(self, session_id, control_line, headers, screenshot="", time=time(), session=None):
+    def createLogStep(self, session_id, control_line, body, screenshot="", time=time(), session=None):
         _log_step = LogStep(session_id=session_id,
                             control_line=control_line,
-                            headers=headers,
+                            body=body,
                             screenshot=screenshot,
                             time=time)
         session.add(_log_step)
@@ -81,6 +81,7 @@ class Session(Database.Base):
 
     id = Column(Integer, Sequence('session_id_seq'),  primary_key=True)
     name = Column(String)
+    time = Column(Float)
 
 
 class LogStep(Database.Base):
@@ -89,6 +90,6 @@ class LogStep(Database.Base):
     id = Column(Integer, Sequence('log_step_id_seq'),  primary_key=True)
     session_id = Column(Integer)
     control_line = Column(String)
-    headers = Column(String)
+    body = Column(String)
     screenshot = Column(String)
     time = Column(Float)

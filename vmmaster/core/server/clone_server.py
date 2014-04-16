@@ -80,7 +80,7 @@ class RequestHandler(Request):
             self._log_step = self.database.createLogStep(
                 session_id=self.db_session.id,
                 control_line="%s %s %s" % (command, path, version),
-                headers=str(self.headers),
+                body=str(self.body),
                 time=time.time())
         Request.requestReceived(self, command, path, version)
 
@@ -149,7 +149,7 @@ class RequestHandler(Request):
             self.database.createLogStep(
                 session_id=self.db_session.id,
                 control_line="%s %s" % (self.clientproto, self._reply_code),
-                headers=str(self._reply_headers),
+                body=str(self._reply_body),
                 time=time.time())
 
         self.setResponseCode(self._reply_code)

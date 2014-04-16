@@ -1,5 +1,6 @@
 import json
 import httplib
+from time import time
 
 from vmmaster.utils import network_utils
 from vmmaster.core.config import config
@@ -42,7 +43,7 @@ def create_session(self):
         self.clone_factory.utilize_clone(clone)
     else:
         self._session_id = json.loads(response_body)["sessionId"]
-        db_session = self.database.createSession(name=self.session_id)
+        db_session = self.database.createSession(name=self.session_id, time=time())
         self.sessions.add_session(self.session_id, clone, db_session)
 
     self.form_reply(response.status, dict(x for x in response.getheaders()), response_body)
