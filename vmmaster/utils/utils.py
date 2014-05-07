@@ -75,9 +75,13 @@ def write_file(path, content):
     if not os.path.exists(basedir):
         os.makedirs(basedir)
 
+    os.chmod(basedir, 0777)
+
     with open(path, "w") as f:
         f.write(content)
         f.close()
+
+    os.chmod(path, 0777)
 
 
 def write_xml_file(path, filename, xml):
