@@ -75,14 +75,15 @@ class RequestHandler(Request):
             return self.sessions.get_db_session(session)
 
     def requestReceived(self, command, path, version):
-        self.path = path
+        Request.requestReceived(self, command, path, version)
         if self.db_session:
             self._log_step = self.database.createLogStep(
                 session_id=self.db_session.id,
                 control_line="%s %s %s" % (command, path, version),
                 body=str(self.body),
                 time=time.time())
-        Request.requestReceived(self, command, path, version)
+
+        self.processRequest()
 
     def finish(self):
         self.perform_reply()
@@ -100,7 +101,7 @@ class RequestHandler(Request):
             clone = self.sessions.get_clone(self.session_id)
             return commands.take_screenshot(clone.get_ip(), 9000)
 
-    def process(self):
+    def processRequest(self):
         method = getattr(self, "do_" + self.method)
         d = deferToThread(method)
         d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
