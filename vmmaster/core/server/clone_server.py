@@ -1,7 +1,6 @@
 import httplib
 import copy
 import time
-import uuid
 import base64
 
 from twisted.internet.threads import deferToThread
@@ -132,17 +131,14 @@ class RequestHandler(Request):
         """ Send reply to client. """
         # reply code
         self._reply_code = code
-        # self.setResponseCode(code)
 
         # reply headers
         self._reply_headers = {}
         for keyword, value in headers.items():
             self._reply_headers[keyword] = value
-            # self.setHeader(keyword, value)
 
         # reply body
         self._reply_body = body
-        # self.write(body)
 
     def perform_reply(self):
         """ Perform reply to client. """

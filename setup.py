@@ -20,7 +20,10 @@ setup(
         "graypy==0.2.9",
         "docopt==0.6.1",
     ],
-    scripts=['bin/vmmaster'],
+    scripts=[
+        'bin/vmmaster',
+        'bin/vmmaster_cleanup'
+    ],
     package_data={
         'vmmaster': home,
     },

@@ -59,6 +59,14 @@ def write_clone_dumpxml(clone_name, xml):
     return dumpxml_path
 
 
+def rm(files):
+    command = ["rm", "-f"]
+    command += files
+    code, text = system_utils.run_command(command)
+    if code:
+        raise Exception(text)
+
+
 def delete_file(filename):
     try:
         os.remove(filename)
@@ -96,10 +104,6 @@ def write_xml_file(path, filename, xml):
 
 
 def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
-    if os.getuid() != 0:
-        # We're not root so, like, whatever dude
-        return
-
     # Get the uid/gid from the name
     try:
         running_uid = pwd.getpwnam(uid_name).pw_uid
@@ -110,6 +114,13 @@ def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
         running_gid = grp.getgrnam(gid_name).gr_gid
     except KeyError:
         raise GroupNotFound("Group '%s' not found." % gid_name)
+
+    if os.getuid() == running_uid:
+        return
+
+    if os.getuid() != 0:
+        # We're not root so, like, whatever dude
+        raise Exception("Need to be a root, to change user")
 
     # Remove group privileges
     os.setgroups([])
