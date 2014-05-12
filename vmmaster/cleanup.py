@@ -54,9 +54,11 @@ def run():
     session = sessionmaker(bind=engine)()
     try:
         _old_sessions = old_sessions(session)
+        print "got %s sessions." % str(len(_old_sessions))
         _old_log_steps = old_log_steps(session, _old_sessions)
+        print "got %s log steps." % str(len(_old_log_steps))
         _screenshots = get_screenshots(_old_log_steps)
-        _screenshots = ['/var/lib/vmmaster/screenshots/test1', '/var/lib/vmmaster/screenshots/test2']
+        print "got %s screenshots." % str(len(_screenshots))
         rm(_screenshots)
         old_ones = _old_sessions + _old_log_steps
         delete_old(session, old_ones)
