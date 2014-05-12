@@ -27,8 +27,7 @@ def get_screenshots(log_steps):
 
 
 def old():
-    # d = time.time() - 60 * 60 * 24 * 7
-    d = time.time() - 60 * 60 * 24 * 2
+    d = time.time() - 60 * 60 * 24 * config.SCREENSHOTS_DAYS
     return d
 
 
@@ -63,11 +62,9 @@ def run():
         delete_old(session, old_ones)
         session.commit()
     except:
-        print "1"
         session.rollback()
         raise
     finally:
-        print "2"
         session.close()
 
 

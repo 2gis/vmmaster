@@ -11,6 +11,7 @@ class Config(object):
     SESSION_DIR = BASEDIR + "/session"
     LOG_DIR = BASEDIR + "/log"
     SCREENSHOTS_DIR = BASEDIR + "/screenshots"
+    SCREENSHOTS_DAYS = 7
 
     # clones related stuff
     MAX_CLONE_COUNT = 2
