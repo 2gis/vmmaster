@@ -61,23 +61,14 @@ class RequestHandler(Request):
         if self._session_id:
             return self._session_id
 
-        self._session_id = commands.get_session(self.path)
+        self._session_id = commands.get_session_id(self.path)
         return self._session_id
-
-    @property
-    def db_session(self):
-        try:
-            session = self.session_id
-        except:
-            return None
-        else:
-            return self.sessions.get_db_session(session)
 
     def requestReceived(self, command, path, version):
         Request.requestReceived(self, command, path, version)
-        if self.db_session:
+        if self.session_id:
             self._log_step = self.database.createLogStep(
-                session_id=self.db_session.id,
+                session_id=self.session_id,
                 control_line="%s %s %s" % (command, path, version),
                 body=str(self.body),
                 time=time.time())
@@ -92,11 +83,16 @@ class RequestHandler(Request):
         tb = failure.getTraceback()
         log.error(tb)
         self.form_reply(code=500, headers={}, body=tb)
+        session = self.database.getSession(self.session_id)
+        session.status = "failed"
+        session.error = tb
+        self.database.update(session)
         return self
 
     def try_screenshot(self):
         words = ["url", "click", "execute", "keys"]
-        if set(words) & set(self.path.split("/")):
+        parts = self.path.split("/")
+        if set(words) & set(parts) or parts[-1] == "session":
             clone = self.sessions.get_clone(self.session_id)
             return commands.take_screenshot(clone.get_ip(), 9000)
 
@@ -142,9 +138,9 @@ class RequestHandler(Request):
 
     def perform_reply(self):
         """ Perform reply to client. """
-        if self.db_session:
+        if self.session_id:
             self.database.createLogStep(
-                session_id=self.db_session.id,
+                session_id=self.session_id,
                 control_line="%s %s" % (self.clientproto, self._reply_code),
                 body=str(self._reply_body),
                 time=time.time())
@@ -156,8 +152,16 @@ class RequestHandler(Request):
 
         self.write(self._reply_body)
 
+    def swap_session(self, desired_session):
+        self.body = commands.set_body_session_id(self.body, desired_session)
+        self.path = commands.set_path_session_id(self.path, desired_session)
+        if self.body:
+            self.headers['content-length'] = len(self.body)
+
     def transparent(self, method):
+        self.swap_session(self.sessions.get_selenium_session(self.session_id))
         code, headers, response_body = self.make_request(method, self.path, self.headers, self.body)
+        self.swap_session(self.session_id)
         self.form_reply(code, headers, response_body)
 
     def do_POST(self):
@@ -166,10 +170,11 @@ class RequestHandler(Request):
             commands.create_session(self)
         else:
             self.transparent("POST")
+
         screenshot = self.try_screenshot()
         if screenshot:
             if self._log_step:
-                path = config.SCREENSHOTS_DIR + "/" + str(self.db_session.id) + "/" + str(self._log_step.id) + ".png"
+                path = config.SCREENSHOTS_DIR + "/" + str(self.session_id) + "/" + str(self._log_step.id) + ".png"
                 write_file(path, base64.b64decode(screenshot))
                 self._log_step.screenshot = path
                 self.database.update(self._log_step)
@@ -182,8 +187,7 @@ class RequestHandler(Request):
 
     def do_DELETE(self):
         """DELETE request."""
-        if self.path.split("/")[-2] == "session"\
-                or (self.path.split("/")[-1] == "window" and self.path.split("/")[-3] == "session"):
+        if self.path.split("/")[-2] == "session":
             commands.delete_session(self)
         else:
             self.transparent("DELETE")

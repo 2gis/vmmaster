@@ -3,9 +3,12 @@ from time import time
 from twisted.internet import threads
 
 from sqlalchemy import create_engine, pool
-from sqlalchemy import Column, Integer, Sequence, String, Float
+from sqlalchemy import Column, Integer, Sequence, String, Float, Enum
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+
+from alembic.config import Config
+from alembic import command
 
 
 def to_thread(f):
@@ -47,15 +50,23 @@ class Database(object):
     def __init__(self, connection_string, poolclass=pool.SingletonThreadPool):
         self.engine = create_engine(connection_string, poolclass=poolclass)
         self.Base.metadata.create_all(self.engine)
+        from vmmaster import migrations
+        migrations.run(connection_string)
 
     @transaction
-    def createSession(self, name, time=time(), session=None):
-        _session = Session(name=name, time=time)
+    def createSession(self, status="running", name=None, time=time(), session=None):
+        _session = Session(status=status, time=time)
         session.add(_session)
         session.commit()
-        db_session = session.query(Session).filter_by(id=_session.id).first()
+        if name is None:
+            _session.name = _session.id
+        else:
+            _session.name = name
+        session.add(_session)
+        session.commit()
+        created_session = session.query(Session).filter_by(id=_session.id).first()
         session.flush()
-        return db_session
+        return created_session
 
     @transaction
     def createLogStep(self, session_id, control_line, body, screenshot="", time=time(), session=None):
@@ -66,21 +77,34 @@ class Database(object):
                             time=time)
         session.add(_log_step)
         session.commit()
-        db_log_step = session.query(LogStep).filter_by(id=_log_step.id).first()
+        created_log_step = session.query(LogStep).filter_by(id=_log_step.id).first()
         session.flush()
-        return db_log_step
+        return created_log_step
 
     @transaction
     def update(self, obj, session=None):
         session.add(obj)
         session.commit()
+        updated_obj = session.query(type(obj)).filter_by(id=obj.id).first()
+        session.flush()
+        return updated_obj
+
+    @transaction
+    def getSession(self, session_id, session=None):
+        return session.query(Session).filter_by(id=session_id).first()
+
+    @transaction
+    def getLogStep(self, log_step_id, session=None):
+        return session.query(LogStep).filter_by(id=log_step_id).first()
 
 
 class Session(Database.Base):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'),  primary_key=True)
+    status = Column(Enum('unknown', 'running', 'succeed', 'failed'))
     name = Column(String)
+    error = Column(String)
     time = Column(Float)
 
 
