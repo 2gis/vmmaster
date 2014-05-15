@@ -7,6 +7,13 @@ for path, subdirs, files in os.walk('vmmaster/home'):
     for name in files:
         home.append(os.path.join(path, name))
 
+alembic = []
+for path, subdirs, files in os.walk('vmmaster/alembic'):
+    path = path.replace('vmmaster/', '')
+    for name in files:
+        home.append(os.path.join(path, name))
+alembic.append('alembic.ini')
+
 setup(
     name='vmmaster',
     version='0.1',
@@ -27,6 +34,7 @@ setup(
     ],
     package_data={
         'vmmaster': home,
+        'vmmaster': alembic,
     },
     include_package_data=True,
     data_files=[
