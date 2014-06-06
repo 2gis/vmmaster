@@ -27,6 +27,7 @@ setup(
         "graypy==0.2.9",
         "docopt==0.6.1",
         "alembic==0.6.5",
+        "PyDispatcher==2.0.3"
     ],
     scripts=[
         'bin/vmmaster',
