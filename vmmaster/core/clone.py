@@ -16,7 +16,6 @@ class Clone(object):
         self.name = self.platform + "-clone" + str(self.number)
         self.conn = Virsh()
         self.network = Network()
-        self.__timer = None
 
     def delete(self):
         log.info("deleting clone: {}".format(self.name))
@@ -26,9 +25,6 @@ class Clone(object):
         domain.destroy()
         domain.undefine()
         self.network.append_free_mac(self.__mac)
-        self.__timer.stop()
-        del self.__timer
-        del self
 
     def create(self):
         log.info("creating clone of {platform}".format(platform=self.platform))
@@ -120,12 +116,6 @@ class Clone(object):
 
     def get_ip(self):
         return self.__ip
-
-    def get_timer(self):
-        return self.__timer
-
-    def set_timer(self, timer):
-        self.__timer = timer
 
     @property
     def vnc_port(self):

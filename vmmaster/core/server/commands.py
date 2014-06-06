@@ -5,28 +5,26 @@ import time
 from vmmaster.utils import network_utils
 from vmmaster.core.config import config
 from vmmaster.core.logger import log
-
-
-class StatusException(Exception):
-    pass
+from vmmaster.core.db import database
+from vmmaster.core.exceptions import StatusException
 
 
 def delete_session(self):
     self.transparent("DELETE")
-    clone = self.sessions.get_clone(self.session_id)
-    self.clone_factory.utilize_clone(clone)
-    session = self.database.getSession(self.session_id)
-    session.status = "succeed"
-    self.database.update(session)
+    # clone = self.sessions.get_clone(self.session_id)
+    # self.clone_factory.utilize_clone(clone)
+    # session = self.database.getSession(self.session_id)
+    # session.status = "succeed"
+    # self.database.update(session)
+    self.sessions.get_session(self.session_id).succeed()
 
 
 def create_session(self):
     name = get_session_name(self) if get_session_name(self) else None
-    # db related stuff
-    session = self.database.createSession(status="running", name=name, time=time.time())
-    self.session_id = str(session.id)
+    self.session = self.sessions.start_session(name)
+    self.session_id = str(self.session.id)
 
-    self._log_step = self.database.createLogStep(
+    self._log_step = database.createLogStep(
         session_id=self.session_id,
         control_line="%s %s %s" % (self.method, self.path, self.clientproto),
         body=str(self.body),
@@ -35,20 +33,18 @@ def create_session(self):
     platform = get_platform(self)
     replace_platform_with_any(self)
     clone = self.clone_factory.create_clone(platform)
+    self.session.clone = clone
+    self.session.clone_factory = self.clone_factory
 
     # ping ip:port
     network_utils.ping(clone.get_ip(), config.SELENIUM_PORT, config.PING_TIMEOUT)
 
     # check status
     if not selenium_status(self, clone.get_ip(), config.SELENIUM_PORT):
-        self.clone_factory.utilize_clone(clone)
-        ### @todo: every exception got to be sent back to client
         raise StatusException("failed to get status of selenium-server-standalone")
 
     response = session_response(self, clone.get_ip(), config.SELENIUM_PORT)
-
     if response.status != httplib.OK:
-        self.clone_factory.utilize_clone(clone)
         raise StatusException("failed to start selenium session")
 
     if response.getheader('Content-Length') is None:
@@ -58,7 +54,7 @@ def create_session(self):
         response_body = response.read(content_length)
 
     selenium_session = json.loads(response_body)["sessionId"]
-    self.sessions.add_session(self.session_id, clone, selenium_session)
+    self.session.selenium_session = selenium_session
     response_body = set_body_session_id(response_body, self.session_id)
     headers = dict(x for x in response.getheaders())
     headers["content-length"] = len(response_body)
@@ -139,7 +135,7 @@ def get_platform(self):
 
 def get_session_name(self):
     try:
-        return get_desired_capabilities(self)["sessionName"]
+        return get_desired_capabilities(self)["name"]
     except KeyError:
         return None
 

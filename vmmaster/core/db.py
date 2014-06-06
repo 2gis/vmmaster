@@ -7,8 +7,7 @@ from sqlalchemy import Column, Integer, Sequence, String, Float, Enum
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from alembic.config import Config
-from alembic import command
+from .config import config
 
 
 def to_thread(f):
@@ -46,6 +45,13 @@ def transaction(func):
 
 class Database(object):
     Base = declarative_base()
+
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Database, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
 
     def __init__(self, connection_string, poolclass=pool.SingletonThreadPool):
         self.engine = create_engine(connection_string, poolclass=poolclass)
@@ -117,3 +123,6 @@ class LogStep(Database.Base):
     body = Column(String)
     screenshot = Column(String)
     time = Column(Float)
+
+
+database = Database(config.DATABASE)

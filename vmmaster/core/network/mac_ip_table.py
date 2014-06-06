@@ -1,10 +1,6 @@
 import virtinst.util
 
 
-class NoMacError(Exception):
-    pass
-
-
 # singleton
 class MacIpTable(object):
     free_table = []

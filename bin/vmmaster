@@ -17,16 +17,16 @@ Options:
 from docopt import docopt
 
 from vmmaster.core.config import setup_config, config
+from vmmaster.console.init import init, home_dir
+setup_config('%s/config.py' % home_dir())
 from vmmaster.core.logger import setup_logging, log
 from vmmaster.server import VMMasterServer
 from vmmaster.core.daemon import Daemon
-from vmmaster.console.init import init, home_dir
 from vmmaster.utils.utils import change_user_vmmaster
 
 
 def main():
     change_user_vmmaster()
-    setup_config('%s/config.py' % home_dir())
     setup_logging(config.LOG_DIR)
 
     server_address = ('', config.PORT)

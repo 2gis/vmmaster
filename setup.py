@@ -26,7 +26,7 @@ setup(
         "netifaces>=0.8",
         "graypy==0.2.9",
         "docopt==0.6.1",
-        "alembic==0.6.5"
+        "alembic==0.6.5",
     ],
     scripts=[
         'bin/vmmaster',

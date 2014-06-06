@@ -1,52 +1,11 @@
-from threading import Timer
 import time
 
-from vmmaster.core.clone import Clone
-from vmmaster.core.connection import Virsh
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-
-
-class PlatformException(Exception):
-    pass
-
-
-class ClonesException(Exception):
-    pass
-
-
-class TimeoutException(Exception):
-    pass
-
-
-class CloneShutdownTimer(object):
-    def __init__(self, timeout, callback, *args):
-        self.__timeout = timeout
-        self.__callback = callback
-        self.__args = args
-        self.__start_time = 0
-        self.__timer = Timer(self.__timeout, self.__callback, self.__args)
-
-    def __del__(self):
-        log.debug("CloneShutdownTimer __del__")
-        self.__timer.cancel()
-        del self.__timer
-
-    def start(self):
-        self.__timer.start()
-        self.__start_time = time.time()
-
-    def restart(self):
-        self.__timer.cancel()
-        del self.__timer
-        self.__timer = Timer(self.__timeout, self.__callback, self.__args)
-        self.__timer.start()
-
-    def stop(self):
-        self.__timer.cancel()
-
-    def time_elapsed(self):
-        return time.time() - self.__start_time
+from .clone import Clone
+from .connection import Virsh
+from .config import config
+from .logger import log
+from .dispatcher import dispatcher, Signals
+from .exceptions import PlatformException, ClonesException
 
 
 class CloneList(object):
@@ -103,8 +62,6 @@ class CloneList(object):
     def get_free_clone_number(self, platform):
         self._check_platform(platform)
         self._check_clone_count()
-        self.list[platform]
-        # clone_numbers = [clone.number for clone in self.list[platform]]
         clone_numbers = self.__clone_numbers
         return clone_numbers.pop()
 
@@ -115,6 +72,7 @@ class CloneList(object):
 class CloneFactory(object):
     def __init__(self):
         log.info("initializing clone factory")
+        dispatcher.connect(self.utilize_clone, signal=Signals.DELETE_CLONE, sender=dispatcher.Any)
         self.clone_list = CloneList()
 
     def delete(self):
@@ -132,12 +90,10 @@ class CloneFactory(object):
 
         try:
             clone = clone.create()
-        except Exception, e:
+        except Exception:
             self.utilize_clone(clone)
-            raise e
+            raise
 
-        clone.set_timer(CloneShutdownTimer(config.CLONE_TIMEOUT, self.utilize_clone, clone, True))
-        clone.get_timer().start()
         return clone
 
     def utilize_clone(self, clone, timeouted=False):
@@ -145,6 +101,4 @@ class CloneFactory(object):
             log.warning("TIMEOUT {clone}".format(clone=clone.name))
         self.clone_list.remove_clone(clone)
         clone.delete()
-        if timeouted:
-            raise TimeoutException("clone timed out")
         return
