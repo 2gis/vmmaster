@@ -48,7 +48,7 @@ class Session(object):
         self.timer.start()
 
     def delete(self):
-        if self.clone:
+        if hasattr(self, "clone"):
             dispatcher.send(signal=Signals.DELETE_CLONE, sender=self, clone=self.clone)
 
         dispatcher.send(signal=Signals.DELETE_SESSION, sender=self, session_id=str(self.id))
