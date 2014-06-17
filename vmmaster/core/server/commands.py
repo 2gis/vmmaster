@@ -87,6 +87,7 @@ def session_response(self, ip, port):
 
     response = conn.getresponse()
     conn.close()
+    return response
 
 
 def selenium_status(self, ip, port):
