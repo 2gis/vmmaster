@@ -6,8 +6,8 @@ from os.path import expanduser
 from .print_utils import cin, cout, OKGREEN, WARNING, FAIL
 
 from vmmaster import package_dir
-from vmmaster.utils.system_utils import run_command
-from vmmaster.utils.utils import change_user_vmmaster
+from .system_utils import run_command
+from .utils import change_user_vmmaster
 
 
 def files(path):

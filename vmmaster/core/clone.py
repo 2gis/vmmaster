@@ -6,7 +6,7 @@ from vmmaster.core.dumpxml import dumpxml
 from vmmaster.core.network.network import Network
 from vmmaster.core.connection import Virsh
 from vmmaster.core.logger import log
-from vmmaster.utils import utils
+from vmmaster.core.utils import utils
 
 
 class Clone(object):

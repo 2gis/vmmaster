@@ -1,6 +1,7 @@
 import netifaces
-from vmmaster.utils import system_utils
+from . import system_utils
 import time
+import socket
 
 
 from vmmaster.core.logger import log
@@ -38,15 +39,37 @@ def get_ip_by_mac(mac):
     return line.split(" ")[0]
 
 
-def ping(ip, port, timeout=180):
-    command = ['nc', '-z', ip, port]
+def ping(session, port, timeout=180):
+    def get_socket(host, port):
+        s = None
 
-    start = time.time()
+        for res in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            try:
+                s = socket.socket(af, socktype, proto)
+            except socket.error as msg:
+                s = None
+                continue
+            try:
+                s = socket.create_connection(sa, timeout=0.1)
+            except socket.error as msg:
+                s.close()
+                s = None
+                continue
+            break
+
+        return s
+
+    ip = session.clone.get_ip()
+    session.timer.restart()
     log.info("starting ping: {ip}:{port}".format(ip=ip, port=port))
-    returncode, output = system_utils.run_command(command, True)
-    while returncode:
+    start = time.time()
+
+    s = get_socket(ip, port)
+    while not s:
+        session.timer.restart()
         time.sleep(0.1)
-        returncode, output = system_utils.run_command(command, True)
+        s = get_socket(ip, port)
         if time.time() - start > timeout:
             log.info("ping failed: timeout {ip}:{port}".format(ip=ip, port=port))
             return 1

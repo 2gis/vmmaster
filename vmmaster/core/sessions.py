@@ -1,11 +1,23 @@
 import time
-import sys
 from threading import Timer
 
 from .dispatcher import dispatcher, Signals
 from .db import database
 from .config import config
 from .logger import log
+
+
+class RequestHelper(object):
+    method = None
+    url = None
+    headers = None
+    body = None
+
+    def __init__(self, method, url="/", headers={}, body=""):
+        self.method = method
+        self.url = url
+        self.headers = headers
+        self.body = body
 
 
 class ShutdownTimer(object):
@@ -48,6 +60,7 @@ class Session(object):
         self.timer.start()
 
     def delete(self):
+        log.debug("deleting session: %s" % self.id)
         if hasattr(self, "clone"):
             dispatcher.send(signal=Signals.DELETE_CLONE, sender=self, clone=self.clone)
 
@@ -55,6 +68,7 @@ class Session(object):
 
         self.timer.stop()
         del self.timer
+        log.debug("session %s deleted." % self.id)
 
     def succeed(self):
         db_session = database.getSession(self.id)
@@ -72,8 +86,34 @@ class Session(object):
         del self
 
     def timeout(self):
-        # dispatcher.send(signal=Signals.DELETE_CLONE, sender=self, clone=self.clone, timeouted=True)
         self.timeouted = True
+
+    def make_request(self, port, request):
+        """ Make request to selenium-server-standalone
+            and return the response. """
+        import httplib
+        clone = self.clone
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=port))
+        conn.request(
+            method=request.method,
+            url=request.url,
+            headers=request.headers,
+            body=request.body
+        )
+
+        self.timer.restart()
+
+        response = conn.getresponse()
+
+        if response.getheader('Content-Length') is None:
+            response_body = None
+        else:
+            content_length = int(response.getheader('Content-Length'))
+            response_body = response.read(content_length)
+
+        conn.close()
+
+        return response.status, dict(x for x in response.getheaders()), response_body
 
 
 class Sessions(object):

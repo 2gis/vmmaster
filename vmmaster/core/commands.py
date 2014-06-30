@@ -2,20 +2,16 @@ import json
 import httplib
 import time
 
-from vmmaster.utils import network_utils
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.db import database
-from vmmaster.core.exceptions import StatusException
+from .utils import network_utils
+from .config import config
+from .logger import log
+from .db import database
+from .exceptions import StatusException
+from .sessions import RequestHelper
 
 
 def delete_session(self):
     self.transparent("DELETE")
-    # clone = self.sessions.get_clone(self.session_id)
-    # self.clone_factory.utilize_clone(clone)
-    # session = self.database.getSession(self.session_id)
-    # session.status = "succeed"
-    # self.database.update(session)
     self.sessions.get_session(self.session_id).succeed()
 
 
@@ -37,79 +33,53 @@ def create_session(self):
     self.session.clone_factory = self.clone_factory
 
     # ping ip:port
-    network_utils.ping(clone.get_ip(), config.SELENIUM_PORT, config.PING_TIMEOUT)
+    network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT)
 
     # check status
-    if not selenium_status(self, clone.get_ip(), config.SELENIUM_PORT):
+    if not selenium_status(self, self.session, config.SELENIUM_PORT):
         raise StatusException("failed to get status of selenium-server-standalone")
 
-    response = session_response(self, clone.get_ip(), config.SELENIUM_PORT)
-    if response.status != httplib.OK:
-        raise StatusException("failed to start selenium session")
+    status, headers, body = start_selenium_session(self, self.session, config.SELENIUM_PORT)
 
-    if response.getheader('Content-Length') is None:
-        response_body = None
-    else:
-        content_length = int(response.getheader('Content-Length'))
-        response_body = response.read(content_length)
-
-    selenium_session = json.loads(response_body)["sessionId"]
+    selenium_session = json.loads(body)["sessionId"]
     self.session.selenium_session = selenium_session
-    response_body = set_body_session_id(response_body, self.session_id)
-    headers = dict(x for x in response.getheaders())
-    headers["content-length"] = len(response_body)
+    body = set_body_session_id(body, self.session_id)
+    headers["content-length"] = len(body)
 
-    self.form_reply(response.status, headers, response_body)
+    self.form_reply(status, headers, body)
 
 
-def session_response(self, ip, port):
-    conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
-
-    conn.request(method="POST", url=self.path, headers=self.headers, body=self.body)
+def start_selenium_session(self, session, port):
     # try to get status for 3 times
+    status = None
+    headers = None
+    body = None
     for check in range(3):
-        response = conn.getresponse()
-        if response.status == httplib.OK:
-            log.debug("SUCCESS start selenium-server-standalone session for {}:{}".format(ip, port))
-            conn.close()
-            return response
+        status, headers, body = session.make_request(port, RequestHelper(self.method, self.path, self.headers, self.body))
+        if status == httplib.OK:
+            log.debug("SUCCESS start selenium-server-standalone session for %s" % session.id)
+            return status, headers, body
 
         # need to read response to keep sending requests
-        body = response.read()
-        log.info("FAIL {check} start selenium-server-standalone session for {ip}:{port} - {status} : {body}".format(
-            check=check,
-            ip=ip,
-            port=port,
-            status=response.status,
-            body=body)
-        )
-        conn.request(method="POST", url=self.path, headers=self.headers, body=self.body)
+        log.info("FAILED start selenium-server-standalone session for %s - %s : %s" % (session.id, status, body))
 
-    response = conn.getresponse()
-    conn.close()
-    return response
+    return status, headers, body
 
 
-def selenium_status(self, ip, port):
-    conn = httplib.HTTPConnection("{ip}:{port}".format(ip=ip, port=port))
-
+def selenium_status(self, session, port):
     parts = self.path.split("/")
     parts[-1] = "status"
     status = "/".join(parts)
 
     # try to get status for 3 times
     for check in range(3):
-        conn.request(method="GET", url=status)
-        response = conn.getresponse()
-        if response.status == httplib.OK:
-            log.debug("SUCCESS get selenium-server-standalone status for {}:{}".format(ip, port))
-            log.debug(response.read())
-            conn.close()
+        code, headers, body = session.make_request(port, RequestHelper("get", status))
+        if code == httplib.OK:
+            log.debug("SUCCESS get selenium-server-standalone status for %s" % session.id)
             return True
         else:
-            log.debug("FAIL    get selenium-server-standalone status for {}:{}".format(ip, port))
+            log.debug("FAIL    get selenium-server-standalone status for %s" % session.id)
 
-    conn.close()
     return False
 
 

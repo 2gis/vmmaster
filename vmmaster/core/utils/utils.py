@@ -4,7 +4,7 @@ import pwd
 import grp
 
 from vmmaster.core.config import config
-from vmmaster.utils import system_utils, commands
+from . import system_utils, commands
 
 
 class UserNotFound(Exception):

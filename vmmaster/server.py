@@ -5,7 +5,7 @@ from .core.clone_factory import CloneFactory
 from .core.sessions import Sessions
 from .core.network.network import Network
 from .core.logger import log
-from .core.server.clone_server import ProxyFactory
+from .core.clone_server import ProxyFactory
 
 
 class VMMasterServer(object):

@@ -12,11 +12,12 @@ from twisted.web.http import Request, HTTPFactory
 
 from . import commands
 
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.utils.utils import write_file
-from vmmaster.core.db import database
-from vmmaster.core.exceptions import TimeoutException
+from .config import config
+from .logger import log
+from .utils.utils import write_file
+from .db import database
+from .exceptions import TimeoutException
+from .sessions import RequestHelper
 
 
 class BucketThread(Thread):
@@ -94,7 +95,6 @@ class RequestHandler(Request):
         d = deferToThread(self.processRequest)
         d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
         d.addBoth(RequestHandler.finish)
-        d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
 
     def finish(self):
         self.perform_reply()
@@ -143,27 +143,6 @@ class RequestHandler(Request):
                     raise TimeoutException("Session timeout")
         return self
 
-    def make_request(self, method, url, headers, body):
-        """ Make request to selenium-server-standalone
-            and return the response. """
-        clone = self.sessions.get_session(self.session_id).clone
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=config.SELENIUM_PORT))
-        conn.request(method=method, url=url, headers=headers, body=body)
-
-        self.sessions.get_session(self.session_id).timer.restart()
-
-        response = conn.getresponse()
-
-        if response.getheader('Content-Length') is None:
-            response_body = None
-        else:
-            content_length = int(response.getheader('Content-Length'))
-            response_body = response.read(content_length)
-
-        conn.close()
-
-        return response.status, dict(x for x in response.getheaders()), response_body
-
     def form_reply(self, code, headers, body):
         """ Send reply to client. """
         # reply code
@@ -179,6 +158,13 @@ class RequestHandler(Request):
 
     def perform_reply(self):
         """ Perform reply to client. """
+        if not self._reply_code:
+            self._reply_code = 500
+            self._reply_body = "Something ugly happened. No real reply formed."
+            self._reply_headers = {
+                'content-length': len(self._reply_body)
+            }
+
         if self.session_id:
             database.createLogStep(
                 session_id=self.session_id,
@@ -200,8 +186,12 @@ class RequestHandler(Request):
             self.headers['content-length'] = len(self.body)
 
     def transparent(self, method):
-        self.swap_session(self.sessions.get_session(self.session_id).selenium_session)
-        code, headers, response_body = self.make_request(method, self.path, self.headers, self.body)
+        session = self.sessions.get_session(self.session_id)
+        self.swap_session(session.selenium_session)
+        code, headers, response_body = session.make_request(
+            config.SELENIUM_PORT,
+            RequestHelper(method, self.path, self.headers, self.body)
+        )
         self.swap_session(self.session_id)
         self.form_reply(code, headers, response_body)
 

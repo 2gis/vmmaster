@@ -1,6 +1,6 @@
 from xml.dom import minidom
 from vmmaster.core.config import config
-from vmmaster.utils import utils
+from vmmaster.core.utils import utils
 
 
 class NetworkXml(object):
