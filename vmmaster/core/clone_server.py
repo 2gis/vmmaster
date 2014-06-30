@@ -85,20 +85,22 @@ class RequestHandler(Request):
     def requestReceived(self, command, path, version):
         Request.requestReceived(self, command, path, version)
         if self.session_id:
-            self._log_step = database.createLogStep(
-                session_id=self.session_id,
-                control_line="%s %s %s" % (command, path, version),
-                body=str(self.body),
-                time=time.time())
+            self._log_step = self.log_write("%s %s %s" % (command, path, version), str(self.body))
 
         # request to thread
         d = deferToThread(self.processRequest)
         d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
         d.addBoth(RequestHandler.finish)
+        d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
+        d.addCallback(lambda _: _.log_write("%s %s" % (_.clientproto, _._reply_code), str(_._reply_body)))
 
     def finish(self):
         self.perform_reply()
-        Request.finish(self)
+        self.log_write("%s %s" % (self.clientproto, self._reply_code), str(self._reply_body))
+        try:
+            Request.finish(self)
+        except RuntimeError:
+            raise RuntimeError("Client has disconnected")
 
     def handle_exception(self, failure):
         tb = failure.getTraceback()
@@ -109,6 +111,17 @@ class RequestHandler(Request):
         except KeyError:
             pass
         return self
+
+    def log_write(self, control_line, body):
+        if self.session_id:
+            return database.createLogStep(
+                session_id=self.session_id,
+                control_line=control_line,
+                body=body,
+                time=time.time()
+            )
+
+        return None
 
     def take_screenshot(self):
         clone = self.sessions.get_session(self.session_id).clone
@@ -164,13 +177,6 @@ class RequestHandler(Request):
             self._reply_headers = {
                 'content-length': len(self._reply_body)
             }
-
-        if self.session_id:
-            database.createLogStep(
-                session_id=self.session_id,
-                control_line="%s %s" % (self.clientproto, self._reply_code),
-                body=str(self._reply_body),
-                time=time.time())
 
         self.setResponseCode(self._reply_code)
 
