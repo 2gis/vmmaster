@@ -129,11 +129,6 @@ class RequestHandler(Request):
 
         while th.isAlive():
             th.join(0.1)
-
-            if not error_bucket.empty():
-                error = error_bucket.get(block=False)
-                raise error[0], error[1], error[2]
-
             try:
                 session = self.sessions.get_session(self.session_id)
             except KeyError:
@@ -141,6 +136,11 @@ class RequestHandler(Request):
             else:
                 if session.timeouted:
                     raise TimeoutException("Session timeout")
+
+        if not error_bucket.empty():
+            error = error_bucket.get()
+            raise error[0], error[1], error[2]
+
         return self
 
     def form_reply(self, code, headers, body):

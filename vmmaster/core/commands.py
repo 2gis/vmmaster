@@ -50,7 +50,6 @@ def create_session(self):
 
 
 def start_selenium_session(self, session, port):
-    # try to get status for 3 times
     status = None
     headers = None
     body = None
@@ -73,7 +72,7 @@ def selenium_status(self, session, port):
 
     # try to get status for 3 times
     for check in range(3):
-        code, headers, body = session.make_request(port, RequestHelper("get", status))
+        code, headers, body = session.make_request(port, RequestHelper("GET", status))
         if code == httplib.OK:
             log.debug("SUCCESS get selenium-server-standalone status for %s" % session.id)
             return True
@@ -113,7 +112,10 @@ def get_session_name(self):
 
 def get_session_id(path):
     parts = path.split("/")
-    pos = parts.index("session")
+    try:
+        pos = parts.index("session")
+    except ValueError:
+        return None
     try:
         session_id = parts[pos + 1]
     except IndexError:

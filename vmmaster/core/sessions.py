@@ -1,4 +1,5 @@
 import time
+import httplib
 from threading import Timer
 
 from .dispatcher import dispatcher, Signals
@@ -91,9 +92,7 @@ class Session(object):
     def make_request(self, port, request):
         """ Make request to selenium-server-standalone
             and return the response. """
-        import httplib
-        clone = self.clone
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=clone.get_ip(), port=port))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.clone.get_ip(), port=port))
         conn.request(
             method=request.method,
             url=request.url,
