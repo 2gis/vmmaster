@@ -89,7 +89,7 @@ class Database(object):
 
     @transaction
     def update(self, obj, session=None):
-        session.add(obj)
+        session.merge(obj)
         session.commit()
         updated_obj = session.query(type(obj)).filter_by(id=obj.id).first()
         session.flush()
