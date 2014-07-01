@@ -4,7 +4,7 @@ from twisted.internet import threads
 
 from sqlalchemy import create_engine, pool
 from sqlalchemy import Column, Integer, Sequence, String, Float, Enum
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 
 from .config import config
@@ -32,7 +32,7 @@ def threaded_transaction(func):
 
 def transaction(func):
     def wrapper(self, *args, **kwargs):
-        session = sessionmaker(bind=self.engine)()
+        session = self.Session()
         try:
             return func(self, session=session, *args, **kwargs)
         except:
@@ -53,8 +53,9 @@ class Database(object):
             cls._instance = super(Database, cls).__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def __init__(self, connection_string, poolclass=pool.SingletonThreadPool):
-        self.engine = create_engine(connection_string, poolclass=poolclass)
+    def __init__(self, connection_string):
+        self.engine = create_engine(connection_string)
+        self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.Base.metadata.create_all(self.engine)
         from vmmaster import migrations
         migrations.run(connection_string)
