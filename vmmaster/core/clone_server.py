@@ -91,7 +91,7 @@ class RequestHandler(Request):
         d = deferToThread(self.processRequest)
         d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
         d.addBoth(RequestHandler.finish)
-        d.addErrback(lambda failure: RequestHandler.final_exception_handler(self, failure))
+        d.addErrback(lambda failure: RequestHandler.finish_exception_handler(self, failure))
 
     def finish(self):
         self.perform_reply()
@@ -111,7 +111,7 @@ class RequestHandler(Request):
             pass
         return self
 
-    def final_exception_handler(self, failure):
+    def finish_exception_handler(self, failure):
         self.handle_exception(failure)
         self.log_write("%s %s" % (self.clientproto, self._reply_code), str(self._reply_body))
 
