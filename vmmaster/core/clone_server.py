@@ -91,8 +91,7 @@ class RequestHandler(Request):
         d = deferToThread(self.processRequest)
         d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
         d.addBoth(RequestHandler.finish)
-        d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
-        d.addCallback(lambda _: _.log_write("%s %s" % (_.clientproto, _._reply_code), str(_._reply_body)))
+        d.addErrback(lambda failure: RequestHandler.final_exception_handler(self, failure))
 
     def finish(self):
         self.perform_reply()
@@ -111,6 +110,10 @@ class RequestHandler(Request):
         except KeyError:
             pass
         return self
+
+    def final_exception_handler(self, failure):
+        self.handle_exception(failure)
+        self.log_write("%s %s" % (self.clientproto, self._reply_code), str(self._reply_body))
 
     def log_write(self, control_line, body):
         if self.session_id:
