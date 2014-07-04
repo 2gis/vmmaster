@@ -4,8 +4,9 @@ import BaseHTTPServer
 import copy
 
 import vmmaster.core.server.commands
-from vmmaster.core.config import setup_config, config
-from vmmaster.core.clone_factory import CloneFactory
+
+from vmmaster.core.config import setup_config
+from vmmaster.core.clone.clone_factory import CloneFactory
 
 
 def stub():
@@ -115,9 +116,6 @@ class TestCommands(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.stop()
-
-    #def test_create_session(self):
-    #    vmmaster.core.server.commands.create_session(self.create_session_reply_200, self.host, self.port)
 
     def test_session_response_success(self):
         request = self.create_session_reply_200

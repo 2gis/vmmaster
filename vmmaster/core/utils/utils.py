@@ -31,19 +31,10 @@ def convert_img_to_qcow2_origin(img_file, qcow2_origin_name):
 
 
 def clone_qcow2_drive(origin_name, clone_name):
-    clone_path = "{clones_dir}/{clone_name}.qcow2".format(
-        clones_dir=config.CLONES_DIR,
-        clone_name=clone_name
-    )
-    origin_path = "{origins_dir}/{origin_name}.qcow2".format(
-        origins_dir=config.ORIGINS_DIR,
-        origin_name=origin_name,
-    )
+    clone_path = os.path.join(config.CLONES_DIR, "%s.qcow2" % clone_name)
+    origin_path = os.path.join(config.ORIGINS_DIR, origin_name, "drive.qcow2")
 
-    command = commands.clone_qcow2_drive(
-        origin_path,
-        clone_path
-    )
+    command = commands.clone_qcow2_drive(origin_path, clone_path)
     system_utils.run_command(command)
     return clone_path
 

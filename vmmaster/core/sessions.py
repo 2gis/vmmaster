@@ -52,18 +52,24 @@ class ShutdownTimer(object):
 
 
 class Session(object):
+    id = None
+    name = None
+    virtual_machine = None
     timeouted = False
 
     def __init__(self, name=None):
-        db_session = database.createSession(status="running", name=name, time=time.time())
+        self.name = name
+        log.info("starting new session.")
+        db_session = database.createSession(status="running", name=self.name, time=time.time())
         self.id = db_session.id
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
+        log.info("session %s started." % self.id)
 
     def delete(self):
         log.debug("deleting session: %s" % self.id)
-        if hasattr(self, "clone"):
-            dispatcher.send(signal=Signals.DELETE_CLONE, sender=self, clone=self.clone)
+        if self.virtual_machine:
+            self.virtual_machine.delete()
 
         dispatcher.send(signal=Signals.DELETE_SESSION, sender=self, session_id=str(self.id))
 
@@ -92,7 +98,7 @@ class Session(object):
     def make_request(self, port, request):
         """ Make request to selenium-server-standalone
             and return the response. """
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.clone.get_ip(), port=port))
+        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.virtual_machine.ip, port=port))
         conn.request(
             method=request.method,
             url=request.url,

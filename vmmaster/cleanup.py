@@ -4,12 +4,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from vmmaster.console.init import home_dir
+from vmmaster.core.utils.init import home_dir
 from vmmaster.core.config import setup_config, config
-from vmmaster.core.db import Session, LogStep
-from vmmaster.utils.utils import rm, change_user_vmmaster
-
 setup_config('%s/config.py' % home_dir())
+from vmmaster.core.db import Session, LogStep
+from vmmaster.core.utils.utils import rm, change_user_vmmaster
 
 
 def delete_screenshot(log_step):
@@ -50,6 +49,8 @@ def delete_old(session, old_ones):
 
 def run():
     change_user_vmmaster()
+    print 111
+    print config
     engine = create_engine(config.DATABASE)
     session = sessionmaker(bind=engine)()
     try:

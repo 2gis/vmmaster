@@ -40,7 +40,6 @@ class NetworkXml(object):
         dhcp_element = xml.getElementsByTagName('dhcp')[0]
         for raw in self.table:
             host = xml.createElement('host')
-            # host.setAttribute('name', str(raw["name"]))
             host.setAttribute('mac', str(raw["mac"]))
             host.setAttribute('ip', str(raw["ip"]))
             dhcp_element.appendChild(host)

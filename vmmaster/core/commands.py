@@ -28,9 +28,8 @@ def create_session(self):
 
     platform = get_platform(self)
     replace_platform_with_any(self)
-    clone = self.clone_factory.create_clone(platform)
-    self.session.clone = clone
-    self.session.clone_factory = self.clone_factory
+    vm = self.platforms.create(platform)
+    self.session.virtual_machine = vm
 
     # ping ip:port
     network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT)

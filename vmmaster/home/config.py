@@ -13,9 +13,9 @@ class Config(object):
     SCREENSHOTS_DIR = BASEDIR + "/screenshots"
     SCREENSHOTS_DAYS = 7
 
-    # clones related stuff
-    MAX_CLONE_COUNT = 2
-    CLONE_TIMEOUT = 360
+    # vm related stuff
+    MAX_VM_COUNT = 2
+    SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 
     # additional logging

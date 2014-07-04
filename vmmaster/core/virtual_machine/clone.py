@@ -2,22 +2,25 @@ from xml.dom import minidom
 
 import virtinst.util
 
-from vmmaster.core.dumpxml import dumpxml
-from vmmaster.core.network.network import Network
-from vmmaster.core.connection import Virsh
-from vmmaster.core.logger import log
-from vmmaster.core.utils import utils
+from ..dumpxml import dumpxml
+from ..network.network import Network
+from ..connection import Virsh
+from ..logger import log
+from ..utils import utils
+from .virtual_machine import VirtualMachine
 
 
-class Clone(object):
-    def __init__(self, number, platform):
+class Clone(VirtualMachine):
+    def __init__(self, number, origin):
         self.number = number
-        self.platform = platform
+        self.origin = origin
+        self.platform = origin.name
         self.name = self.platform + "-clone" + str(self.number)
         self.conn = Virsh()
         self.network = Network()
 
     def delete(self):
+        super(Clone, self).delete()
         log.info("deleting clone: {}".format(self.name))
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
@@ -33,14 +36,14 @@ class Clone(object):
 
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
-        self.__ip = self.__network_ip()
+        self.ip = self.__network_ip()
         log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.get_ip()))
         return self
 
     def clone_origin(self, origin_name):
         self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
 
-        origin_dumpxml = self.get_origin_dumpxml(origin_name)
+        origin_dumpxml = minidom.parseString(self.origin.settings)
         self.dumpxml = self.create_dumpxml(origin_dumpxml)
         clone_dumpxml_file = utils.write_clone_dumpxml(self.name, self.dumpxml)
 
@@ -109,13 +112,11 @@ class Clone(object):
         return self.get_virtual_machine_dumpxml(origin_name)
 
     def __network_ip(self):
-        # xml = self.get_virtual_machine_dumpxml(self.name)
-        # mac = dumpxml.get_mac(xml)
         mac = self.__mac
         return self.network.get_ip(mac)
 
     def get_ip(self):
-        return self.__ip
+        return self.ip
 
     @property
     def vnc_port(self):

@@ -13,7 +13,7 @@ class Config(object):
 
     # clones related stuff
     ORIGIN_POSTFIX = "origin"
-    MAX_CLONE_COUNT = 2
+    MAX_VM_COUNT = 2
     CLONE_TIMEOUT = 360
     PING_TIMEOUT = 180
 

@@ -60,7 +60,7 @@ def ping(session, port, timeout=180):
 
         return s
 
-    ip = session.clone.get_ip()
+    ip = session.virtual_machine.ip
     session.timer.restart()
     log.info("starting ping: {ip}:{port}".format(ip=ip, port=port))
     start = time.time()

@@ -1,6 +1,6 @@
 import unittest
 
-from vmmaster.core.clone_factory import CloneList
+from vmmaster.core.clone.clone_factory import CloneList
 from vmmaster.core.clone import Clone
 from vmmaster.core.config import setup_config, config
 

@@ -1,4 +1,3 @@
-import httplib
 import copy
 import time
 import base64
@@ -45,7 +44,7 @@ class RequestHandler(Request):
 
     def __init__(self, *args):
         Request.__init__(self, *args)
-        self.clone_factory = self.channel.factory.clone_factory
+        self.platforms = self.channel.factory.platforms
         self.sessions = self.channel.factory.sessions
 
     @property
@@ -127,8 +126,8 @@ class RequestHandler(Request):
         return None
 
     def take_screenshot(self):
-        clone = self.sessions.get_session(self.session_id).clone
-        screenshot = commands.take_screenshot(clone.get_ip(), 9000)
+        vm = self.sessions.get_session(self.session_id).virtual_machine
+        screenshot = commands.take_screenshot(vm.ip, 9000)
 
         path = config.SCREENSHOTS_DIR + "/" + str(self.session_id) + "/" + str(self._log_step.id) + ".png"
         write_file(path, base64.b64decode(screenshot))
@@ -241,11 +240,11 @@ class RequestProxy(Proxy):
     requestFactory = RequestHandler
 
 
-class ProxyFactory(HTTPFactory):
+class PlatformServer(HTTPFactory):
     log = lambda *args: None
     protocol = RequestProxy
 
-    def __init__(self, clone_factory, sessions):
+    def __init__(self, platforms, sessions):
         HTTPFactory.__init__(self)
-        self.clone_factory = clone_factory
+        self.platforms = platforms
         self.sessions = sessions

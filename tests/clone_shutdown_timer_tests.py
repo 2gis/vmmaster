@@ -1,9 +1,8 @@
 import unittest
-import libvirt
 
-from vmmaster.core.clone_factory import CloneShutdownTimer
+from vmmaster.core.clone.clone_factory import CloneShutdownTimer
 from vmmaster.core.clone import Clone
-from vmmaster.core.config import setup_config, config
+from vmmaster.core.config import setup_config
 
 
 def nothing():
