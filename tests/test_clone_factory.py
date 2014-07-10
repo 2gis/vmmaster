@@ -6,7 +6,7 @@ from vmmaster.core.config import setup_config, config
 from vmmaster.core.platform import Platforms
 
 
-class TestCloneFactory(unittest.TestCase):
+class TestCloneFactoryCreate(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
         config.MAX_VM_COUNT = 5
@@ -63,3 +63,20 @@ class TestCloneFactory(unittest.TestCase):
 
         self.assertEqual(len(self.clone_factory.clone_list.clones), len(clones))
         self.assertEqual(sorted(self.clone_factory.clone_list.clones), sorted(clones))
+
+
+class TestCloneFactoryDelete(unittest.TestCase):
+    def setUp(self):
+        setup_config('data/config.py')
+        config.MAX_VM_COUNT = 5
+        self.clone_factory = CloneFactory()
+        platforms = Platforms()
+        self.origin1 = platforms.platforms.values()[0]
+        self.origin2 = platforms.platforms.values()[1]
+        platforms.delete()
+
+    def test_clone_factory_delete(self):
+        clones = [self.clone_factory.create_clone(self.origin1) for i in range(3)]
+        [clone.delete() for clone in clones]
+        self.clone_factory.delete()
+        self.assertEqual([], self.clone_factory.clone_list.clones)
