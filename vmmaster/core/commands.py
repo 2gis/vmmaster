@@ -31,12 +31,7 @@ def create_session(self):
     vm = self.platforms.create(platform)
     self.session.virtual_machine = vm
 
-    # ping ip:port
-    network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT)
-
-    # check status
-    if not selenium_status(self, self.session, config.SELENIUM_PORT):
-        raise StatusException("failed to get status of selenium-server-standalone")
+    check_vm_online(self)
 
     status, headers, body = start_selenium_session(self, self.session, config.SELENIUM_PORT)
 
@@ -46,6 +41,15 @@ def create_session(self):
     headers["content-length"] = len(body)
 
     self.form_reply(status, headers, body)
+
+
+def check_vm_online(self):
+    # ping ip:port
+    network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT)
+
+    # check status
+    if not selenium_status(self, self.session, config.SELENIUM_PORT):
+        raise StatusException("failed to get status of selenium-server-standalone")
 
 
 def start_selenium_session(self, session, port):

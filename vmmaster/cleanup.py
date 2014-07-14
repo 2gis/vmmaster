@@ -49,8 +49,6 @@ def delete_old(session, old_ones):
 
 def run():
     change_user_vmmaster()
-    print 111
-    print config
     engine = create_engine(config.DATABASE)
     session = sessionmaker(bind=engine)()
     try:

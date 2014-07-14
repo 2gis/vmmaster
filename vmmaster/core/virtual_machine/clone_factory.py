@@ -60,14 +60,13 @@ class CloneFactory(object):
 
     def create_clone(self, origin):
         clone = Clone(self.clone_list.get_free_clone_number(), origin)
-        self.clone_list.add_clone(clone)
-
         try:
             clone = clone.create()
         except Exception:
             clone.delete()
             raise
 
+        self.clone_list.add_clone(clone)
         return clone
 
     def __remove_clone(self, sender):

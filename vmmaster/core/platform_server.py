@@ -105,9 +105,11 @@ class RequestHandler(Request):
         log.error(tb)
         self.form_reply(code=500, headers={}, body=tb)
         try:
-            self.sessions.get_session(self.session_id).failed(tb)
+            session = self.sessions.get_session(self.session_id)
         except KeyError:
             pass
+        else:
+            session.failed(tb)
         return self
 
     def finish_exception_handler(self, failure):
@@ -206,7 +208,7 @@ class RequestHandler(Request):
     def do_POST(self):
         """POST request."""
         if self.path.split("/")[-1] == "session":
-            commands.create_session(self)
+            self.session = commands.create_session(self)
         else:
             self.transparent("POST")
 

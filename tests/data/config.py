@@ -11,10 +11,12 @@ class Config(object):
     SESSION_DIR = BASE_DIR + "/session"
     LOG_DIR = BASE_DIR + "/log"
 
+    SCREENSHOTS_DIR = BASE_DIR + "/screenshots"
+
     # clones related stuff
     ORIGIN_POSTFIX = "origin"
     MAX_VM_COUNT = 2
-    CLONE_TIMEOUT = 360
+    SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 
     SELENIUM_PORT = "4455"

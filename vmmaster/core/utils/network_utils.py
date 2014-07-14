@@ -39,27 +39,28 @@ def get_ip_by_mac(mac):
     return line.split(" ")[0]
 
 
+def get_socket(host, port):
+    s = None
+
+    for res in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+        af, socktype, proto, canonname, sa = res
+        try:
+            s = socket.socket(af, socktype, proto)
+        except socket.error:
+            s = None
+            continue
+        try:
+            s = socket.create_connection(sa, timeout=0.1)
+        except socket.error:
+            s.close()
+            s = None
+            continue
+        break
+
+    return s
+
+
 def ping(session, port, timeout=180):
-    def get_socket(host, port):
-        s = None
-
-        for res in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM):
-            af, socktype, proto, canonname, sa = res
-            try:
-                s = socket.socket(af, socktype, proto)
-            except socket.error as msg:
-                s = None
-                continue
-            try:
-                s = socket.create_connection(sa, timeout=0.1)
-            except socket.error as msg:
-                s.close()
-                s = None
-                continue
-            break
-
-        return s
-
     ip = session.virtual_machine.ip
     session.timer.restart()
     log.info("starting ping: {ip}:{port}".format(ip=ip, port=port))
@@ -72,7 +73,7 @@ def ping(session, port, timeout=180):
         s = get_socket(ip, port)
         if time.time() - start > timeout:
             log.info("ping failed: timeout {ip}:{port}".format(ip=ip, port=port))
-            return 1
+            return False
 
     log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
-    return 0
+    return True

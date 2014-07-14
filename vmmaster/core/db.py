@@ -124,6 +124,3 @@ class LogStep(Database.Base):
     body = Column(String)
     screenshot = Column(String)
     time = Column(Float)
-
-
-database = Database(config.DATABASE)

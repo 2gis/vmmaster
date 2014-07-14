@@ -32,7 +32,7 @@ class Platforms(object):
 
     def __init__(self):
         self.clone_factory = CloneFactory()
-        self.__vm_count = 0
+        self.vm_count = 0
         self._load_platforms()
         dispatcher.connect(self.__remove_vm, signal=Signals.DELETE_VIRTUAL_MACHINE, sender=dispatcher.Any)
 
@@ -54,25 +54,21 @@ class Platforms(object):
             raise PlatformException("no such platform")
 
     def _check_vm_count(self):
-        if self.__vm_count == config.MAX_VM_COUNT:
+        if self.vm_count == config.MAX_VM_COUNT:
             raise PlatformException("maximum count of virtual machines already running")
-
-    @property
-    def vm_count(self):
-        return self.__vm_count
 
     def create(self, platform):
         self._check_platform(platform)
         self._check_vm_count()
 
-        self.__vm_count += 1
+        self.vm_count += 1
         platform = self.platforms.get(platform)
         try:
             vm = platform.get()
             return vm
         except:
-            self.__vm_count -= 1
+            self.vm_count -= 1
             raise
 
     def __remove_vm(self):
-        self.__vm_count -= 1
+        self.vm_count -= 1

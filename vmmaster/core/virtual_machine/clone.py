@@ -11,6 +11,13 @@ from .virtual_machine import VirtualMachine
 
 
 class Clone(VirtualMachine):
+    name = None
+    mac = None
+    ip = None
+
+    dumpxml_file = None
+    driver_path = None
+
     def __init__(self, number, origin):
         self.number = number
         self.origin = origin
@@ -27,7 +34,7 @@ class Clone(VirtualMachine):
         domain = self.conn.lookupByName(self.name)
         domain.destroy()
         domain.undefine()
-        self.network.append_free_mac(self.__mac)
+        self.network.append_free_mac(self.mac)
 
     def create(self):
         log.info("creating clone of {platform}".format(platform=self.platform))
@@ -36,16 +43,16 @@ class Clone(VirtualMachine):
 
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
-        self.ip = self.__network_ip()
-        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.get_ip()))
+        self.ip = self.network.get_ip(self.mac)
+        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.ip))
         return self
 
     def clone_origin(self, origin_name):
         self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
 
         origin_dumpxml = minidom.parseString(self.origin.settings)
-        self.dumpxml = self.create_dumpxml(origin_dumpxml)
-        clone_dumpxml_file = utils.write_clone_dumpxml(self.name, self.dumpxml)
+        dumpxml = self.create_dumpxml(origin_dumpxml)
+        clone_dumpxml_file = utils.write_clone_dumpxml(self.name, dumpxml)
 
         return clone_dumpxml_file
 
@@ -59,8 +66,8 @@ class Clone(VirtualMachine):
         dumpxml.set_uuid(clone_xml, uuid)
 
         # setting mac
-        self.__mac = self.network.get_free_mac()
-        dumpxml.set_mac(clone_xml, self.__mac)
+        self.mac = self.network.get_free_mac()
+        dumpxml.set_mac(clone_xml, self.mac)
 
         # setting drive file
         dumpxml.set_disk_file(clone_xml, self.drive_path)
@@ -110,13 +117,6 @@ class Clone(VirtualMachine):
 
     def get_origin_dumpxml(self, origin_name):
         return self.get_virtual_machine_dumpxml(origin_name)
-
-    def __network_ip(self):
-        mac = self.__mac
-        return self.network.get_ip(mac)
-
-    def get_ip(self):
-        return self.ip
 
     @property
     def vnc_port(self):

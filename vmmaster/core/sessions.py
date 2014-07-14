@@ -57,7 +57,8 @@ class Session(object):
     virtual_machine = None
     timeouted = False
 
-    def __init__(self, name=None):
+    def __init__(self, sessions, name=None):
+        self.sessions = sessions
         self.name = name
         log.info("starting new session.")
         db_session = database.createSession(status="running", name=self.name, time=time.time())
@@ -70,9 +71,9 @@ class Session(object):
         log.debug("deleting session: %s" % self.id)
         if self.virtual_machine:
             self.virtual_machine.delete()
+            self.virtual_machine = None
 
-        dispatcher.send(signal=Signals.DELETE_SESSION, sender=self, session_id=str(self.id))
-
+        self.sessions.delete_session(self.id)
         self.timer.stop()
         del self.timer
         log.debug("session %s deleted." % self.id)
@@ -82,7 +83,6 @@ class Session(object):
         db_session.status = "succeed"
         database.update(db_session)
         self.delete()
-        del self
 
     def failed(self, tb):
         db_session = database.getSession(self.id)
@@ -90,7 +90,6 @@ class Session(object):
         db_session.error = tb
         database.update(db_session)
         self.delete()
-        del self
 
     def timeout(self):
         self.timeouted = True
@@ -123,22 +122,26 @@ class Session(object):
 
 class Sessions(object):
     def __init__(self):
-        dispatcher.connect(self.__delete_session, signal=Signals.DELETE_SESSION, sender=dispatcher.Any)
+        # dispatcher.connect(self.__delete_session, signal=Signals.DELETE_SESSION, sender=dispatcher.Any)
         self.map = {}
+
+    def __del__(self):
+        pass
+        # dispatcher.disconnect(self.__delete_session, signal=Signals.DELETE_SESSION, sender=dispatcher.Any)
 
     def delete(self):
         session_ids = [session_id for session_id in self.map]
         for session_id in session_ids:
             session = self.get_session(session_id)
-            del session
+            session.delete()
 
     def start_session(self, session_name):
-        session = Session(session_name)
+        session = Session(self, session_name)
         self.map[str(session.id)] = session
         return session
 
     def get_session(self, session_id):
         return self.map[session_id]
 
-    def __delete_session(self, session_id):
-        del self.map[session_id]
+    def delete_session(self, session_id):
+        del self.map[str(session_id)]
