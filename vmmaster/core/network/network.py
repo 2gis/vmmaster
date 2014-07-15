@@ -1,5 +1,5 @@
-import virtinst.util
 import libvirt
+from uuid import uuid4
 
 from vmmaster.core.network.network_xml import NetworkXml
 from vmmaster.core.network.mac_ip_table import MacIpTable
@@ -18,8 +18,7 @@ class Network(MacIpTable):
             super(Network, self).__init__()
 
             self.name = "session_network"
-            u = virtinst.util.randomUUID()
-            self.uuid = virtinst.util.uuidToString(u)
+            self.uuid = uuid4()
             self.bridge_name = "virbr2"
             self.dumpxml_file = NetworkXml(self.name, self.uuid, self.bridge_name, self.free_table).xml.toprettyxml()
             self.conn = Virsh()

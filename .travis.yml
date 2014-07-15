@@ -1,10 +1,11 @@
 language: python
 python:
-  - "2.6"
-  - "2.7"
-  - "3.2"
-  - "3.3"
+  - 2.7
 install:
-  - "pip install mock"
-  - "pip install git+https://github.com/nwlunatic/lode_runner"
-script: lode_runner tests/
+  - sudo apt-get install -qq python-libvirt
+  - cp /usr/lib/python2.7/dist-packages/libvirt* ~/virtualenv/python2.7/lib/python2.7/site-packages/
+  - pip install mock
+  - pip install human_curl
+  - pip install git+https://github.com/nwlunatic/lode_runner
+  - pip install -r requirements.txt
+script: PYTHONPATH=`pwd` lode_runner tests/

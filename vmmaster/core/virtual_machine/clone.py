@@ -1,6 +1,5 @@
 from xml.dom import minidom
-
-import virtinst.util
+from uuid import uuid4
 
 from ..dumpxml import dumpxml
 from ..network.network import Network
@@ -24,7 +23,6 @@ class Clone(VirtualMachine):
         self.platform = origin.name
         self.name = self.platform + "-clone" + str(self.number)
         self.conn = Virsh()
-        print self.conn
         self.network = Network()
 
     def delete(self):
@@ -62,9 +60,7 @@ class Clone(VirtualMachine):
         dumpxml.set_name(clone_xml, self.name)
 
         # setting uuid
-        u = virtinst.util.randomUUID()
-        uuid = virtinst.util.uuidToString(u)
-        dumpxml.set_uuid(clone_xml, uuid)
+        dumpxml.set_uuid(clone_xml, uuid4())
 
         # setting mac
         self.mac = self.network.get_free_mac()
