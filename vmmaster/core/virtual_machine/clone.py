@@ -24,10 +24,10 @@ class Clone(VirtualMachine):
         self.platform = origin.name
         self.name = self.platform + "-clone" + str(self.number)
         self.conn = Virsh()
+        print self.conn
         self.network = Network()
 
     def delete(self):
-        super(Clone, self).delete()
         log.info("deleting clone: {}".format(self.name))
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
@@ -35,6 +35,7 @@ class Clone(VirtualMachine):
         domain.destroy()
         domain.undefine()
         self.network.append_free_mac(self.mac)
+        super(Clone, self).delete()
 
     def create(self):
         log.info("creating clone of {platform}".format(platform=self.platform))

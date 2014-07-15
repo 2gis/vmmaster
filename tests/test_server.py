@@ -12,9 +12,9 @@ from vmmaster.core.config import setup_config
 from vmmaster.core import db
 db.database = Mock()
 from vmmaster.core import connection
-connection.Virsh = Mock()
+connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network
-network.Network = Mock()
+network.Network.__new__ = Mock()
 from vmmaster.core.platform_server import RequestHandler
 RequestHandler.take_screenshot = Mock()
 from vmmaster.core.virtual_machine.clone import Clone

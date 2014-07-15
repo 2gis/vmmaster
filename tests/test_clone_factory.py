@@ -1,9 +1,23 @@
 import unittest
 
+from mock import Mock
+
 from vmmaster.core.virtual_machine.clone_factory import CloneFactory
-from vmmaster.core.virtual_machine.clone import Clone
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.platform import Platforms
+
+# Mocking
+from vmmaster.core import connection
+connection.Virsh.__new__ = Mock()
+from vmmaster.core.network import network
+network.Network.__new__ = Mock()
+from vmmaster.core.virtual_machine.clone import Clone
+Clone.clone_origin = Mock()
+Clone.define_clone = Mock()
+Clone.start_virtual_machine = Mock()
+Clone.drive_path = Mock()
+from vmmaster.core.utils import utils
+utils.delete_file = Mock()
 
 
 class TestCloneFactoryCreate(unittest.TestCase):

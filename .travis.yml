@@ -1,0 +1,10 @@
+nguage: python
+python:
+  - "2.6"
+  - "2.7"
+  - "3.2"
+  - "3.3"
+install:
+  - "pip install mock"
+  - "pip install git+https://github.com/nwlunatic/lode_runner"
+script: lode_runner tests/
