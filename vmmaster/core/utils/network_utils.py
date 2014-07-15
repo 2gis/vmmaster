@@ -50,7 +50,7 @@ def get_socket(host, port):
             s = None
             continue
         try:
-            s = socket.create_connection(sa, timeout=0.1)
+            s = socket.create_connection((host, port), timeout=0.1)
         except socket.error:
             s.close()
             s = None

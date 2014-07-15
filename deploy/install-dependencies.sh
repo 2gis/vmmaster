@@ -1,4 +1,4 @@
 #!/bin/bash
 
 # install dependencies
-sudo apt-get install daemon python-pip python-dev python-libvirt virtinst virt-viewer
+sudo apt-get install python-pip python-dev python-libvirt virtinst libvirt-bin libvirt-dev kvm
