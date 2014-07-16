@@ -2,7 +2,6 @@ import time
 import httplib
 from threading import Timer
 
-from .dispatcher import dispatcher, Signals
 from .db import database
 from .config import config
 from .logger import log
