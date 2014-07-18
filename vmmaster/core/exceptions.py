@@ -1,3 +1,6 @@
+from libvirt import libvirtError
+
+
 class PlatformException(Exception):
     pass
 
