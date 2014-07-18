@@ -88,7 +88,10 @@ def delete_session_data(session, db_session=None):
         db_session.delete(logstep)
     db_session.delete(session)
     db_session.commit()
-    os.rmdir(os.path.join(config.SCREENSHOTS_DIR, str(session.id)))
+    try:
+        os.rmdir(os.path.join(config.SCREENSHOTS_DIR, str(session.id)))
+    except OSError:
+        pass
 
 
 def old_log_steps(session, _old_sessions):
