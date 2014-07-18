@@ -16,14 +16,57 @@ class TestCloneList(unittest.TestCase):
         platforms.delete()
         self.clone_list = CloneList()
 
-    def test_clone_numbers(self):
-        clones = [Clone(self.clone_list.get_free_clone_number(), self.origin1) for i in range(5)]
-        clone_numbers = [clone.number for clone in clones]
-        self.assertEquals(clone_numbers, [0, 1, 2, 3, 4])
+    def test_get_clone_number_no_clones(self):
+        clone = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        self.assertEquals(0, clone.number)
 
-    def test_clone_add(self):
-        clones = [Clone(self.clone_list.get_free_clone_number(), self.origin1) for i in range(5)]
+    def test_get_clone_number_one_clone(self):
+        self.clone_list.add_clone(Clone(0, self.origin1))
+        clone = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        self.assertEquals(1, clone.number)
+
+    def test_add_clone(self):
+        clones = [Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1) for i in range(5)]
         for clone in clones:
             self.clone_list.add_clone(clone)
 
         self.assertEquals(self.clone_list.total_count, 5)
+
+    def test_get_clone_number_several_clones(self):
+        for i in range(3):
+            clone = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+            self.clone_list.add_clone(clone)
+
+        clones_numbers = [clone.number for clone in self.clone_list.clones]
+        self.assertEquals([0, 1, 2], clones_numbers)
+
+    def test_get_clone_number_after_deletion(self):
+        self.clone_list.add_clone(Clone(0, self.origin1))
+        clone1 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        self.clone_list.add_clone(clone1)
+        self.clone_list.remove_clone(clone1)
+        clone2 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        self.assertEquals(1, clone2.number)
+
+    def test_get_clone_number_after_deletion_empty_list(self):
+        clone1 = Clone(0, self.origin1)
+        self.clone_list.add_clone(clone1)
+        self.clone_list.remove_clone(clone1)
+        clone2 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        self.assertEquals(0, clone2.number)
+
+    def test_get_clone_number_different_platforms(self):
+        clone_origin1_0 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        clone_origin2_0 = Clone(self.clone_list.get_clone_number(self.origin2.name), self.origin2)
+        self.assertEquals(0, clone_origin1_0.number)
+        self.assertEquals(0, clone_origin2_0.number)
+
+    def test_get_clone_number_different_platforms_several_clones(self):
+        clone_origin1_0 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        clone_origin2_0 = Clone(self.clone_list.get_clone_number(self.origin2.name), self.origin2)
+        self.clone_list.add_clone(clone_origin1_0)
+        self.clone_list.add_clone(clone_origin2_0)
+        clone_origin1_1 = Clone(self.clone_list.get_clone_number(self.origin1.name), self.origin1)
+        clone_origin2_1 = Clone(self.clone_list.get_clone_number(self.origin2.name), self.origin2)
+        self.assertEquals(1, clone_origin1_1.number)
+        self.assertEquals(1, clone_origin2_1.number)

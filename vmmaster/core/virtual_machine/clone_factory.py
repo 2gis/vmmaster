@@ -19,7 +19,6 @@ class CloneList(object):
     def remove_clone(self, clone):
         if self.__clones.get(clone.platform, None):
             self.__clones[clone.platform].remove(clone)
-        self.add_free_clone_number(clone.number)
 
     @property
     def clones(self):
@@ -37,11 +36,11 @@ class CloneList(object):
     def total_count(self):
         return len(self.clones)
 
-    def get_free_clone_number(self):
-        return self.__clone_numbers.pop()
-
-    def add_free_clone_number(self, number):
-        self.__clone_numbers.append(number)
+    def get_clone_number(self, platform):
+        if self.__clones.get(platform, None):
+            return len(self.__clones.get(platform))
+        else:
+            return 0
 
 
 class CloneFactory(object):
@@ -60,7 +59,7 @@ class CloneFactory(object):
         dispatcher.disconnect(self.__remove_clone, signal=Signals.DELETE_VIRTUAL_MACHINE, sender=dispatcher.Any)
 
     def create_clone(self, origin):
-        clone = Clone(self.clone_list.get_free_clone_number(), origin)
+        clone = Clone(self.clone_list.get_clone_number(origin.name), origin)
         try:
             clone = clone.create()
         except Exception:
