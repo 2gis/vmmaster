@@ -61,7 +61,7 @@ class Session(object):
         self.name = name
         log.info("starting new session.")
         db_session = database.createSession(status="running", name=self.name, time=time.time())
-        self.id = db_session.id
+        self.id = str(db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
         log.info("session %s started." % self.id)
