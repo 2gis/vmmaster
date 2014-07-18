@@ -17,7 +17,8 @@ class CloneList(object):
         self.__clones[clone.platform].append(clone)
 
     def remove_clone(self, clone):
-        self.__clones[clone.platform].remove(clone)
+        if self.__clones.get(clone.platform, None):
+            self.__clones[clone.platform].remove(clone)
         self.add_free_clone_number(clone.number)
 
     @property

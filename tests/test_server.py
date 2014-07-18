@@ -33,7 +33,7 @@ from vmmaster.core.utils.network_utils import get_socket
 
 
 def new_session_request(address, desired_caps):
-    request('POST', "http://%s:%s/wd/hub/session" % address, data=json.dumps(desired_caps))
+    return request('POST', "http://%s:%s/wd/hub/session" % address, data=json.dumps(desired_caps))
 
 
 def server_is_up(address):

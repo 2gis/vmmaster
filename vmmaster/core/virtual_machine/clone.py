@@ -6,6 +6,7 @@ from ..network.network import Network
 from ..connection import Virsh
 from ..logger import log
 from ..utils import utils
+from ..exceptions import libvirtError
 from .virtual_machine import VirtualMachine
 
 
@@ -30,7 +31,11 @@ class Clone(VirtualMachine):
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
         domain = self.conn.lookupByName(self.name)
-        domain.destroy()
+        try:
+            domain.destroy()
+        except libvirtError:
+            # not running
+            pass
         domain.undefine()
         self.network.append_free_mac(self.mac)
         super(Clone, self).delete()
