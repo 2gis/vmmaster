@@ -40,7 +40,7 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(logdir, "vmmaster.log"), maxBytes=5242880, backupCount=5
+            os.path.join(logdir, "vmmaster.log"), maxBytes=config.LOG_SIZE, backupCount=5
         )
         txt_handler.setFormatter(log_formatter)
         log.addHandler(txt_handler)

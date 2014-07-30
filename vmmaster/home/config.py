@@ -9,9 +9,14 @@ class Config(object):
     CLONES_DIR = BASEDIR + "/clones"
     ORIGINS_DIR = BASEDIR + "/origins"
     SESSION_DIR = BASEDIR + "/session"
-    LOG_DIR = BASEDIR + "/log"
+
+    # screenshots
     SCREENSHOTS_DIR = BASEDIR + "/screenshots"
     SCREENSHOTS_DAYS = 7
+
+    # logging
+    LOG_DIR = BASEDIR + "/log"
+    LOG_SIZE = 5242880
 
     # vm related stuff
     MAX_VM_COUNT = 2
