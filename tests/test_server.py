@@ -1,6 +1,6 @@
 import unittest
 import json
-import httplib
+import time
 
 from mock import Mock
 from nose.twistedtools import reactor
@@ -30,6 +30,7 @@ utils.delete_file = Mock()
 
 from vmmaster.server import VMMasterServer
 from vmmaster.core.utils.network_utils import get_socket
+from vmmaster.core.sessions import Session
 
 
 def new_session_request(address, desired_caps):
@@ -37,7 +38,6 @@ def new_session_request(address, desired_caps):
 
 
 def server_is_up(address):
-    import time
     s = get_socket(address[0], address[1])
     time_start = time.time()
     timeout = 5
@@ -61,6 +61,7 @@ class TestServer(unittest.TestCase):
         server_is_up(self.address)
 
     def tearDown(self):
+        Session.timeouted = False
         del self.server
 
     def test_server_create_new_session_ok(self):
@@ -68,8 +69,31 @@ class TestServer(unittest.TestCase):
         vm_count = self.server.platforms.vm_count
         self.assertEqual(1, vm_count)
 
+    def test_server_too_many_vm_running(self):
+        new_session_request(self.address, self.desired_caps)
+        new_session_request(self.address, self.desired_caps)
+        new_session_request(self.address, self.desired_caps)
+        vm_count = self.server.platforms.vm_count
+        self.assertEqual(2, vm_count)
+
+
+class TestTimeoutSession(unittest.TestCase):
+    def setUp(self):
+        setup_config('data/config.py')
+        self.address = ("localhost", 9000)
+        self.server = VMMasterServer(reactor, self.address[1])
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': self.server.platforms.platforms.keys()[0]
+            }
+        }
+        server_is_up(self.address)
+
+    def tearDown(self):
+        Session.timeouted = False
+        del self.server
+
     def test_server_delete_timeouted_session(self):
-        from vmmaster.core.sessions import Session
         Session.timeouted = True
 
         self.assertEqual(0, self.server.platforms.vm_count)
@@ -96,8 +120,6 @@ class TestServerShutdown(unittest.TestCase):
         del self.server
 
     def test_server_shutdown_delete_sessions(self):
-        from vmmaster.core.sessions import Session
-        Session.timeouted = False
         new_session_request(self.address, self.desired_caps)
 
         sessions = self.server.sessions.map

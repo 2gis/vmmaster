@@ -140,7 +140,7 @@ class Sessions(object):
         return session
 
     def get_session(self, session_id):
-        return self.map[session_id]
+        return self.map[str(session_id)]
 
     def delete_session(self, session_id):
         del self.map[str(session_id)]
