@@ -14,6 +14,8 @@ Options:
   -v --version  Show version.
 """
 
+import os
+
 from twisted.internet import reactor
 from docopt import docopt
 
@@ -48,7 +50,7 @@ if __name__ == '__main__':
         init()
 
     if arguments['--daemon'] is True:
-        daemon = VMMasterDaemon('/var/run/vmmaster.pid')
+        daemon = VMMasterDaemon(os.path.join(home_dir(), 'vmmaster.pid'))
         daemon.start()
     else:
         main()
