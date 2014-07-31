@@ -16,7 +16,7 @@ class Clone(VirtualMachine):
     ip = None
 
     dumpxml_file = None
-    driver_path = None
+    drive_path = None
 
     def __init__(self, number, origin):
         self.number = number
@@ -30,14 +30,18 @@ class Clone(VirtualMachine):
         log.info("deleting clone: {}".format(self.name))
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
-        domain = self.conn.lookupByName(self.name)
         try:
+            domain = self.conn.lookupByName(self.name)
             domain.destroy()
+            domain.undefine()
         except libvirtError:
             # not running
             pass
-        domain.undefine()
-        self.network.append_free_mac(self.mac)
+        try:
+            self.network.append_free_mac(self.mac)
+        except ValueError, e:
+            log.warning(e)
+            pass
         super(Clone, self).delete()
 
     def create(self):

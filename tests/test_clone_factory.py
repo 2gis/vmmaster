@@ -78,6 +78,18 @@ class TestCloneFactoryCreate(unittest.TestCase):
         self.assertEqual(len(self.clone_factory.clone_list.clones), len(clones))
         self.assertEqual(sorted(self.clone_factory.clone_list.clones), sorted(clones))
 
+    def test_parallel_clone_creation(self):
+        from multiprocessing.pool import ThreadPool
+        pool = ThreadPool(processes=1)
+        deffered1 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, ))
+        deffered2 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, ))
+        clone1 = deffered1.get()
+        clone2 = deffered2.get()
+        clones = [clone1, clone2]
+
+        self.assertEqual(len(self.clone_factory.clone_list.clones), len(clones))
+        self.assertEqual(sorted(self.clone_factory.clone_list.clones), sorted(clones))
+
 
 class TestCloneFactoryDelete(unittest.TestCase):
     def setUp(self):
