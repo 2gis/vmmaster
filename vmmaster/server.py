@@ -41,6 +41,8 @@ class VMMasterServer(object):
         self.sessions.delete()
         self.platforms.delete()
         self.network.delete()
+        log.info("Server gracefully shut down.")
 
     def run(self):
         self.reactor.run()
+        del self
