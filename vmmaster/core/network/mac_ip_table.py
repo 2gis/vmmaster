@@ -54,7 +54,7 @@ class MacIpTable(object):
             if raw['mac'] == mac:
                 return raw
 
-        raise NoMacError
+        raise ValueError("no mac %s in table %s" % (repr(mac), repr(table)))
 
     def append_free_mac(self, mac):
         try:

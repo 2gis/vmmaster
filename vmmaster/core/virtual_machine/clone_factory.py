@@ -1,8 +1,17 @@
+from uuid import uuid4
+
 from .clone import Clone
 
 from ..config import config
 from ..logger import log
 from ..dispatcher import dispatcher, Signals
+
+
+class Reservation(object):
+    number = None
+
+    def __eq__(self, other):
+        return self.number == other
 
 
 class CloneList(object):
@@ -11,10 +20,8 @@ class CloneList(object):
         self.__clone_numbers = [i for i in reversed(range(0, config.MAX_VM_COUNT))]
 
     def add_clone(self, clone):
-        if not self.__clones.get(clone.platform, None):
-            self.__clones[clone.platform] = list()
-
-        self.__clones[clone.platform].append(clone)
+        index = self.__clones[clone.platform].index(clone.number)
+        self.__clones[clone.platform][index] = clone
 
     def remove_clone(self, clone):
         if self.__clones.get(clone.platform, None):
@@ -23,8 +30,10 @@ class CloneList(object):
     @property
     def clones(self):
         clones = []
-        for platform in self.__clones:
-            clones += self.__clones[platform]
+        for platform in self.__clones.keys():
+            for clone in self.__clones[platform]:
+                if isinstance(clone, Clone):
+                    clones.append(clone)
 
         return clones
 
@@ -36,11 +45,19 @@ class CloneList(object):
     def total_count(self):
         return len(self.clones)
 
+    def _reserve(self, platform):
+        reservation = Reservation()
+        if not self.__clones.get(platform, None):
+            self.__clones[platform] = list()
+
+        self.__clones[platform].append(reservation)
+        return reservation
+
     def get_clone_number(self, platform):
-        if self.__clones.get(platform, None):
-            return len(self.__clones.get(platform))
-        else:
-            return 0
+        reservation = self._reserve(platform)
+        number = len(self.__clones.get(platform)) - 1
+        reservation.number = number
+        return number
 
 
 class CloneFactory(object):

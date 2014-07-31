@@ -59,6 +59,8 @@ def rm(files):
 
 
 def delete_file(filename):
+    if filename is None:
+        return
     try:
         os.remove(filename)
     # this would be "except OSError as e:" in python 3.x
