@@ -37,6 +37,10 @@ def new_session_request(address, desired_caps):
     return request('POST', "http://%s:%s/wd/hub/session" % address, data=json.dumps(desired_caps))
 
 
+def delete_session_request(address, desired_caps):
+    return request('DELETE', "http://%s:%s/wd/hub/session/<no_session_number>" % address, data=json.dumps(desired_caps))
+
+
 def server_is_up(address):
     s = get_socket(address[0], address[1])
     time_start = time.time()
@@ -64,7 +68,7 @@ class TestServer(unittest.TestCase):
         Session.timeouted = False
         del self.server
 
-    def test_server_create_new_session_ok(self):
+    def test_server_create_new_session(self):
         new_session_request(self.address, self.desired_caps)
         vm_count = self.server.platforms.vm_count
         self.assertEqual(1, vm_count)
@@ -72,9 +76,10 @@ class TestServer(unittest.TestCase):
     def test_server_too_many_vm_running(self):
         new_session_request(self.address, self.desired_caps)
         new_session_request(self.address, self.desired_caps)
-        new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
         vm_count = self.server.platforms.vm_count
         self.assertEqual(2, vm_count)
+        self.assertTrue("maximum count of virtual machines already running" in response.content)
 
 
 class TestTimeoutSession(unittest.TestCase):
@@ -98,10 +103,11 @@ class TestTimeoutSession(unittest.TestCase):
 
         self.assertEqual(0, self.server.platforms.vm_count)
 
-        new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
         vm_count = self.server.platforms.vm_count
 
         self.assertEqual(0, vm_count)
+        self.assertTrue("TimeoutException" in response.content)
 
 
 class TestServerShutdown(unittest.TestCase):

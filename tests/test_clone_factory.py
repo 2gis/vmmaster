@@ -34,34 +34,34 @@ class TestCloneFactoryCreate(unittest.TestCase):
         self.clone_factory.delete()
 
     def test_clone_creation(self):
-        clone = self.clone_factory.create_clone(self.origin1)
+        clone = self.clone_factory.create_clone(self.origin1, 1)
         self.assertIsInstance(clone, Clone)
         self.assertTrue(clone in self.clone_factory.clone_list.clones)
 
     def test_clone_deletion(self):
-        clone = self.clone_factory.create_clone(self.origin1)
+        clone = self.clone_factory.create_clone(self.origin1, 1)
         clone.delete()
         self.assertFalse(clone in self.clone_factory.clone_list.clones)
         self.assertEqual(self.clone_factory.clone_list.total_count, 0)
 
     def test_creation_after_utilization(self):
-        origin1_clones = [self.clone_factory.create_clone(self.origin1) for i in range(3)]
-        origin2_clones = [self.clone_factory.create_clone(self.origin2) for i in range(2)]
+        origin1_clones = [self.clone_factory.create_clone(self.origin1, i) for i in range(3)]
+        origin2_clones = [self.clone_factory.create_clone(self.origin2, i) for i in range(2)]
         clones = origin1_clones + origin2_clones
 
         clone = clones.pop(0)
         clone.delete()
         self.assertEqual(sorted(self.clone_factory.clone_list.clones), sorted(clones))
 
-        new_clone = self.clone_factory.create_clone(self.origin1)
+        new_clone = self.clone_factory.create_clone(self.origin1, 20)
         clones.append(new_clone)
 
         self.assertEqual(len(self.clone_factory.clone_list.clones), len(clones))
         self.assertEqual(sorted(self.clone_factory.clone_list.clones), sorted(clones))
 
     def test_clone_multiple_creation_and_multiple_utilization(self):
-        origin1_clones = [self.clone_factory.create_clone(self.origin1) for i in range(3)]
-        origin2_clones = [self.clone_factory.create_clone(self.origin2) for i in range(2)]
+        origin1_clones = [self.clone_factory.create_clone(self.origin1, i) for i in range(3)]
+        origin2_clones = [self.clone_factory.create_clone(self.origin2, i) for i in range(2)]
         clones = origin1_clones + origin2_clones
 
         from random import randint
@@ -72,7 +72,7 @@ class TestCloneFactoryCreate(unittest.TestCase):
 
         for i in range(3):
             number = randint(0, 1)
-            clone = self.clone_factory.create_clone(self.origin1 if number else self.origin2)
+            clone = self.clone_factory.create_clone(self.origin1 if number else self.origin2, i)
             clones.append(clone)
 
         self.assertEqual(len(self.clone_factory.clone_list.clones), len(clones))
@@ -81,8 +81,8 @@ class TestCloneFactoryCreate(unittest.TestCase):
     def test_parallel_clone_creation(self):
         from multiprocessing.pool import ThreadPool
         pool = ThreadPool(processes=1)
-        deffered1 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, ))
-        deffered2 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, ))
+        deffered1 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, 1))
+        deffered2 = pool.apply_async(self.clone_factory.create_clone, (self.origin1, 2))
         clone1 = deffered1.get()
         clone2 = deffered2.get()
         clones = [clone1, clone2]
@@ -102,7 +102,7 @@ class TestCloneFactoryDelete(unittest.TestCase):
         platforms.delete()
 
     def test_clone_factory_delete(self):
-        clones = [self.clone_factory.create_clone(self.origin1) for i in range(3)]
+        clones = [self.clone_factory.create_clone(self.origin1, i) for i in range(3)]
         [clone.delete() for clone in clones]
         self.clone_factory.delete()
         self.assertEqual([], self.clone_factory.clone_list.clones)

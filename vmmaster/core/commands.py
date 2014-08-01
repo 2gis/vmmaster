@@ -16,7 +16,8 @@ def delete_session(self):
 
 
 def create_session(self):
-    name = get_session_name(self) if get_session_name(self) else None
+    session_name = get_session_name(self)
+    name = session_name if session_name else None
     self.session = self.sessions.start_session(name)
     self.session_id = str(self.session.id)
 
@@ -28,7 +29,7 @@ def create_session(self):
 
     platform = get_platform(self)
     replace_platform_with_any(self)
-    vm = self.platforms.create(platform)
+    vm = self.platforms.create(platform, self.session_id)
     self.session.virtual_machine = vm
 
     check_vm_online(self)

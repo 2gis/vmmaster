@@ -20,8 +20,10 @@ class CloneList(object):
         self.__clone_numbers = [i for i in reversed(range(0, config.MAX_VM_COUNT))]
 
     def add_clone(self, clone):
-        index = self.__clones[clone.platform].index(clone.number)
-        self.__clones[clone.platform][index] = clone
+        if not self.__clones.get(clone.platform, None):
+            self.__clones[clone.platform] = list()
+
+        self.__clones[clone.platform].append(clone)
 
     def remove_clone(self, clone):
         if self.__clones.get(clone.platform, None):
@@ -45,20 +47,6 @@ class CloneList(object):
     def total_count(self):
         return len(self.clones)
 
-    def _reserve(self, platform):
-        reservation = Reservation()
-        if not self.__clones.get(platform, None):
-            self.__clones[platform] = list()
-
-        self.__clones[platform].append(reservation)
-        return reservation
-
-    def get_clone_number(self, platform):
-        reservation = self._reserve(platform)
-        number = len(self.__clones.get(platform)) - 1
-        reservation.number = number
-        return number
-
 
 class CloneFactory(object):
     def __init__(self):
@@ -75,8 +63,8 @@ class CloneFactory(object):
 
         dispatcher.disconnect(self.__remove_clone, signal=Signals.DELETE_VIRTUAL_MACHINE, sender=dispatcher.Any)
 
-    def create_clone(self, origin):
-        clone = Clone(self.clone_list.get_clone_number(origin.name), origin)
+    def create_clone(self, origin, session_id):
+        clone = Clone(session_id, origin)
         try:
             clone = clone.create()
         except Exception:
