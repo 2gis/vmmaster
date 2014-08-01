@@ -23,8 +23,8 @@ class TestPlatforms(unittest.TestCase):
     def test_create_parallel_two_platforms(self):
         from multiprocessing.pool import ThreadPool
         pool = ThreadPool(processes=1)
-        deffered1 = pool.apply_async(self.platforms.create, (self.platform,))
-        deffered2 = pool.apply_async(self.platforms.create, (self.platform,))
+        deffered1 = pool.apply_async(self.platforms.create, (self.platform, 1))
+        deffered2 = pool.apply_async(self.platforms.create, (self.platform, 2))
         deffered1.wait()
         deffered2.wait()
 
@@ -32,12 +32,12 @@ class TestPlatforms(unittest.TestCase):
 
     def test_vm_creation(self):
         self.assertEqual(0, self.platforms.vm_count)
-        vm = self.platforms.create(self.platform)
+        vm = self.platforms.create(self.platform, 1)
         self.assertIsInstance(vm, VirtualMachine)
         self.assertEqual(1, self.platforms.vm_count)
 
     def test_vm_deletion(self):
-        vm = self.platforms.create(self.platform)
+        vm = self.platforms.create(self.platform, 1)
         self.assertEqual(1, self.platforms.vm_count)
         vm.delete()
         self.assertEqual(0, self.platforms.vm_count)
@@ -45,10 +45,10 @@ class TestPlatforms(unittest.TestCase):
     def test_max_vm_count(self):
         config.MAX_VM_COUNT = 2
 
-        self.platforms.create(self.platform)
-        self.platforms.create(self.platform)
+        self.platforms.create(self.platform, 1)
+        self.platforms.create(self.platform, 2)
         with self.assertRaises(PlatformException) as e:
-            self.platforms.create(self.platform)
+            self.platforms.create(self.platform, 3)
 
         the_exception = e.exception
         self.assertEqual("maximum count of virtual machines already running", the_exception.message)

@@ -8,7 +8,7 @@ from .logger import log
 
 
 class Platform(object):
-    def get(self):
+    def get(self, session_id):
         pass
 
 
@@ -23,8 +23,8 @@ class Origin(Platform):
         self.drive = os.path.join(path, 'drive.qcow2')
         self.settings = open(os.path.join(path, 'settings.xml'), 'r').read()
 
-    def get(self):
-        return self.clone_factory.create_clone(self)
+    def get(self, session_id):
+        return self.clone_factory.create_clone(self, session_id)
 
 
 class Platforms(object):
@@ -57,14 +57,14 @@ class Platforms(object):
         if self.vm_count == config.MAX_VM_COUNT:
             raise PlatformException("maximum count of virtual machines already running")
 
-    def create(self, platform):
+    def create(self, platform, session_id):
         self._check_platform(platform)
         self._check_vm_count()
 
         self.vm_count += 1
-        platform = self.platforms.get(platform)
+        platform = self.platforms.get(platform, session_id)
         try:
-            vm = platform.get()
+            vm = platform.get(session_id)
             return vm
         except:
             self.vm_count -= 1
