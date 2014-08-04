@@ -5,6 +5,7 @@ from threading import Timer
 from .db import database
 from .config import config
 from .logger import log
+from .exceptions import SessionException
 
 
 class RequestHelper(object):
@@ -121,12 +122,7 @@ class Session(object):
 
 class Sessions(object):
     def __init__(self):
-        # dispatcher.connect(self.__delete_session, signal=Signals.DELETE_SESSION, sender=dispatcher.Any)
         self.map = {}
-
-    def __del__(self):
-        pass
-        # dispatcher.disconnect(self.__delete_session, signal=Signals.DELETE_SESSION, sender=dispatcher.Any)
 
     def delete(self):
         session_ids = [session_id for session_id in self.map]
@@ -140,7 +136,10 @@ class Sessions(object):
         return session
 
     def get_session(self, session_id):
-        return self.map[str(session_id)]
+        try:
+            return self.map[str(session_id)]
+        except KeyError:
+            raise SessionException("There is no active session %s" % session_id)
 
     def delete_session(self, session_id):
         del self.map[str(session_id)]

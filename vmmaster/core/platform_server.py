@@ -15,7 +15,7 @@ from .config import config
 from .logger import log
 from .utils.utils import write_file
 from .db import database
-from .exceptions import TimeoutException
+from .exceptions import TimeoutException, SessionException
 from .sessions import RequestHelper
 
 
@@ -106,7 +106,7 @@ class RequestHandler(Request):
         self.form_reply(code=500, headers={}, body=tb)
         try:
             session = self.sessions.get_session(self.session_id)
-        except KeyError:
+        except SessionException:
             pass
         else:
             session.failed(tb)
@@ -148,7 +148,7 @@ class RequestHandler(Request):
             th.join(0.1)
             try:
                 session = self.sessions.get_session(self.session_id)
-            except KeyError:
+            except SessionException:
                 pass
             else:
                 if session.timeouted:

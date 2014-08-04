@@ -1,10 +1,10 @@
 import unittest
 import json
 import time
+from uuid import uuid4
 
 from mock import Mock
 from nose.twistedtools import reactor
-from human_curl import request
 
 from vmmaster.core.config import setup_config
 
@@ -33,12 +33,30 @@ from vmmaster.core.utils.network_utils import get_socket
 from vmmaster.core.sessions import Session
 
 
+def request(host, method, url, headers={}, body=None):
+    import httplib
+    conn = httplib.HTTPConnection(host)
+    conn.request(method=method, url=url, headers=headers, body=body)
+    response = conn.getresponse()
+    class Response(object): pass
+    r = Response()
+    r.status = response.status
+    r.headers = response.getheaders()
+    r.content = response.read()
+    conn.close()
+    return r
+
+
 def new_session_request(address, desired_caps):
-    return request('POST', "http://%s:%s/wd/hub/session" % address, data=json.dumps(desired_caps))
+    return request("%s:%s" % address, "POST", "http://%s:%s/wd/hub/session" % address, body=json.dumps(desired_caps))
 
 
-def delete_session_request(address, desired_caps):
-    return request('DELETE', "http://%s:%s/wd/hub/session/<no_session_number>" % address, data=json.dumps(desired_caps))
+def delete_session_request(address, session):
+    return request("%s:%s" % address, "DELETE", "/wd/hub/session/%s" % str(session))
+
+
+def get_session_request(address, session):
+    return request("%s:%s" % address, "GET", "/wd/hub/session/%s" % str(session))
 
 
 def server_is_up(address):
@@ -73,13 +91,23 @@ class TestServer(unittest.TestCase):
         vm_count = self.server.platforms.vm_count
         self.assertEqual(1, vm_count)
 
-    def test_server_too_many_vm_running(self):
+    def test_server_maximum_vm_running(self):
         new_session_request(self.address, self.desired_caps)
         new_session_request(self.address, self.desired_caps)
         response = new_session_request(self.address, self.desired_caps)
         vm_count = self.server.platforms.vm_count
         self.assertEqual(2, vm_count)
-        self.assertTrue("maximum count of virtual machines already running" in response.content)
+        self.assertTrue("PlatformException: maximum count of virtual machines already running" in response.content)
+
+    def test_delete_none_existing_session(self):
+        session = uuid4()
+        response = delete_session_request(self.address, session)
+        self.assertTrue("SessionException: There is no active session %s" % session in response.content)
+
+    def test_get_none_existing_session(self):
+        session = uuid4()
+        response = get_session_request(self.address, session)
+        self.assertTrue("SessionException: There is no active session %s" % session in response.content)
 
 
 class TestTimeoutSession(unittest.TestCase):
