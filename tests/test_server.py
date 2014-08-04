@@ -48,7 +48,7 @@ def request(host, method, url, headers={}, body=None):
 
 
 def new_session_request(address, desired_caps):
-    return request("%s:%s" % address, "POST", "http://%s:%s/wd/hub/session" % address, body=json.dumps(desired_caps))
+    return request("%s:%s" % address, "POST", "/wd/hub/session", body=json.dumps(desired_caps))
 
 
 def delete_session_request(address, session):
