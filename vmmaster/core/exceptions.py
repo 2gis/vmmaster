@@ -5,6 +5,10 @@ class PlatformException(Exception):
     pass
 
 
+class SessionException(Exception):
+    pass
+
+
 class ClonesException(Exception):
     pass
 
