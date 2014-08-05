@@ -26,5 +26,8 @@ class Config(object):
     # additional logging
     # GRAYLOG = ('logserver', 12201)
 
+    # graphite
+    # GRAPHITE = ('graphite', 2003)
+
     # selenium
     SELENIUM_PORT = "4455"

@@ -8,6 +8,7 @@ from .logger import log
 from .db import database
 from .exceptions import StatusException
 from .sessions import RequestHelper
+from .utils.graphite import graphite, send_metrics
 
 
 def delete_session(self):
@@ -29,12 +30,16 @@ def create_session(self):
 
     platform = get_platform(self)
     replace_platform_with_any(self)
-    vm = self.platforms.create(platform, self.session_id)
+
+    notdot_platform = "".join(platform.split("."))
+    _start = time.time()
+    vm = graphite("%s.%s" % (notdot_platform, "create"))(self.platforms.create)(platform, self.session_id)
     self.session.virtual_machine = vm
 
-    check_vm_online(self)
-
-    status, headers, body = start_selenium_session(self, self.session, config.SELENIUM_PORT)
+    graphite("%s.%s" % (notdot_platform, "check_vm_online"))(check_vm_online)(self)
+    response = graphite("%s.%s" % (notdot_platform, "start_selenium_session"))(start_selenium_session)(self, self.session, config.SELENIUM_PORT)
+    status, headers, body = response
+    send_metrics("%s.%s" % (notdot_platform, "creation_total"), time.time() - _start)
 
     selenium_session = json.loads(body)["sessionId"]
     self.session.selenium_session = selenium_session

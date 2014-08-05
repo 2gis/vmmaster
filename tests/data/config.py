@@ -19,4 +19,6 @@ class Config(object):
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 
+    GRAPHITE = ('graphite', 2003)
+
     SELENIUM_PORT = "4455"

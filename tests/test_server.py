@@ -23,8 +23,8 @@ Clone.define_clone = Mock()
 Clone.start_virtual_machine = Mock()
 Clone.drive_path = Mock()
 from vmmaster.core import commands
-commands.check_vm_online = Mock()
-commands.start_selenium_session = Mock(return_value=(200, {}, json.dumps({'sessionId': "1"})))
+commands.check_vm_online = Mock(__name__="check_vm_online")
+commands.start_selenium_session = Mock(__name__="start_selenium_session", return_value=(200, {}, json.dumps({'sessionId': "1"})))
 from vmmaster.core.utils import utils
 utils.delete_file = Mock()
 
@@ -33,7 +33,9 @@ from vmmaster.core.utils.network_utils import get_socket
 from vmmaster.core.sessions import Session
 
 
-def request(host, method, url, headers={}, body=None):
+def request(host, method, url, headers=None, body=None):
+    if headers is None:
+        headers = dict()
     import httplib
     conn = httplib.HTTPConnection(host)
     conn.request(method=method, url=url, headers=headers, body=body)
