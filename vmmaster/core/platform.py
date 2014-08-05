@@ -1,13 +1,17 @@
 import os
+import time
 
 from .config import config
 from .exceptions import PlatformException
 from .dispatcher import dispatcher, Signals
 from .virtual_machine.clone_factory import CloneFactory
 from .logger import log
+from .utils.graphite import send_metrics
 
 
 class Platform(object):
+    name = None
+
     def get(self, session_id):
         pass
 
@@ -24,6 +28,7 @@ class Origin(Platform):
         self.settings = open(os.path.join(path, 'settings.xml'), 'r').read()
 
     def get(self, session_id):
+        super(Origin, self).get(session_id)
         return self.clone_factory.create_clone(self, session_id)
 
 

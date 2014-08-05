@@ -1,19 +1,11 @@
 from time import time
 
-from twisted.internet import threads
-
-from sqlalchemy import create_engine, pool
+from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, Sequence, String, Float, Enum
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 
-from .config import config
-
-
-def to_thread(f):
-    def wrapper(*args, **kwargs):
-        return threads.deferToThread(f, *args, **kwargs)
-    return wrapper
+from .utils.utils import to_thread
 
 
 def threaded_transaction(func):

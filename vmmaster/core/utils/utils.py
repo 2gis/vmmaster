@@ -3,7 +3,11 @@ import errno
 import pwd
 import grp
 
-from vmmaster.core.config import config
+
+from twisted.internet import threads
+
+
+from ..config import config
 from . import system_utils, commands
 
 
@@ -128,3 +132,9 @@ def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
 
 def change_user_vmmaster():
     drop_privileges('vmmaster', 'libvirtd')
+
+
+def to_thread(f):
+    def wrapper(*args, **kwargs):
+        return threads.deferToThread(f, *args, **kwargs)
+    return wrapper
