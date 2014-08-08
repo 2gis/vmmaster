@@ -5,6 +5,7 @@ import threading
 import BaseHTTPServer
 import copy
 import json
+import sys
 
 from mock import Mock
 
@@ -14,8 +15,9 @@ db.database = Mock()
 from vmmaster.core.sessions import Session
 
 from vmmaster.core import commands
-from vmmaster.core.config import setup_config
+from vmmaster.core.config import setup_config, config
 from vmmaster.core.sessions import Sessions
+from vmmaster.core.exceptions import CreationException
 
 
 class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -38,7 +40,7 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_response(code)
 
         # reply headers
-        for keyword, value in headers:
+        for keyword, value in headers.iteritems():
             self.send_header(keyword, value)
         self.end_headers()
 
@@ -48,7 +50,10 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_POST(self):
         reply = self.headers.getheader("reply")
         code = int(reply)
-        self.send_reply(code, self.headers.dict.iteritems(), body=self.body)
+        self.send_reply(code, self.headers.dict, body=self.body)
+
+    def do_GET(self):
+        raise NotImplemented
 
     def log_error(self, format, *args):
         pass
@@ -78,12 +83,15 @@ class WebDriverRemoteMock(object):
             self._thread.join()
 
 
-class TestCommands(unittest.TestCase):
+class CommonCommandsTestCase(unittest.TestCase):
     webdriver_server = None
+    host = None
+    port = None
 
     @classmethod
     def setUpClass(cls):
         setup_config("data/config.py")
+
         body = {
             "sessionId": None,
             "desiredCapabilities": {
@@ -103,24 +111,18 @@ class TestCommands(unittest.TestCase):
             'host': '127.0.0.1:9000',
             'content-type': 'application/json;charset=UTF-8',
         }
-
-        session_request = Mock()
-        session_request.method = "POST"
-        session_request.path = "/wd/hub/session"
-        session_request.headers = dict()
-        session_request.headers.update(session_request_headers)
-        session_request.body = session_request_body
+        cls.request = Mock()
+        cls.request.method = "POST"
+        cls.request.path = "/wd/hub/session"
+        cls.request.headers = dict()
+        cls.request.headers.update(session_request_headers)
+        cls.request.body = session_request_body
 
         cls.host = 'localhost'
         cls.port = 4567
         cls.webdriver_server = WebDriverRemoteMock(cls.host, cls.port)
         cls.webdriver_server.start()
 
-        cls.create_session_reply_200 = copy.deepcopy(session_request)
-        cls.create_session_reply_200.headers.update({"reply": "200"})
-
-        cls.create_session_reply_500 = copy.deepcopy(session_request)
-        cls.create_session_reply_500.headers.update({"reply": "500"})
         Session.virtual_machine = Mock(ip=cls.host)
         cls.sessions = Sessions()
 
@@ -134,8 +136,11 @@ class TestCommands(unittest.TestCase):
     def tearDown(self):
         self.session.delete()
 
+
+class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
     def test_session_response_success(self):
-        request = self.create_session_reply_200
+        request = copy.deepcopy(self.request)
+        request.headers.update({"reply": "200"})
         status, headers, body = commands.start_selenium_session(request, self.session, self.port)
         self.assertEqual(status, 200)
 
@@ -147,7 +152,8 @@ class TestCommands(unittest.TestCase):
         self.assertEqual(body, request.body)
 
     def test_session_response_fail(self):
-        request = self.create_session_reply_500
+        request = copy.deepcopy(self.request)
+        request.headers.update({"reply": "500"})
         status, headers, body = commands.start_selenium_session(request, self.session, self.port)
         self.assertEqual(status, 500)
 
@@ -157,3 +163,57 @@ class TestCommands(unittest.TestCase):
                 continue
             self.assertDictContainsSubset({key: value}, request_headers)
         self.assertEqual(body, request.body)
+        print body
+
+
+class TestCheckVmOnline(CommonCommandsTestCase):
+    def setUp(self):
+        super(TestCheckVmOnline, self).setUp()
+        config.PING_TIMEOUT = 0
+        config.SELENIUM_PORT = self.port
+
+        self._handler_get = Handler.do_GET
+        self.response_body = "some_body"
+        self.response_headers = {
+            'header': 'value',
+            'content-length': len(self.response_body)
+        }
+
+    def tearDown(self):
+        super(TestCheckVmOnline, self).tearDown()
+        Handler.do_GET = self._handler_get
+
+    def test_check_vm_online_ok(self):
+        def do_GET(handler):
+            handler.send_reply(200, self.response_headers, body=self.response_body)
+        Handler.do_GET = do_GET
+        request = copy.deepcopy(self.request)
+        request.session = self.session
+        result = commands.check_vm_online(request)
+        self.assertTrue(result)
+
+    def test_check_vm_online_ping_failed(self):
+        config.SELENIUM_PORT = self.port + 1
+        request = copy.deepcopy(self.request)
+        request.session = self.session
+        try:
+            result = commands.check_vm_online(request)
+        except:
+            err = sys.exc_info()
+
+        self.assertEqual(CreationException, err[0])
+        self.assertEqual('failed to ping virtual machine', err[1].message)
+
+    def test_check_vm_online_status_failed(self):
+        def do_GET(handler):
+            handler.send_reply(500, self.response_headers, body=self.response_body)
+        Handler.do_GET = do_GET
+        request = copy.deepcopy(self.request)
+        request.session = self.session
+        try:
+            result = commands.check_vm_online(request)
+        except:
+            err = sys.exc_info()
+
+        self.assertEqual(CreationException, err[0])
+        self.assertEqual('failed to get status of selenium-server-standalone', err[1].message)

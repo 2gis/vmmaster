@@ -14,7 +14,9 @@ class RequestHelper(object):
     headers = None
     body = None
 
-    def __init__(self, method, url="/", headers={}, body=""):
+    def __init__(self, method, url="/", headers=None, body=""):
+        if headers is None:
+            headers = {}
         self.method = method
         self.url = url
         self.headers = headers
