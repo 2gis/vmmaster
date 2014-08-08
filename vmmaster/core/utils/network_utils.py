@@ -75,5 +75,6 @@ def ping(session, port, timeout=180):
             log.info("ping failed: timeout {ip}:{port}".format(ip=ip, port=port))
             return False
 
+    s.close()
     log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
     return True

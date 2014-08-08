@@ -17,7 +17,7 @@ class NoMacError(Exception):
     pass
 
 
-class StatusException(Exception):
+class CreationException(Exception):
     pass
 
 

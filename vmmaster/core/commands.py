@@ -6,7 +6,7 @@ from .utils import network_utils
 from .config import config
 from .logger import log
 from .db import database
-from .exceptions import StatusException
+from .exceptions import CreationException
 from .sessions import RequestHelper
 from .utils.graphite import graphite, send_metrics
 
@@ -51,11 +51,14 @@ def create_session(self):
 
 def check_vm_online(self):
     # ping ip:port
-    network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT)
+    if not network_utils.ping(self.session, config.SELENIUM_PORT, config.PING_TIMEOUT):
+        raise CreationException("failed to ping virtual machine")
 
     # check status
     if not selenium_status(self, self.session, config.SELENIUM_PORT):
-        raise StatusException("failed to get status of selenium-server-standalone")
+        raise CreationException("failed to get status of selenium-server-standalone")
+
+    return True
 
 
 def start_selenium_session(self, session, port):
