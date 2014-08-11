@@ -1,13 +1,10 @@
-import copy
 import time
 import base64
 import sys
 from threading import Thread
 from Queue import Queue
 
-from twisted.internet.threads import deferToThread
-from twisted.web.proxy import Proxy
-from twisted.web.http import Request, HTTPFactory
+from flask import request
 
 from . import commands
 
@@ -31,7 +28,7 @@ class BucketThread(Thread):
             self.bucket.put(sys.exc_info())
 
 
-class RequestHandler(Request):
+class PlatformHandler(object):
     _headers = None
     _body = None
 
@@ -42,36 +39,17 @@ class RequestHandler(Request):
     _log_step = None
     _session_id = None
 
-    def __init__(self, *args):
-        Request.__init__(self, *args)
-        self.platforms = self.channel.factory.platforms
-        self.sessions = self.channel.factory.sessions
+    def __init__(self, platforms, sessions):
+        self.platforms = platforms
+        self.sessions = sessions
 
-    @property
-    def headers(self):
-        """get headers dictionary"""
-        if self._headers:
-            return self._headers
-
-        self._headers = self.getAllHeaders()
-        return self._headers
-
-    @property
-    def body(self):
-        """get request body."""
-        if self._body:
-            return self._body
-
-        data = copy.copy(self.content)
-
-        if self.getHeader('Content-Length') is None:
-            self._body = None
-        else:
-            content_length = int(self.getHeader('Content-Length'))
-            self._body = data.read(content_length)
-
-        del data
-        return self._body
+    def __call__(self, path):
+        self.method = request.method
+        self.path = request.path
+        self.clientproto = request.headers.environ['SERVER_PROTOCOL']
+        self.headers = dict(request.headers.items())
+        self.body = request.data
+        return self.requestReceived(self.method, self.path, self.clientproto)
 
     @property
     def session_id(self):
@@ -81,27 +59,32 @@ class RequestHandler(Request):
         self._session_id = commands.get_session_id(self.path)
         return self._session_id
 
+    @session_id.setter
+    def session_id(self, value):
+        self._session_id = value
+
     def requestReceived(self, command, path, version):
-        Request.requestReceived(self, command, path, version)
+        from traceback import format_exc
         if self.session_id:
             self._log_step = self.log_write("%s %s %s" % (command, path, version), str(self.body))
 
-        # request to thread
-        d = deferToThread(self.processRequest)
-        d.addErrback(lambda failure: RequestHandler.handle_exception(self, failure))
-        d.addBoth(RequestHandler.finish)
-        d.addErrback(lambda failure: RequestHandler.finish_exception_handler(self, failure))
+        try:
+            self.processRequest()
+        except:
+            self.handle_exception(format_exc())
+        try:
+            response = self.finish()
+        except:
+            self.finish_exception_handler(format_exc())
+        else:
+            return response
 
     def finish(self):
-        self.perform_reply()
         self.log_write("%s %s" % (self.clientproto, self._reply_code), str(self._reply_body))
-        try:
-            Request.finish(self)
-        except RuntimeError:
-            raise RuntimeError("Client has disconnected")
+        return self.perform_reply()
 
-    def handle_exception(self, failure):
-        tb = failure.getTraceback()
+    def handle_exception(self, tb):
+        # tb = failure.getTraceback()
         log.error(tb)
         self.form_reply(code=500, headers={}, body=tb)
         try:
@@ -110,7 +93,6 @@ class RequestHandler(Request):
             pass
         else:
             session.failed(tb)
-        return self
 
     def finish_exception_handler(self, failure):
         self.handle_exception(failure)
@@ -182,12 +164,7 @@ class RequestHandler(Request):
                 'content-length': len(self._reply_body)
             }
 
-        self.setResponseCode(self._reply_code)
-
-        for keyword, value in self._reply_headers.items():
-            self.setHeader(keyword, value)
-
-        self.write(self._reply_body)
+        return (self._reply_body, self._reply_code, self._reply_headers.items())
 
     def swap_session(self, desired_session):
         self.body = commands.set_body_session_id(self.body, desired_session)
@@ -236,17 +213,3 @@ class RequestHandler(Request):
         else:
             self.transparent("DELETE")
         return self
-
-
-class RequestProxy(Proxy):
-    requestFactory = RequestHandler
-
-
-class PlatformServer(HTTPFactory):
-    log = lambda *args: None
-    protocol = RequestProxy
-
-    def __init__(self, platforms, sessions):
-        HTTPFactory.__init__(self)
-        self.platforms = platforms
-        self.sessions = sessions

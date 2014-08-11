@@ -15,8 +15,8 @@ from vmmaster.core import connection
 connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network
 network.Network.__new__ = Mock()
-from vmmaster.core.platform_server import RequestHandler
-RequestHandler.take_screenshot = Mock()
+from vmmaster.core.platform_server import PlatformHandler
+PlatformHandler.take_screenshot = Mock()
 from vmmaster.core.virtual_machine.clone import Clone
 Clone.clone_origin = Mock()
 Clone.define_clone = Mock()
@@ -89,7 +89,7 @@ class TestServer(unittest.TestCase):
         del self.server
 
     def test_server_create_new_session(self):
-        new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
         vm_count = self.server.platforms.vm_count
         self.assertEqual(1, vm_count)
 

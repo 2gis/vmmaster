@@ -1,10 +1,16 @@
+# make a Flask app
+from flask import Flask
+# run in under twisted through wsgi
+from twisted.web.wsgi import WSGIResource
+from twisted.web.server import Site
 from twisted.internet.defer import Deferred
 
 from .core.platform import Platforms
 from .core.sessions import Sessions
 from .core.network.network import Network
 from .core.logger import log
-from .core.platform_server import PlatformServer
+from .core.platform_server import PlatformHandler
+from .core.api import ApiHandler
 
 
 def _block_on(d, timeout=None):
@@ -31,7 +37,19 @@ class VMMasterServer(object):
         self.network = Network()
         self.platforms = Platforms()
         self.sessions = Sessions()
-        self.bind = self.reactor.listenTCP(port, PlatformServer(self.platforms, self.sessions))
+
+        app = Flask(__name__)
+        platform_handler = PlatformHandler(self.platforms, self.sessions)
+        api_handler = ApiHandler(self.platforms, self.sessions)
+        app.add_url_rule("/wd/hub/<path:path>", methods=['GET', 'POST', 'DELETE'],
+                         endpoint='platform_handler', view_func=platform_handler)
+        app.add_url_rule("/api/<path:path>", methods=['GET', 'POST', 'DELETE'],
+                         endpoint='api_handler', view_func=api_handler)
+
+        resource = WSGIResource(reactor, reactor.getThreadPool(), app)
+        site = Site(resource)
+
+        self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
 
     def __del__(self):
