@@ -1,11 +1,15 @@
 import time
 import httplib
+from multiprocessing.pool import ThreadPool
 from threading import Timer
+from traceback import format_exc
 
 from .db import database
 from .config import config
 from .logger import log
-from .exceptions import SessionException
+from .exceptions import SessionException, TimeoutException
+
+from twisted.python.threadable import synchronize
 
 
 class RequestHelper(object):
@@ -32,7 +36,6 @@ class ShutdownTimer(object):
         self.__timer = Timer(self.__timeout, self.__callback, self.__args)
 
     def __del__(self):
-        log.debug("ShutdownTimer __del__")
         self.__timer.cancel()
         del self.__timer
 
@@ -58,10 +61,13 @@ class Session(object):
     name = None
     virtual_machine = None
     timeouted = False
+    closed = False
 
-    def __init__(self, sessions, name=None):
+    def __init__(self, sessions, name, platform):
         self.sessions = sessions
         self.name = name
+        self.platform = platform
+        self._start = time.time()
         log.info("starting new session.")
         db_session = database.createSession(status="running", name=self.name, time=time.time())
         self.id = str(db_session.id)
@@ -69,8 +75,12 @@ class Session(object):
         self.timer.start()
         log.info("session %s started." % self.id)
 
+    @property
+    def duration(self):
+        return time.time() - self._start
+
     def delete(self):
-        log.debug("deleting session: %s" % self.id)
+        log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
             self.virtual_machine.delete()
             self.virtual_machine = None
@@ -78,53 +88,78 @@ class Session(object):
         self.sessions.delete_session(self.id)
         self.timer.stop()
         del self.timer
-        log.debug("session %s deleted." % self.id)
+        log.info("session %s deleted." % self.id)
 
     def succeed(self):
+        self.closed = True
         db_session = database.getSession(self.id)
         db_session.status = "succeed"
         database.update(db_session)
         self.delete()
 
     def failed(self, tb):
+        self.closed = True
         db_session = database.getSession(self.id)
         db_session.status = "failed"
         db_session.error = tb
         database.update(db_session)
         self.delete()
 
+    def close(self):
+        self.closed = True
+        self.failed("Session closed by user")
+
     def timeout(self):
         self.timeouted = True
+        log.info("TIMEOUT %s session" % self.id)
+        try:
+            raise TimeoutException("Session timeout")
+        except TimeoutException:
+            self.failed(format_exc())
 
     def make_request(self, port, request):
         """ Make request to selenium-server-standalone
             and return the response. """
+
         conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.virtual_machine.ip, port=port))
-        conn.request(
-            method=request.method,
-            url=request.url,
-            headers=request.headers,
-            body=request.body
-        )
+
+        if not self.timeouted and not self.closed:
+            conn.request(
+                method=request.method,
+                url=request.url,
+                headers=request.headers,
+                body=request.body
+            )
 
         self.timer.restart()
 
-        response = conn.getresponse()
+        pool = ThreadPool(processes=1)
+        deffer = pool.apply_async(conn.getresponse)
+        while not self.timeouted and not self.closed and not deffer.ready():
+            time.sleep(0.1)
 
-        if response.getheader('Content-Length') is None:
-            response_body = None
-        else:
-            content_length = int(response.getheader('Content-Length'))
-            response_body = response.read(content_length)
+        if self.timeouted:
+            conn.close()
+            return 500, {}, "Session timeouted"
 
-        conn.close()
+        if self.closed:
+            conn.close()
+            return 500, {}, "Session closed by user"
+
+        response = deffer.get()
+        response_body = response.read()
 
         return response.status, dict(x for x in response.getheaders()), response_body
 
 
 class Sessions(object):
+    synchronized = ['get_session', 'delete_session']
+
     def __init__(self):
         self.map = {}
+
+    def __iter__(self):
+        return iter(self.map.items())
 
     def delete(self):
         session_ids = [session_id for session_id in self.map]
@@ -132,8 +167,8 @@ class Sessions(object):
             session = self.get_session(session_id)
             session.delete()
 
-    def start_session(self, session_name):
-        session = Session(self, session_name)
+    def start_session(self, session_name, platform):
+        session = Session(self, session_name, platform)
         self.map[str(session.id)] = session
         return session
 
@@ -145,3 +180,5 @@ class Sessions(object):
 
     def delete_session(self, session_id):
         del self.map[str(session_id)]
+
+synchronize(Sessions)

@@ -1,4 +1,13 @@
-from flask import request
+from flask import jsonify
+
+from .exceptions import SessionException
+
+
+def render_json(result, code=200):
+    response = dict()
+    response['metacode'] = code
+    response['result'] = result
+    return jsonify(response)
 
 
 class ApiHandler(object):
@@ -13,13 +22,28 @@ class ApiHandler(object):
     _session_id = None
 
     def __init__(self, platforms, sessions):
-        self.platforms = platforms
-        self.sessions = sessions
+        self._platforms = platforms
+        self._sessions = sessions
 
-    def __call__(self, path):
-        self.method = request.method
-        self.path = request.path
-        self.clientproto = request.headers.environ['SERVER_PROTOCOL']
-        self.headers = dict(request.headers.items())
-        self.body = request.data
-        return self.requestReceived(self.method, self.path, self.clientproto)
+    def platforms(self):
+        platfroms = list(self._platforms.platforms.keys())
+        return render_json({'platforms': platfroms})
+
+    def sessions(self):
+        sessions = list()
+        for id, session in self._sessions:
+            sessions.append({
+                "id": id,
+                "name": session.name,
+                "platform": session.platform,
+                "duration": session.duration
+            })
+        return render_json({'sessions': sessions})
+
+    def stop_session(self, id):
+        try:
+            session = self._sessions.get_session(id)
+        except SessionException:
+            return render_json(result="Session not found", code=404)
+        session.close()
+        return render_json("")

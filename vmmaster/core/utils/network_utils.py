@@ -60,21 +60,10 @@ def get_socket(host, port):
     return s
 
 
-def ping(session, port, timeout=180):
-    ip = session.virtual_machine.ip
-    session.timer.restart()
-    log.info("starting ping: {ip}:{port}".format(ip=ip, port=port))
-    start = time.time()
-
+def ping(ip, port):
     s = get_socket(ip, port)
-    while not s:
-        session.timer.restart()
-        time.sleep(0.1)
-        s = get_socket(ip, port)
-        if time.time() - start > timeout:
-            log.info("ping failed: timeout {ip}:{port}".format(ip=ip, port=port))
-            return False
+    if s:
+        s.close()
+        return True
 
-    s.close()
-    log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
-    return True
+    return False

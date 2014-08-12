@@ -43,9 +43,9 @@ class VMMasterServer(object):
         api_handler = ApiHandler(self.platforms, self.sessions)
         app.add_url_rule("/wd/hub/<path:path>", methods=['GET', 'POST', 'DELETE'],
                          endpoint='platform_handler', view_func=platform_handler)
-        app.add_url_rule("/api/<path:path>", methods=['GET', 'POST', 'DELETE'],
-                         endpoint='api_handler', view_func=api_handler)
-
+        app.add_url_rule("/api/sessions", methods=['GET'], view_func=api_handler.sessions)
+        app.add_url_rule("/api/platforms", methods=['GET'], view_func=api_handler.platforms)
+        app.add_url_rule("/api/session/<id>/stop", methods=['POST'], view_func=api_handler.stop_session)
         resource = WSGIResource(reactor, reactor.getThreadPool(), app)
         site = Site(resource)
 

@@ -131,7 +131,7 @@ class CommonCommandsTestCase(unittest.TestCase):
         cls.webdriver_server.stop()
 
     def setUp(self):
-        self.session = self.sessions.start_session("test")
+        self.session = self.sessions.start_session("test", "test_origin_1")
 
     def tearDown(self):
         self.session.delete()
@@ -187,33 +187,18 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         def do_GET(handler):
             handler.send_reply(200, self.response_headers, body=self.response_body)
         Handler.do_GET = do_GET
-        request = copy.deepcopy(self.request)
-        request.session = self.session
-        result = commands.check_vm_online(request)
+        result = commands.ping_vm(self.session)
         self.assertTrue(result)
 
     def test_check_vm_online_ping_failed(self):
         config.SELENIUM_PORT = self.port + 1
-        request = copy.deepcopy(self.request)
-        request.session = self.session
-        try:
-            result = commands.check_vm_online(request)
-        except:
-            err = sys.exc_info()
-
-        self.assertEqual(CreationException, err[0])
-        self.assertEqual('failed to ping virtual machine', err[1].message)
+        result = commands.ping_vm(self.session)
+        self.assertFalse(result)
 
     def test_check_vm_online_status_failed(self):
         def do_GET(handler):
             handler.send_reply(500, self.response_headers, body=self.response_body)
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
-        request.session = self.session
-        try:
-            result = commands.check_vm_online(request)
-        except:
-            err = sys.exc_info()
-
-        self.assertEqual(CreationException, err[0])
-        self.assertEqual('failed to get status of selenium-server-standalone', err[1].message)
+        result = commands.selenium_status(request, self.session, self.port)
+        self.assertFalse(result)
