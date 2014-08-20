@@ -23,3 +23,7 @@ class CreationException(Exception):
 
 class TimeoutException(Exception):
     pass
+
+
+class ConnectionError(Exception):
+    pass
