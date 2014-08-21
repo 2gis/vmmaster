@@ -100,6 +100,7 @@ def selenium_status(request, session, port):
     parts[-1] = "status"
     status = "/".join(parts)
 
+    log.info("getting selenium-server-standalone status for %s" % session.id)
     # try to get status for 3 times
     for check in range(3):
         code, headers, body = session.make_request(port, RequestHelper("GET", status))

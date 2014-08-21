@@ -1,7 +1,7 @@
 import time
 import httplib
-from multiprocessing.pool import ThreadPool
-from threading import Timer
+from Queue import Queue
+from threading import Timer, Thread, Event
 from traceback import format_exc
 
 from .db import database
@@ -10,6 +10,10 @@ from .logger import log
 from .exceptions import SessionException, TimeoutException
 
 from twisted.python.threadable import synchronize
+
+
+def getresponse(conn, q):
+    q.put(conn.getresponse())
 
 
 class RequestHelper(object):
@@ -120,23 +124,27 @@ class Session(object):
     def make_request(self, port, request):
         """ Make request to selenium-server-standalone
             and return the response. """
+        if self.timeouted:
+            return 500, {}, "Session timeouted"
+
+        if self.closed:
+            return 500, {}, "Session closed by user"
 
         conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.virtual_machine.ip, port=port))
 
-        if not self.timeouted and not self.closed:
-            conn.request(
-                method=request.method,
-                url=request.url,
-                headers=request.headers,
-                body=request.body
-            )
-
+        conn.request(
+            method=request.method,
+            url=request.url,
+            headers=request.headers,
+            body=request.body
+        )
         self.timer.restart()
-
-        pool = ThreadPool(processes=1)
-        deffer = pool.apply_async(conn.getresponse)
-        while not self.timeouted and not self.closed and not deffer.ready():
-            time.sleep(0.1)
+        q = Queue()
+        t = Thread(target=getresponse, args=(conn, q))
+        t.daemon = True
+        t.start()
+        while not self.timeouted and not self.closed and t.isAlive():
+            t.join(0.1)
 
         if self.timeouted:
             conn.close()
@@ -146,7 +154,9 @@ class Session(object):
             conn.close()
             return 500, {}, "Session closed by user"
 
-        response = deffer.get()
+        response = q.get()
+        del q
+        del t
         response_body = response.read()
 
         return response.status, dict(x for x in response.getheaders()), response_body
