@@ -64,6 +64,7 @@ class Session(object):
     id = None
     name = None
     virtual_machine = None
+    desired_capabilities = None
     timeouted = False
     closed = False
 
@@ -82,6 +83,9 @@ class Session(object):
     @property
     def duration(self):
         return time.time() - self._start
+
+    def set_desired_capabilities(self, dc):
+        self.desired_capabilities = dc
 
     def delete(self):
         log.info("deleting session: %s" % self.id)

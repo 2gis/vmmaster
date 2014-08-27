@@ -202,3 +202,95 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         request = copy.deepcopy(self.request)
         result = commands.selenium_status(request, self.session, self.port)
         self.assertFalse(result)
+
+
+class TestGetDesiredCapabilities(unittest.TestCase):
+    def setUp(self):
+        self.body = {
+            "sessionId": None,
+            "desiredCapabilities": {
+                "platform": "some_platform",
+            }
+        }
+        self.session_request_headers = {
+            'content-length': '%s',
+            'accept-encoding': 'identity',
+            'Connection': 'close',
+            'accept': 'application/json',
+            'user-agent': 'Python-urllib/2.7',
+            'host': '127.0.0.1:9000',
+            'content-type': 'application/json;charset=UTF-8',
+        }
+
+        self.request = Mock()
+        self.request.method = "POST"
+        self.request.path = "/wd/hub/session"
+        self.request.headers = dict()
+
+    def test_platform(self):
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertIsInstance(dc.platform, unicode)
+        self.assertEqual(self.body["desiredCapabilities"]["platform"], dc.platform)
+
+    def test_name(self):
+        self.body['desiredCapabilities'].update({
+            "name": "some_name"
+        })
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertIsInstance(dc.name, unicode)
+        self.assertEqual(self.body["desiredCapabilities"]["name"], dc.name)
+
+    def test_no_name(self):
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertEqual(dc.name, None)
+
+    def test_take_screenshot_bool(self):
+        self.body['desiredCapabilities'].update({
+            "takeScreenshot": True
+        })
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertTrue(dc.takeScreenshot)
+
+    def test_take_screenshot_some_string(self):
+        self.body['desiredCapabilities'].update({
+            "takeScreenshot": "asdf"
+        })
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertTrue(dc.takeScreenshot)
+
+    def test_take_screenshot_empty_string(self):
+        self.body['desiredCapabilities'].update({
+            "takeScreenshot": ""
+        })
+        self.session_request_headers = {
+            'content-length': '%s' % len(self.body),
+        }
+        self.request.headers.update(self.session_request_headers)
+        self.request.body = json.dumps(self.body)
+        dc = commands.get_desired_capabilities(self.request)
+        self.assertFalse(dc.takeScreenshot)

@@ -65,7 +65,7 @@ def server_is_up(address):
             raise RuntimeError("server is not running on %s:%s" % address)
 
 
-class TestCloneList(unittest.TestCase):
+class TestApi(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9000)
