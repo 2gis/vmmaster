@@ -111,6 +111,9 @@ class PlatformHandler(object):
 
     def take_screenshot(self, proxy):
         session = self.sessions.get_session(proxy.session_id)
+        if not session.desired_capabilities.takeScreenshot:
+            return None
+
         screenshot = commands.take_screenshot(session, 9000)
 
         if screenshot:
@@ -160,7 +163,9 @@ class PlatformHandler(object):
         """POST request."""
         req = proxy.request
         if req.path.split("/")[-1] == "session":
-            session = commands.create_session(req, self.sessions)
+            desired_caps = commands.get_desired_capabilities(req)
+            session = commands.create_session(self.sessions, desired_caps)
+            session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id
             proxy._log_step = self.log_write(
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))

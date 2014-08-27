@@ -10,12 +10,15 @@ from .sessions import RequestHelper
 from .utils.graphite import graphite, send_metrics
 
 
-def create_session(request, sessions):
-    session_name = get_session_name(request)
-    platform = get_platform(request)
-    replace_platform_with_any(request)
-    name = session_name if session_name else None
-    session = sessions.start_session(name, platform)
+class DesiredCapabilities(object):
+    def __init__(self, name, platform, takeScreenshot):
+        self.name = name
+        self.platform = platform
+        self.takeScreenshot = bool(takeScreenshot)
+
+
+def create_session(sessions, desired_caps):
+    session = sessions.start_session(desired_caps.name, desired_caps.platform)
     return session
 
 
@@ -113,32 +116,28 @@ def selenium_status(request, session, port):
     return False
 
 
-def replace_platform_with_any(self):
-    body = json.loads(self.body)
-    desired_capabilities = body["desiredCapabilities"]
+def replace_platform_with_any(request):
+        body = json.loads(request.body)
+        desired_capabilities = body["desiredCapabilities"]
 
-    desired_capabilities["platform"] = u"ANY"
-    body["desiredCapabilities"] = desired_capabilities
+        desired_capabilities["platform"] = u"ANY"
+        body["desiredCapabilities"] = desired_capabilities
 
-    new_body = json.dumps(body)
-    self.body = new_body
-    self.headers["Content-Length"] = len(self.body)
-
-
-def get_desired_capabilities(self):
-    body = json.loads(self.body)
-    return body["desiredCapabilities"]
+        new_body = json.dumps(body)
+        request.body = new_body
+        request.headers["Content-Length"] = len(request.body)
 
 
-def get_platform(self):
-    return get_desired_capabilities(self)["platform"]
+def get_desired_capabilities(request):
+    body = json.loads(request.body)
 
-
-def get_session_name(self):
-    try:
-        return get_desired_capabilities(self)["name"]
-    except KeyError:
-        return None
+    replace_platform_with_any(request)
+    dc = DesiredCapabilities(
+        body['desiredCapabilities'].get('name', None),
+        body['desiredCapabilities'].get('platform', None),
+        body['desiredCapabilities'].get('takeScreenshot', None)
+    )
+    return dc
 
 
 def get_session_id(path):
