@@ -11,6 +11,7 @@ from .core.network.network import Network
 from .core.logger import log
 from .core.platform_server import PlatformHandler
 from .core.api import ApiHandler
+from .core.session_queue import Worker
 
 
 def _block_on(d, timeout=None):
@@ -37,6 +38,10 @@ class VMMasterServer(object):
         self.network = Network()
         self.platforms = Platforms()
         self.sessions = Sessions()
+        self.worker = Worker(self.platforms)
+        self.worker.daemon = True
+        self.worker.running = True
+        self.worker.start()
 
         app = Flask(__name__)
         platform_handler = PlatformHandler(self.platforms, self.sessions)
@@ -56,6 +61,8 @@ class VMMasterServer(object):
         log.info("shutting down...")
         d = self.bind.stopListening()
         _block_on(d, 20)
+        self.worker.stop()
+        self.worker.join()
         self.sessions.delete()
         self.platforms.delete()
         self.network.delete()

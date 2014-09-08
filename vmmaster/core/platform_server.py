@@ -4,7 +4,8 @@ import sys
 from threading import Thread
 from traceback import format_exc
 
-from flask import request, Request, Response
+from flask import request, Response, current_app, copy_current_request_context
+from flask import Request as FlaskRequest
 
 from . import commands
 
@@ -14,6 +15,11 @@ from .utils.utils import write_file
 from .db import database
 from .exceptions import SessionException, ConnectionError
 from .sessions import RequestHelper
+from .session_queue import q
+
+
+def block():
+    return True
 
 
 class BucketThread(Thread):
@@ -28,7 +34,7 @@ class BucketThread(Thread):
             self.bucket.put(sys.exc_info())
 
 
-class Request(Request):
+class Request(FlaskRequest):
     def __init__(self):
         super(Request, self).__init__(request.environ)
         self.clientproto = self.headers.environ['SERVER_PROTOCOL']
@@ -48,7 +54,6 @@ class SessionProxy(object):
 
     @property
     def session_id(self):
-        # return commands.get_session_id(self.request.path)
         if not self._session_id:
             self._session_id = commands.get_session_id(self.request.path)
         return self._session_id
@@ -85,9 +90,11 @@ class PlatformHandler(object):
             proxy._log_step = self.log_write(proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
 
         try:
-            return self.process_request(proxy)
+            response = self.process_request(proxy)
         except:
-            return self.handle_exception(proxy, format_exc())
+            response = self.handle_exception(proxy, format_exc())
+
+        return response
 
     def handle_exception(self, request, tb):
         log.error(tb)
@@ -164,6 +171,11 @@ class PlatformHandler(object):
         req = proxy.request
         if req.path.split("/")[-1] == "session":
             desired_caps = commands.get_desired_capabilities(req)
+
+            job = q.enqueue(block)
+            while job.result is None:
+                time.sleep(0.1)
+
             session = commands.create_session(self.sessions, desired_caps)
             session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id

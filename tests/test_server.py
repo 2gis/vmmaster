@@ -2,6 +2,8 @@ import unittest
 import json
 import time
 from uuid import uuid4
+from threading import Thread
+import socket
 
 from mock import Mock, patch
 from nose.twistedtools import reactor
@@ -57,7 +59,6 @@ def request(host, method, url, headers=None, body=None):
 def request_with_drop(address, desired_caps):
     dc = json.dumps(desired_caps)
 
-    import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(0.1)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -117,12 +118,18 @@ class TestServer(unittest.TestCase):
         self.assertEqual(1, vm_count)
 
     def test_server_maximum_vm_running(self):
+        from vmmaster.core.session_queue import q
         new_session_request(self.address, self.desired_caps)
         new_session_request(self.address, self.desired_caps)
-        response = new_session_request(self.address, self.desired_caps)
-        vm_count = self.server.platforms.vm_count
-        self.assertEqual(2, vm_count)
-        self.assertTrue("PlatformException: maximum count of virtual machines already running" in response.content)
+        t = Thread(target=new_session_request, args=(self.address, self.desired_caps))
+        t.daemon = True
+        self.assertTrue(q.is_empty())
+        with patch.object(commands, 'get_desired_capabilities') as mock:
+            t.start()
+            while not mock.called:
+                time.sleep(0.1)
+        self.assertEqual(2, self.server.platforms.vm_count)
+        self.assertFalse(q.is_empty())
 
     def test_delete_session(self):
         response = new_session_request(self.address, self.desired_caps)

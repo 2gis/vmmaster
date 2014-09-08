@@ -34,6 +34,7 @@ class Origin(Platform):
 
 class Platforms(object):
     platforms = dict()
+    vm_count = 0
 
     def __init__(self):
         self.clone_factory = CloneFactory()
@@ -61,6 +62,13 @@ class Platforms(object):
     def _check_vm_count(self):
         if self.vm_count == config.MAX_VM_COUNT:
             raise PlatformException("maximum count of virtual machines already running")
+
+    def is_ready(self):
+        try:
+            self._check_vm_count()
+            return True
+        except PlatformException:
+            return False
 
     def create(self, platform, session_id):
         self._check_platform(platform)
