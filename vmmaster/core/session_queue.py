@@ -14,7 +14,7 @@ def do_job(job):
     job.save()
 
 
-class Worker(Thread):
+class QueueWorker(Thread):
     def __init__(self, platforms):
         self.platforms = platforms
         Thread.__init__(self)

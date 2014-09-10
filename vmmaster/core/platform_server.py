@@ -176,6 +176,9 @@ class PlatformHandler(object):
             while job.result is None:
                 time.sleep(0.1)
 
+            if req.input_stream._wrapped.closed:
+                raise ConnectionError("Client has disconnected")
+
             session = commands.create_session(self.sessions, desired_caps)
             session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id

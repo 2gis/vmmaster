@@ -5,13 +5,13 @@ from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.internet.defer import Deferred
 
-from .core.platform import Platforms
+from .core.platforms import Platforms
 from .core.sessions import Sessions
 from .core.network.network import Network
 from .core.logger import log
 from .core.platform_server import PlatformHandler
 from .core.api import ApiHandler
-from .core.session_queue import Worker
+from .core.session_queue import QueueWorker
 
 
 def _block_on(d, timeout=None):
@@ -38,7 +38,7 @@ class VMMasterServer(object):
         self.network = Network()
         self.platforms = Platforms()
         self.sessions = Sessions()
-        self.worker = Worker(self.platforms)
+        self.worker = QueueWorker(self.platforms)
         self.worker.daemon = True
         self.worker.running = True
         self.worker.start()
