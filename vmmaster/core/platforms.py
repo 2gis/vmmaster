@@ -21,15 +21,14 @@ class Origin(Platform):
     drive = None
     settings = None
 
-    def __init__(self, name, path, clone_factory):
+    def __init__(self, name, path):
         self.name = name
-        self.clone_factory = clone_factory
         self.drive = os.path.join(path, 'drive.qcow2')
         self.settings = open(os.path.join(path, 'settings.xml'), 'r').read()
 
     def get(self, session_id):
         super(Origin, self).get(session_id)
-        return self.clone_factory.create_clone(self, session_id)
+        return CloneFactory.create_clone(self, session_id)
 
 
 class Platforms(object):
@@ -37,18 +36,17 @@ class Platforms(object):
     vm_count = 0
 
     def __init__(self):
-        self.clone_factory = CloneFactory()
         self.vm_count = 0
         self._load_platforms()
         dispatcher.connect(self.__remove_vm, signal=Signals.DELETE_VIRTUAL_MACHINE, sender=dispatcher.Any)
 
     def delete(self):
-        self.clone_factory.delete()
         dispatcher.disconnect(self.__remove_vm, signal=Signals.DELETE_VIRTUAL_MACHINE, sender=dispatcher.Any)
 
-    def _discover_origins(self, origins_dir):
+    @staticmethod
+    def _discover_origins(origins_dir):
         origins = [origin for origin in os.listdir(origins_dir) if os.path.isdir(os.path.join(origins_dir, origin))]
-        return [Origin(origin, os.path.join(origins_dir, origin), self.clone_factory) for origin in origins]
+        return [Origin(origin, os.path.join(origins_dir, origin)) for origin in origins]
 
     def _load_platforms(self):
         origins = self._discover_origins(config.ORIGINS_DIR)
