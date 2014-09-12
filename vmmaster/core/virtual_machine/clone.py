@@ -1,13 +1,14 @@
 from xml.dom import minidom
 from uuid import uuid4
 
+from . import VirtualMachine
+
 from ..dumpxml import dumpxml
 from ..network.network import Network
 from ..connection import Virsh
 from ..logger import log
 from ..utils import utils
 from ..exceptions import libvirtError
-from .virtual_machine import VirtualMachine
 
 
 class Clone(VirtualMachine):
@@ -18,13 +19,22 @@ class Clone(VirtualMachine):
     dumpxml_file = None
     drive_path = None
 
-    def __init__(self, number, origin):
-        self.number = number
+    def __init__(self, origin, prefix):
+        super(Clone, self).__init__()
+        self.prefix = prefix
         self.origin = origin
         self.platform = origin.name
-        self.name = self.platform + "-clone" + str(self.number)
+        self.ready = False
+
         self.conn = Virsh()
         self.network = Network()
+
+    def __str__(self):
+        return "%s(%s)" % (self.name, self.ip)
+
+    @property
+    def name(self):
+        return "%s-clone-%s" % (self.platform, self.prefix)
 
     def delete(self):
         log.info("deleting clone: {}".format(self.name))
@@ -42,6 +52,11 @@ class Clone(VirtualMachine):
         except ValueError, e:
             log.warning(e)
             pass
+        try:
+            from .virtual_machines_pool import pool
+            pool.remove_vm(self)
+        except ValueError:
+            pass
         super(Clone, self).delete()
 
     def create(self):
@@ -53,6 +68,7 @@ class Clone(VirtualMachine):
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
         log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.ip))
+        self.ready = True
         return self
 
     def clone_origin(self, origin_name):

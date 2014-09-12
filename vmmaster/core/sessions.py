@@ -68,17 +68,18 @@ class Session(object):
     timeouted = False
     closed = False
 
-    def __init__(self, sessions, name, platform):
+    def __init__(self, sessions, name, platform, vm):
         self.sessions = sessions
         self.name = name
         self.platform = platform
+        self.virtual_machine = vm
         self._start = time.time()
-        log.info("starting new session.")
+        log.info("starting new session on %s." % self.virtual_machine)
         db_session = database.createSession(status="running", name=self.name, time=time.time())
         self.id = str(db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
-        log.info("session %s started." % self.id)
+        log.info("session %s started on %s." % (self.id, self.virtual_machine))
 
     @property
     def duration(self):
@@ -181,8 +182,8 @@ class Sessions(object):
             session = self.get_session(session_id)
             session.delete()
 
-    def start_session(self, session_name, platform):
-        session = Session(self, session_name, platform)
+    def start_session(self, session_name, platform, vm):
+        session = Session(self, session_name, platform, vm)
         self.map[str(session.id)] = session
         return session
 

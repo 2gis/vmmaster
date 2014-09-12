@@ -11,7 +11,8 @@ from .core.network.network import Network
 from .core.logger import log
 from .core.platform_server import PlatformHandler
 from .core.api import ApiHandler
-from .core.session_queue import QueueWorker
+from .core.session_queue import QueueWorker, q
+from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPreloader, pool
 
 
 def _block_on(d, timeout=None):
@@ -36,20 +37,21 @@ class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.network = Network()
-        self.platforms = Platforms()
         self.sessions = Sessions()
-        self.worker = QueueWorker(self.platforms)
-        self.worker.daemon = True
-        self.worker.running = True
+        self.platforms = Platforms()
+        self.worker = QueueWorker(q)
         self.worker.start()
+        self.preloader = VirtualMachinesPreloader()
+        self.preloader.start()
 
         app = Flask(__name__)
-        platform_handler = PlatformHandler(self.platforms, self.sessions)
-        api_handler = ApiHandler(self.platforms, self.sessions)
+        platform_handler = PlatformHandler(self.sessions)
+        api_handler = ApiHandler(self.sessions)
         app.add_url_rule("/wd/hub/<path:path>", methods=['GET', 'POST', 'DELETE'],
                          endpoint='platform_handler', view_func=platform_handler)
         app.add_url_rule("/api/sessions", methods=['GET'], view_func=api_handler.sessions)
         app.add_url_rule("/api/platforms", methods=['GET'], view_func=api_handler.platforms)
+        app.add_url_rule("/api/queue", methods=['GET'], view_func=api_handler.queue)
         app.add_url_rule("/api/session/<id>/stop", methods=['POST'], view_func=api_handler.stop_session)
         resource = WSGIResource(reactor, reactor.getThreadPool(), app)
         site = Site(resource)
@@ -61,10 +63,10 @@ class VMMasterServer(object):
         log.info("shutting down...")
         d = self.bind.stopListening()
         _block_on(d, 20)
+        self.preloader.stop()
         self.worker.stop()
-        self.worker.join()
+        pool.free()
         self.sessions.delete()
-        self.platforms.delete()
         self.network.delete()
         log.info("Server gracefully shut down.")
 

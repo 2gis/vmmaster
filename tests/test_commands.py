@@ -17,7 +17,7 @@ from vmmaster.core.sessions import Session
 from vmmaster.core import commands
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.sessions import Sessions
-from vmmaster.core.exceptions import CreationException
+from vmmaster.core.virtual_machine import VirtualMachine
 
 
 class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -131,7 +131,9 @@ class CommonCommandsTestCase(unittest.TestCase):
         cls.webdriver_server.stop()
 
     def setUp(self):
-        self.session = self.sessions.start_session("test", "test_origin_1")
+        vm = VirtualMachine()
+        vm.ip = 'localhost'
+        self.session = self.sessions.start_session("test", "test_origin_1", vm)
 
     def tearDown(self):
         self.session.delete()

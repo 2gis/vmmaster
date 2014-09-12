@@ -38,6 +38,7 @@ utils.delete_file = Mock()
 from vmmaster.server import VMMasterServer
 from vmmaster.core.utils.network_utils import get_socket
 from vmmaster.core.sessions import Session
+from vmmaster.core.virtual_machine.virtual_machines_pool import VirtualMachinesPool
 
 
 def request(host, method, url, headers=None, body=None):
@@ -113,7 +114,7 @@ class TestServer(unittest.TestCase):
 
     def test_server_create_new_session(self):
         response = new_session_request(self.address, self.desired_caps)
-        vm_count = self.server.platforms.vm_count
+        vm_count = len(VirtualMachinesPool.using)
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
@@ -123,13 +124,13 @@ class TestServer(unittest.TestCase):
         new_session_request(self.address, self.desired_caps)
         t = Thread(target=new_session_request, args=(self.address, self.desired_caps))
         t.daemon = True
-        self.assertTrue(q.is_empty())
-        with patch.object(commands, 'get_desired_capabilities') as mock:
+        self.assertEqual(0, len(q))
+        with patch.object(VirtualMachinesPool, 'can_produce') as mock:
             t.start()
             while not mock.called:
                 time.sleep(0.1)
-        self.assertEqual(2, self.server.platforms.vm_count)
-        self.assertFalse(q.is_empty())
+        self.assertEqual(2, len(VirtualMachinesPool.using))
+        self.assertEqual(1, len(q))
 
     def test_delete_session(self):
         response = new_session_request(self.address, self.desired_caps)
@@ -172,14 +173,14 @@ class TestTimeoutSession(unittest.TestCase):
         del self.server
 
     def test_server_delete_timeouted_session(self):
-        self.assertEqual(0, self.server.platforms.vm_count)
+        self.assertEqual(0, VirtualMachinesPool.count())
 
         response = new_session_request(self.address, self.desired_caps)
         session_id = json.loads(response.content)["sessionId"].encode("utf-8")
 
         session = self.server.sessions.get_session(session_id)
         session.timeout()
-        vm_count = self.server.platforms.vm_count
+        vm_count = len(VirtualMachinesPool.using)
 
         self.assertEqual(0, vm_count)
         response = get_session_request(self.address, session_id)

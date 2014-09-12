@@ -4,7 +4,7 @@ import sys
 from threading import Thread
 from traceback import format_exc
 
-from flask import request, Response, current_app, copy_current_request_context
+from flask import request, Response
 from flask import Request as FlaskRequest
 
 from . import commands
@@ -15,11 +15,13 @@ from .utils.utils import write_file
 from .db import database
 from .exceptions import SessionException, ConnectionError
 from .sessions import RequestHelper
-from .session_queue import q
+from .session_queue import q, Job
+from .platforms import Platforms
+from .virtual_machine.virtual_machines_pool import VirtualMachinesPool
 
 
-def block():
-    return True
+def get_platform(platform, req, vm):
+    return vm
 
 
 class BucketThread(Thread):
@@ -74,8 +76,7 @@ class PlatformHandler(object):
     _log_step = None
     _session_id = None
 
-    def __init__(self, platforms, sessions):
-        self.platforms = platforms
+    def __init__(self, sessions):
         self.sessions = sessions
 
     def __call__(self, path):
@@ -172,19 +173,19 @@ class PlatformHandler(object):
         if req.path.split("/")[-1] == "session":
             desired_caps = commands.get_desired_capabilities(req)
 
-            job = q.enqueue(block)
-            while job.result is None:
+            Platforms._check_platform(desired_caps.platform)
+
+            job = q.enqueue(Job(get_platform, desired_caps.platform, req))
+            while job.result is None and not req.input_stream._wrapped.closed:
                 time.sleep(0.1)
 
-            if req.input_stream._wrapped.closed:
-                raise ConnectionError("Client has disconnected")
-
-            session = commands.create_session(self.sessions, desired_caps)
+            vm = job.result
+            session = self.sessions.start_session(desired_caps.name, desired_caps.platform, vm)
             session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id
             proxy._log_step = self.log_write(
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
-            status, headers, body = commands.start_session(req, session, self.platforms)
+            status, headers, body = commands.start_session(req, session)
             proxy.response = self.form_response(status, headers, body)
         else:
             proxy.response = self.transparent(proxy)
