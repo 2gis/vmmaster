@@ -24,6 +24,7 @@ network.Network.__new__ = Mock()
 from vmmaster.core.config import setup_config, config
 from vmmaster.server import VMMasterServer
 from vmmaster.core.utils.network_utils import get_socket
+from vmmaster.core.virtual_machine import VirtualMachine
 
 
 def request(host, method, url, headers=None, body=None):
@@ -82,8 +83,8 @@ class TestApi(unittest.TestCase):
         del self.server
 
     def test_api_sessions(self):
-        self.server.sessions.start_session("session1", self.platform)
-        self.server.sessions.start_session("session2", self.platform)
+        self.server.sessions.start_session("session1", self.platform, VirtualMachine())
+        self.server.sessions.start_session("session2", self.platform, VirtualMachine())
         response = api_sessions_request(self.address)
         body = json.loads(response.content)
         self.assertEqual(200, response.status)
@@ -104,7 +105,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(200, body['metacode'])
 
     def test_api_stop_session(self):
-        session = self.server.sessions.start_session("session1", self.platform)
+        session = self.server.sessions.start_session("session1", self.platform, VirtualMachine())
         response = api_stop_session_request(self.address, session.id)
         body = json.loads(response.content)
         self.assertEqual(200, body['metacode'])

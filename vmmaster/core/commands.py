@@ -17,16 +17,9 @@ class DesiredCapabilities(object):
         self.takeScreenshot = bool(takeScreenshot)
 
 
-def create_session(sessions, desired_caps):
-    session = sessions.start_session(desired_caps.name, desired_caps.platform)
-    return session
-
-
-def start_session(request, session, platforms):
+def start_session(request, session):
     notdot_platform = "".join(session.platform.split("."))
     _start = time.time()
-    vm = graphite("%s.%s" % (notdot_platform, "create"))(platforms.create)(session.platform, session.id)
-    session.virtual_machine = vm
 
     status = graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
     if session.closed:

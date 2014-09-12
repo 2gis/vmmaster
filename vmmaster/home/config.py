@@ -20,6 +20,9 @@ class Config(object):
 
     # vm related stuff
     MAX_VM_COUNT = 2
+    PRELOADED = {
+        # "ubuntu-14.04-x64": 1
+    }
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 
