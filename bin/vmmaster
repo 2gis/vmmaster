@@ -26,7 +26,7 @@ from vmmaster.core import db
 try:
     setup_config('%s/config.py' % home_dir())
     db.database = db.Database(config.DATABASE)
-except:
+except AttributeError:
     config = None
     db.database = None
 
