@@ -22,9 +22,13 @@ from docopt import docopt
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.utils.init import init, home_dir
 
-setup_config('%s/config.py' % home_dir())
-from vmmaster.core import db
-db.database = db.Database(config.DATABASE)
+try:
+    setup_config('%s/config.py' % home_dir())
+    from vmmaster.core import db
+    db.database = db.Database(config.DATABASE)
+except:
+    config = None
+    db.database = None
 
 from vmmaster.core.logger import setup_logging
 from vmmaster.server import VMMasterServer
