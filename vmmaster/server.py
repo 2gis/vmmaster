@@ -35,6 +35,13 @@ def _block_on(d, timeout=None):
 
 class VMMasterServer(object):
     def __init__(self, reactor, port):
+        from .core.config import config
+        from .core.db import database
+        if config is None:
+            raise Exception("Need to setup config")
+        if database is None:
+            raise Exception("Need to setup database")
+
         self.reactor = reactor
         self.network = Network()
         self.sessions = Sessions()
