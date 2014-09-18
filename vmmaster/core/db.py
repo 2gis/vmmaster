@@ -50,7 +50,10 @@ class Database(object):
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         self.Base.metadata.create_all(self.engine)
         from vmmaster import migrations
-        migrations.run(connection_string)
+        try:
+            migrations.run(connection_string)
+        except:
+            pass
 
     @transaction
     def createSession(self, status="running", name=None, time=time(), session=None):
@@ -101,7 +104,7 @@ class Session(Database.Base):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'),  primary_key=True)
-    status = Column(Enum('unknown', 'running', 'succeed', 'failed'))
+    status = Column('status', Enum('unknown', 'running', 'succeed', 'failed', name='status', native_enum=False))
     name = Column(String)
     error = Column(String)
     time = Column(Float)

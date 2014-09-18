@@ -296,3 +296,29 @@ class TestGetDesiredCapabilities(unittest.TestCase):
         self.request.body = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertFalse(dc.takeScreenshot)
+
+
+class TestRunScript(CommonCommandsTestCase):
+    def setUp(self):
+        super(TestRunScript, self).setUp()
+        config.VMMASTER_AGENT_PORT = self.port
+
+        self._handler_post = Handler.do_POST
+        self.response_body = "some_body"
+        self.response_headers = {
+            'header': 'value',
+            'content-length': str(len(self.response_body))
+        }
+
+    def tearDown(self):
+        super(TestRunScript, self).tearDown()
+        Handler.do_POST = self._handler_post
+
+    def test_run_script(self):
+        def do_POST(handler):
+            handler.send_reply(200, self.response_headers, body=self.response_body)
+        Handler.do_POST = do_POST
+        response = commands.run_script(self.request, self.session)
+        self.assertEqual(200, response[0])
+        self.assertDictContainsSubset(self.response_headers, response[1])
+        self.assertEqual(self.response_body, response[2])
