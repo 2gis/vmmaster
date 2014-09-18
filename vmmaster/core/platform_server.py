@@ -17,7 +17,6 @@ from .exceptions import SessionException, ConnectionError
 from .sessions import RequestHelper
 from .session_queue import q, Job
 from .platforms import Platforms
-from .virtual_machine.virtual_machines_pool import VirtualMachinesPool
 
 
 def get_platform(platform, req, vm):
@@ -147,7 +146,7 @@ class PlatformHandler(object):
             headers = {
                 'Content-Length': len(body)
             }
-        return Response(response=body, status=code, headers=headers)
+        return Response(response=body, status=code, headers=headers.iteritems())
 
     def swap_session(self, req, desired_session):
         req.body = commands.set_body_session_id(req.body, desired_session)
@@ -167,10 +166,20 @@ class PlatformHandler(object):
         self.swap_session(req, proxy.session_id)
         return self.form_response(code, headers, response_body)
 
+    def vmmaster_agent(self, command, proxy):
+        req = proxy.request
+        session = self.sessions.get_session(proxy.session_id)
+        self.swap_session(req, session.selenium_session)
+        code, headers, body = command(req, session)
+        self.swap_session(req, session.selenium_session)
+        return self.form_response(code, headers, body)
+
     def do_POST(self, proxy):
         """POST request."""
         req = proxy.request
-        if req.path.split("/")[-1] == "session":
+        last = req.path.split("/")[-1]
+        command = commands.Commands.get(last, None)
+        if last == "session":
             desired_caps = commands.get_desired_capabilities(req)
 
             Platforms._check_platform(desired_caps.platform)
@@ -187,17 +196,19 @@ class PlatformHandler(object):
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
             status, headers, body = commands.start_session(req, session)
             proxy.response = self.form_response(status, headers, body)
+        elif command is not None:
+            proxy.response = self.vmmaster_agent(command, proxy)
         else:
             proxy.response = self.transparent(proxy)
 
         words = ["url", "click", "execute", "keys", "value"]
         parts = req.path.split("/")
-        path = None
+        screenshot = None
         if set(words) & set(parts) or parts[-1] == "session":
-            path = self.take_screenshot(proxy)
+            screenshot = self.take_screenshot(proxy)
 
-        if proxy._log_step and path:
-            proxy._log_step.screenshot = path
+        if proxy._log_step and screenshot:
+            proxy._log_step.screenshot = screenshot
             database.update(proxy._log_step)
 
     def do_GET(self, proxy):

@@ -1,8 +1,12 @@
 import time
-import httplib
 from Queue import Queue
-from threading import Timer, Thread, Event
+from threading import Timer, Thread
 from traceback import format_exc
+
+import requests
+import logging
+requests_log = logging.getLogger("requests")
+requests_log.setLevel(logging.WARNING)
 
 from .db import database
 from .config import config
@@ -12,8 +16,11 @@ from .exceptions import SessionException, TimeoutException
 from twisted.python.threadable import synchronize
 
 
-def getresponse(conn, q):
-    q.put(conn.getresponse())
+def getresponse(req, q):
+    try:
+        q.put(req())
+    except Exception as e:
+        q.put(e)
 
 
 class RequestHelper(object):
@@ -29,6 +36,9 @@ class RequestHelper(object):
         self.url = url
         self.headers = headers
         self.body = body
+
+    def __repr__(self):
+        return "method:%s url:%s headers:%s body:%s" % (self.method, self.url, self.headers, self.body)
 
 
 class ShutdownTimer(object):
@@ -135,36 +145,28 @@ class Session(object):
         if self.closed:
             return 500, {}, "Session closed by user"
 
-        conn = httplib.HTTPConnection("{ip}:{port}".format(ip=self.virtual_machine.ip, port=port))
-
-        conn.request(
-            method=request.method,
-            url=request.url,
-            headers=request.headers,
-            body=request.body
-        )
         self.timer.restart()
         q = Queue()
-        t = Thread(target=getresponse, args=(conn, q))
+        url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
+        req = lambda: requests.request(method=request.method, url=url, headers=request.headers, data=request.body)
+        t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
         while not self.timeouted and not self.closed and t.isAlive():
             t.join(0.1)
 
         if self.timeouted:
-            conn.close()
             return 500, {}, "Session timeouted"
 
         if self.closed:
-            conn.close()
             return 500, {}, "Session closed by user"
 
         response = q.get()
         del q
         del t
-        response_body = response.read()
-
-        return response.status, dict(x for x in response.getheaders()), response_body
+        if isinstance(response, Exception):
+            raise response
+        return response.status_code, response.headers, response.content
 
 
 class Sessions(object):

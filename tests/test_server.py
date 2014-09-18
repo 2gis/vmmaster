@@ -86,6 +86,12 @@ def get_session_request(address, session):
     return request("%s:%s" % address, "GET", "/wd/hub/session/%s" % str(session))
 
 
+def run_script(address, session, script):
+    return request("%s:%s" % address, "POST", "/wd/hub/session/%s/runScript" % str(session), body=json.dumps(
+        {"script": script}
+    ))
+
+
 def server_is_up(address):
     s = get_socket(address[0], address[1])
     time_start = time.time()
@@ -155,6 +161,15 @@ class TestServer(unittest.TestCase):
                 new_session_request(self.address, self.desired_caps)
 
         self.assertTrue(mock.called)
+
+    def test_run_script(self):
+        response = new_session_request(self.address, self.desired_caps)
+        session_id = json.loads(response.content)["sessionId"].encode("utf-8")
+        output = json.dumps({"output": "hello world\n"})
+        with patch.object(commands, 'Commands', {'runScript': Mock(return_value=(200, {}, output))}):
+            response = run_script(self.address, session_id, "echo 'hello world'")
+        self.assertEqual(200, response.status)
+        self.assertEqual(output, response.content)
 
 
 class TestTimeoutSession(unittest.TestCase):

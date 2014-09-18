@@ -24,11 +24,11 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def free(cls):
-        log.debug("deleting using machines")
+        log.info("deleting using machines")
         for vm in list(cls.using):
             cls.using.remove(vm)
             vm.delete()
-        log.debug("deleting pool")
+        log.info("deleting pool")
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete()

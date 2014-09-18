@@ -171,3 +171,15 @@ def take_screenshot(session, port):
         return json_response["screenshot"]
     else:
         return None
+
+
+def run_script(request, session):
+    return session.make_request(
+        config.VMMASTER_AGENT_PORT, RequestHelper(
+            method=request.method, url="/runScript",
+            headers=request.headers, body=request.body))
+
+
+Commands = {
+    "runScript": run_script
+}
