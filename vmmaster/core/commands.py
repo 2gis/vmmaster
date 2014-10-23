@@ -2,6 +2,8 @@ import json
 import httplib
 import time
 
+from flask import Request
+
 from .utils import network_utils
 from .config import config
 from .logger import log
@@ -11,10 +13,11 @@ from .utils.graphite import graphite, send_metrics
 
 
 class DesiredCapabilities(object):
-    def __init__(self, name, platform, takeScreenshot):
+    def __init__(self, name, platform, takeScreenshot, runScript):
         self.name = name
         self.platform = platform
         self.takeScreenshot = bool(takeScreenshot)
+        self.runScript = dict(runScript)
 
 
 def start_session(request, session):
@@ -36,6 +39,9 @@ def start_session(request, session):
         else:
             raise CreationException("failed to get status of selenium-server-standalone")
 
+    if session.desired_capabilities.runScript:
+        startup_script(session)
+
     response = graphite("%s.%s" % (notdot_platform, "start_selenium_session"))(start_selenium_session)(request, session, config.SELENIUM_PORT)
     status, headers, body = response
     send_metrics("%s.%s" % (notdot_platform, "creation_total"), time.time() - _start)
@@ -47,6 +53,17 @@ def start_session(request, session):
         headers["Content-Length"] = len(body)
 
     return status, headers, body
+
+
+def startup_script(session):
+    r = RequestHelper(method="POST", body=json.dumps(session.desired_capabilities.runScript))
+    status, headers, body = run_script(r, session)
+    if status != httplib.OK:
+        raise Exception("failed to run script: %s" % body)
+    script_result = json.loads(body)
+    if script_result.get("status") != 0:
+        raise Exception("failed to run script with code %s:\n%s" % (
+            script_result.get("status"), script_result.get("output")))
 
 
 def ping_vm(session):
@@ -128,7 +145,8 @@ def get_desired_capabilities(request):
     dc = DesiredCapabilities(
         body['desiredCapabilities'].get('name', None),
         body['desiredCapabilities'].get('platform', None),
-        body['desiredCapabilities'].get('takeScreenshot', None)
+        body['desiredCapabilities'].get('takeScreenshot', None),
+        body['desiredCapabilities'].get('runScript', dict())
     )
     return dc
 
