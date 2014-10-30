@@ -109,7 +109,7 @@ class PlatformHandler(object):
 
     @staticmethod
     def log_write(session_id, control_line, body):
-        return database.createLogStep(
+        return database.create_vmmaster_log_step(
             session_id=session_id,
             control_line=control_line,
             body=body,

@@ -85,7 +85,7 @@ class Session(object):
         self.virtual_machine = vm
         self._start = time.time()
         log.info("starting new session on %s." % self.virtual_machine)
-        db_session = database.createSession(status="running", name=self.name, time=time.time())
+        db_session = database.create_session(status="running", name=self.name, time=time.time())
         self.id = str(db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
@@ -111,14 +111,14 @@ class Session(object):
 
     def succeed(self):
         self.closed = True
-        db_session = database.getSession(self.id)
+        db_session = database.get_session(self.id)
         db_session.status = "succeed"
         database.update(db_session)
         self.delete()
 
     def failed(self, tb):
         self.closed = True
-        db_session = database.getSession(self.id)
+        db_session = database.get_session(self.id)
         db_session.status = "failed"
         db_session.error = tb
         database.update(db_session)
