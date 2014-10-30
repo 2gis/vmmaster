@@ -23,4 +23,4 @@ def run(connection_string):
         try:
             command.downgrade(alembic_cfg, revision)
         except alembic.util.CommandError:
-            raise Exception("Could not upgrade to downgrade database to revision %s" % revision)
+            raise Exception("Could not upgrade nor downgrade database to revision %s" % revision)
