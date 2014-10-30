@@ -6,7 +6,7 @@ from time import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from .models import *
+from .models import Session, VmmasterLogStep, SessionLogStep
 
 from ..utils.utils import to_thread
 
@@ -50,10 +50,7 @@ class Database(object):
         self.engine = create_engine(connection_string)
         self.Session = scoped_session(sessionmaker(bind=self.engine))
         from vmmaster import migrations
-        # try:
         migrations.run(connection_string)
-        # except:
-        #     pass
 
     @transaction
     def create_session(self, status="running", name=None, time=time(), session=None):
@@ -88,15 +85,15 @@ class Database(object):
         return created_log_step
 
     @transaction
-    def get_session_log_step(self, log_step_id, session=None):
-        return session.query(SessionLogStep).filter_by(id=log_step_id).first()
+    def get_vmmaster_log_step(self, log_step_id, session=None):
+        return session.query(VmmasterLogStep).filter_by(id=log_step_id).first()
 
     @transaction
-    def create_session_log_step(self, session_id, control_line, body, time=time(), session=None):
-        _log_step = VmmasterLogStep(session_id=session_id,
-                                    control_line=control_line,
-                                    body=body,
-                                    time=time)
+    def create_session_log_step(self, vmmaster_log_step_id, control_line, body, time=time(), session=None):
+        _log_step = SessionLogStep(vmmaster_log_step_id=vmmaster_log_step_id,
+                                   control_line=control_line,
+                                   body=body,
+                                   time=time)
         session.add(_log_step)
         session.commit()
         created_log_step = session.query(SessionLogStep).filter_by(id=_log_step.id).first()
@@ -104,8 +101,8 @@ class Database(object):
         return created_log_step
 
     @transaction
-    def get_vmmaster_log_step(self, log_step_id, session=None):
-        return session.query(VmmasterLogStep).filter_by(id=log_step_id).first()
+    def get_session_log_step(self, log_step_id, session=None):
+        return session.query(SessionLogStep).filter_by(id=log_step_id).first()
 
     @transaction
     def update(self, obj, session=None):

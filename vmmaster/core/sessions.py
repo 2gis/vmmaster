@@ -70,6 +70,15 @@ class ShutdownTimer(object):
         return time.time() - self.__start_time
 
 
+def write_session_log(vmmaster_log_step_id, control_line, body):
+    return database.create_session_log_step(
+        vmmaster_log_step_id=vmmaster_log_step_id,
+        control_line=control_line,
+        body=body,
+        time=time.time()
+    )
+
+
 class Session(object):
     id = None
     name = None
@@ -77,6 +86,8 @@ class Session(object):
     desired_capabilities = None
     timeouted = False
     closed = False
+
+    _vmmaster_log_step = None
 
     def __init__(self, sessions, name, platform, vm):
         self.sessions = sessions
@@ -137,13 +148,14 @@ class Session(object):
             self.failed(format_exc())
 
     def make_request(self, port, request):
-        """ Make request to selenium-server-standalone
+        """ Make http request to some port in session
             and return the response. """
-        if self.timeouted:
-            return 500, {}, "Session timeouted"
 
-        if self.closed:
-            return 500, {}, "Session closed by user"
+        result = None
+        write_session_log(
+            self._vmmaster_log_step.id,
+            "%s %s" % (request.method, request.url),
+            request.body)
 
         self.timer.restart()
         q = Queue()
@@ -152,21 +164,28 @@ class Session(object):
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
-        while not self.timeouted and not self.closed and t.isAlive():
-            t.join(0.1)
+        while not result:
+            if self.timeouted:
+                result = (500, {}, "Session timeouted")
+            elif self.closed:
+                result = (500, {}, "Session closed")
+            elif not t.isAlive():
+                response = q.get()
+                del q
+                del t
+                if isinstance(response, Exception):
+                    raise response
 
-        if self.timeouted:
-            return 500, {}, "Session timeouted"
+                result = (response.status_code, response.headers, response.content)
+            else:
+                t.join(0.1)
 
-        if self.closed:
-            return 500, {}, "Session closed by user"
+        write_session_log(
+            self._vmmaster_log_step.id,
+            "%s" % result[0],
+            result[2])
 
-        response = q.get()
-        del q
-        del t
-        if isinstance(response, Exception):
-            raise response
-        return response.status_code, response.headers, response.content
+        return result
 
 
 class Sessions(object):

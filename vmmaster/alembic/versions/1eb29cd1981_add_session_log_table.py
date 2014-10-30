@@ -16,6 +16,8 @@ import sqlalchemy as sa
 
 def upgrade():
     op.rename_table('log_steps', 'vmmaster_log_steps')
+    op.rename_table('log_step_id_seq', 'vmmaster_log_steps_id_seq')
+
     op.create_table(
         'session_log_steps',
         sa.Column('id', sa.Integer, primary_key=True),
@@ -28,4 +30,6 @@ def upgrade():
 
 def downgrade():
     op.rename_table('vmmaster_log_steps', 'log_steps')
+    op.rename_table('vmmaster_log_steps_id_seq', 'log_step_id_seq')
+
     op.drop_table('session_log_steps')

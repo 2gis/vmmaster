@@ -20,7 +20,7 @@ class Session(Base):
 class VmmasterLogStep(Base):
     __tablename__ = 'vmmaster_log_steps'
 
-    id = Column(Integer, Sequence('log_step_id_seq'),  primary_key=True)
+    id = Column(Integer, Sequence('vmmaster_log_steps_id_seq'),  primary_key=True)
     session_id = Column(Integer)
     control_line = Column(String)
     body = Column(String)
@@ -31,9 +31,8 @@ class VmmasterLogStep(Base):
 class SessionLogStep(Base):
     __tablename__ = 'session_log_steps'
 
-    id = Column(Integer, Sequence('session_log_step_id_seq'),  primary_key=True)
+    id = Column(Integer, Sequence('session_log_steps_id_seq'),  primary_key=True)
     vmmaster_log_step_id = Column(Integer)
     control_line = Column(String)
     body = Column(String)
-    screenshot = Column(String)
     time = Column(Float)
