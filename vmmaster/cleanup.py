@@ -9,11 +9,12 @@ from sqlalchemy.orm import sessionmaker
 from vmmaster.core.utils.init import home_dir
 from vmmaster.core.config import setup_config, config
 setup_config('%s/config.py' % home_dir())
-from vmmaster.core.db import Session, LogStep
+from vmmaster.core.db import Session, VmmasterLogStep, SessionLogStep
 from vmmaster.core.utils.utils import rm, change_user_vmmaster
 
 outdated_sessions = None
-outdated_logsteps_count = 0
+outdated_vmmaster_logsteps_count = 0
+outdated_session_logsteps_count = 0
 outdated_screenshots_count = 0
 
 
@@ -65,6 +66,14 @@ def get_screenshots(log_steps):
     return screenshots
 
 
+def get_session_log_steps(session, vmmaster_log_steps):
+    session_log_steps = []
+    for vmmaster_log_step in vmmaster_log_steps:
+        session_log_steps += session.query(SessionLogStep).filter(SessionLogStep.vmmaster_log_step_id == vmmaster_log_step.id).all()
+
+    return session_log_steps
+
+
 def old():
     d = time.time() - 60 * 60 * 24 * config.SCREENSHOTS_DAYS
     return d
@@ -77,14 +86,22 @@ def old_sessions(db_session=None):
 
 @transaction
 def delete_session_data(session, db_session=None):
-    logsteps = db_session.query(LogStep).filter(LogStep.session_id == session.id).all()
-    global outdated_logsteps_count
-    outdated_logsteps_count += len(logsteps)
-    screenshots = get_screenshots(logsteps)
+    vmmaster_logsteps = db_session.query(VmmasterLogStep).filter(VmmasterLogStep.session_id == session.id).all()
+    global outdated_vmmaster_logsteps_count
+    outdated_vmmaster_logsteps_count += len(vmmaster_logsteps)
+
+    session_logsteps = get_session_log_steps(db_session, vmmaster_logsteps)
+    global outdated_session_logsteps_count
+    outdated_session_logsteps_count += len(session_logsteps)
+
+    screenshots = get_screenshots(vmmaster_logsteps)
     global outdated_screenshots_count
     outdated_screenshots_count += len(screenshots)
+
     rm(screenshots)
-    for logstep in logsteps:
+    for logstep in session_logsteps:
+        db_session.delete(logstep)
+    for logstep in vmmaster_logsteps:
         db_session.delete(logstep)
     db_session.delete(session)
     db_session.commit()
@@ -92,14 +109,6 @@ def delete_session_data(session, db_session=None):
         os.rmdir(os.path.join(config.SCREENSHOTS_DIR, str(session.id)))
     except OSError:
         pass
-
-
-def old_log_steps(session, _old_sessions):
-    _old_log_steps = []
-    for old_session in _old_sessions:
-        _old_log_steps += session.query(LogStep).filter(LogStep.session_id == old_session.id).all()
-
-    return _old_log_steps
 
 
 def run():
@@ -116,11 +125,10 @@ def run():
         progressbar(percentage)
 
     write("\n\n")
-    write("Total: %s sessions, %s logsteps, %s screenshots deleted\n" % (
-        outdated_sessions_count, outdated_logsteps_count, outdated_screenshots_count)
+    write("Total: %s sessions, %s vmmaster logsteps, %s session logsteps, %s screenshots deleted\n" % (
+        outdated_sessions_count, outdated_vmmaster_logsteps_count, outdated_session_logsteps_count, outdated_screenshots_count)
     )
     write("Done!\n")
-
 
 
 if __name__ == "__main__":
