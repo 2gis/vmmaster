@@ -99,12 +99,11 @@ class PlatformHandler(object):
 
     def request_received(self, proxy):
         req = proxy.request
-        if proxy.session_id:
-            session = self.sessions.get_session(proxy.session_id)
-            session._vmmaster_log_step = write_vmmaster_log(
-                proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
-
         try:
+            if proxy.session_id:
+                session = self.sessions.get_session(proxy.session_id)
+                session._vmmaster_log_step = write_vmmaster_log(
+                    proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
             response = self.process_request(proxy)
         except:
             response = self.handle_exception(proxy, format_exc())

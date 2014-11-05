@@ -152,10 +152,11 @@ class Session(object):
             and return the response. """
 
         result = None
-        write_session_log(
-            self._vmmaster_log_step.id,
-            "%s %s" % (request.method, request.url),
-            request.body)
+        if self._vmmaster_log_step:
+            write_session_log(
+                self._vmmaster_log_step.id,
+                "%s %s" % (request.method, request.url),
+                request.body)
 
         self.timer.restart()
         q = Queue()
@@ -180,10 +181,11 @@ class Session(object):
             else:
                 t.join(0.1)
 
-        write_session_log(
-            self._vmmaster_log_step.id,
-            "%s" % result[0],
-            result[2])
+        if self._vmmaster_log_step:
+            write_session_log(
+                self._vmmaster_log_step.id,
+                "%s" % result[0],
+                result[2])
 
         return result
 
