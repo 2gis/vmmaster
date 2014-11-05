@@ -46,6 +46,10 @@ class Request(FlaskRequest):
         self.headers = headers
         self.body = self.data
 
+    @property
+    def closed(self):
+        return self.input_stream._wrapped.closed
+
 
 class SessionProxy(object):
     def __init__(self):
@@ -62,6 +66,15 @@ class SessionProxy(object):
     @session_id.setter
     def session_id(self, value):
         self._session_id = value
+
+
+def write_vmmaster_log(session_id, control_line, body):
+    return database.create_vmmaster_log_step(
+        session_id=session_id,
+        control_line=control_line,
+        body=body,
+        time=time.time()
+    )
 
 
 class PlatformHandler(object):
@@ -81,15 +94,16 @@ class PlatformHandler(object):
     def __call__(self, path):
         proxy = SessionProxy()
         response = self.request_received(proxy)
-        self.log_write(proxy.session_id, response.status, str(response.data))
+        write_vmmaster_log(proxy.session_id, response.status, str(response.data))
         return response
 
     def request_received(self, proxy):
         req = proxy.request
-        if proxy.session_id:
-            proxy._log_step = self.log_write(proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
-
         try:
+            if proxy.session_id:
+                session = self.sessions.get_session(proxy.session_id)
+                session._vmmaster_log_step = write_vmmaster_log(
+                    proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
             response = self.process_request(proxy)
         except:
             response = self.handle_exception(proxy, format_exc())
@@ -107,15 +121,6 @@ class PlatformHandler(object):
             session.failed(tb)
         return resp
 
-    @staticmethod
-    def log_write(session_id, control_line, body):
-        return database.createLogStep(
-            session_id=session_id,
-            control_line=control_line,
-            body=body,
-            time=time.time()
-        )
-
     def take_screenshot(self, proxy):
         session = self.sessions.get_session(proxy.session_id)
         if not session.desired_capabilities.takeScreenshot:
@@ -124,7 +129,7 @@ class PlatformHandler(object):
         screenshot = commands.take_screenshot(session, 9000)
 
         if screenshot:
-            path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + "/" + str(proxy._log_step.id) + ".png"
+            path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + "/" + str(session._vmmaster_log_step.id) + ".png"
             write_file(path, base64.b64decode(screenshot))
             return path
 
@@ -132,7 +137,7 @@ class PlatformHandler(object):
         req = proxy.request
         method = getattr(self, "do_" + req.method)
         method(proxy)
-        if req.input_stream._wrapped.closed:
+        if req.closed:
             raise ConnectionError("Client has disconnected")
 
         return proxy.response
@@ -185,14 +190,14 @@ class PlatformHandler(object):
             Platforms._check_platform(desired_caps.platform)
 
             job = q.enqueue(Job(get_platform, desired_caps.platform, req))
-            while job.result is None and not req.input_stream._wrapped.closed:
+            while job.result is None and not req.closed:
                 time.sleep(0.1)
 
             vm = job.result
             session = self.sessions.start_session(desired_caps.name, desired_caps.platform, vm)
             session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id
-            proxy._log_step = self.log_write(
+            session._vmmaster_log_step = write_vmmaster_log(
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
             status, headers, body = commands.start_session(req, session)
             proxy.response = self.form_response(status, headers, body)
@@ -203,13 +208,15 @@ class PlatformHandler(object):
 
         words = ["url", "click", "execute", "keys", "value"]
         parts = req.path.split("/")
-        screenshot = None
-        if set(words) & set(parts) or parts[-1] == "session":
-            screenshot = self.take_screenshot(proxy)
 
-        if proxy._log_step and screenshot:
-            proxy._log_step.screenshot = screenshot
-            database.update(proxy._log_step)
+        session = self.sessions.get_session(proxy.session_id)
+        if session._vmmaster_log_step:
+            screenshot = None
+            if set(words) & set(parts) or parts[-1] == "session":
+                screenshot = self.take_screenshot(proxy)
+            if screenshot:
+                session._vmmaster_log_step.screenshot = screenshot
+                database.update(session._vmmaster_log_step)
 
     def do_GET(self, proxy):
         """GET request."""

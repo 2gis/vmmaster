@@ -16,7 +16,7 @@ def session_id(*args, **kwargs):
         id = uuid4()
     return Session()
 from vmmaster.core import db
-db.database = Mock(createSession=Mock(side_effect=session_id))
+db.database = Mock(create_session=Mock(side_effect=session_id))
 from vmmaster.core import connection
 connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network

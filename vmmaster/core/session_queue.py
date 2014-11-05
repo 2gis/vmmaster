@@ -65,7 +65,7 @@ class QueueWorker(Thread):
         while self.running:
             for job in list(self.queue):
                 req = job.args[1]
-                if req.input_stream._wrapped.closed:
+                if req.closed:
                     self.queue.dequeue(job)
                     continue
                 platform = job.args[0]
