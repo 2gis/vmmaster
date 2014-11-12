@@ -92,6 +92,12 @@ def run_script(address, session, script):
     ))
 
 
+def vmmaster_label(address, session, label=None):
+    return request("%s:%s" % address, "POST", "/wd/hub/session/%s/vmmasterLabel" % str(session), body=json.dumps(
+        {"label": label}
+    ))
+
+
 def server_is_up(address):
     s = get_socket(address[0], address[1])
     time_start = time.time()
@@ -166,8 +172,17 @@ class TestServer(unittest.TestCase):
         response = new_session_request(self.address, self.desired_caps)
         session_id = json.loads(response.content)["sessionId"].encode("utf-8")
         output = json.dumps({"output": "hello world\n"})
-        with patch.object(commands, 'Commands', {'runScript': Mock(return_value=(200, {}, output))}):
+        with patch.object(commands, 'AgentCommands', {'runScript': Mock(return_value=(200, {}, output))}):
             response = run_script(self.address, session_id, "echo 'hello world'")
+        self.assertEqual(200, response.status)
+        self.assertEqual(output, response.content)
+
+    def test_vmmaster_label(self):
+        response = new_session_request(self.address, self.desired_caps)
+        session_id = json.loads(response.content)["sessionId"].encode("utf-8")
+        output = json.dumps({"value": "step-label"})
+        with patch.object(commands, 'InternalCommands', {'vmmasterLabel': Mock(return_value=(200, {}, output))}):
+            response = vmmaster_label(self.address, session_id, "step-label")
         self.assertEqual(200, response.status)
         self.assertEqual(output, response.content)
 

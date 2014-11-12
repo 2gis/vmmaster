@@ -322,3 +322,15 @@ class TestRunScript(CommonCommandsTestCase):
         self.assertEqual(200, response[0])
         self.assertDictContainsSubset(self.response_headers, response[1])
         self.assertEqual(self.response_body, response[2])
+
+
+class TestLabelCommands(CommonCommandsTestCase):
+    def test_label(self):
+        request = copy.deepcopy(self.request)
+        label = "step-label"
+        request.body = json.dumps({"label": label})
+        status, headers, body = commands.vmmaster_label(request, self.session)
+        self.assertEqual(status, 200)
+        json_body = json.loads(body)
+        self.assertEqual(json_body["value"], label)
+

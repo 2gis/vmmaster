@@ -198,6 +198,15 @@ def run_script(request, session):
             headers=request.headers, body=request.body))
 
 
-Commands = {
+def vmmaster_label(request, session):
+    json_body = json.loads(request.body)
+    return 200, {}, json.dumps({"sessionId": session.id, "status": 0, "value": json_body["label"]})
+
+
+AgentCommands = {
     "runScript": run_script
+}
+
+InternalCommands = {
+    "vmmasterLabel": vmmaster_label
 }

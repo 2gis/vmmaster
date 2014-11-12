@@ -179,11 +179,16 @@ class PlatformHandler(object):
         self.swap_session(req, session.selenium_session)
         return self.form_response(code, headers, body)
 
+    def internal_exec(self, command, proxy):
+        session = self.sessions.get_session(proxy.session_id)
+        code, headers, body = command(proxy.request, session)
+        return self.form_response(code, headers, body)
+
     def do_POST(self, proxy):
         """POST request."""
         req = proxy.request
         last = req.path.split("/")[-1]
-        command = commands.Commands.get(last, None)
+
         if last == "session":
             desired_caps = commands.get_desired_capabilities(req)
 
@@ -201,8 +206,10 @@ class PlatformHandler(object):
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
             status, headers, body = commands.start_session(req, session)
             proxy.response = self.form_response(status, headers, body)
-        elif command is not None:
-            proxy.response = self.vmmaster_agent(command, proxy)
+        elif last in commands.AgentCommands:
+            proxy.response = self.vmmaster_agent(commands.AgentCommands[last], proxy)
+        elif last in commands.InternalCommands:
+            proxy.response = self.internal_exec(commands.InternalCommands[last], proxy)
         else:
             proxy.response = self.transparent(proxy)
 
