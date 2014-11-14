@@ -67,11 +67,8 @@ def get_screenshots(log_steps):
 
 
 def get_session_log_steps(session, vmmaster_log_steps):
-    session_log_steps = []
-    for vmmaster_log_step in vmmaster_log_steps:
-        session_log_steps += session.query(SessionLogStep).filter(SessionLogStep.vmmaster_log_step_id == vmmaster_log_step.id).all()
-
-    return session_log_steps
+    ids = [vmmaster_log_step.id for vmmaster_log_step in vmmaster_log_steps]
+    return session.query(SessionLogStep).filter(SessionLogStep.vmmaster_log_step_id.in_(ids)).all()
 
 
 def old():
