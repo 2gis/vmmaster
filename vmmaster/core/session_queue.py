@@ -84,5 +84,3 @@ class QueueWorker(Thread):
             self.queue.dequeue()
 
 q = SessionQueue()
-worker = QueueWorker(q)
-worker.running = True

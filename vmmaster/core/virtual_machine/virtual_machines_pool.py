@@ -89,24 +89,24 @@ class VirtualMachinesPool(object):
         cls.pool.append(vm)
 
 
-class VirtualMachinesPreloader(Thread):
-    def __init__(self):
+class VirtualMachinesPoolPreloader(Thread):
+    def __init__(self, pool):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
+        self.pool = pool
 
     def run(self):
         while self.running:
-            if VirtualMachinesPool.can_produce():
+            if self.pool.can_produce():
                 platform = self.need_load()
-                if platform is None:
-                    continue
+                if platform is not None:
+                    self.pool.add(platform, "preloaded-%s" % uuid4())
 
-                VirtualMachinesPool.add(platform, "preloaded-%s" % uuid4())
             time.sleep(1)
 
     def need_load(self):
-        already_have = VirtualMachinesPool.pooled_virtual_machines()
+        already_have = self.pool.pooled_virtual_machines()
         for platform, need in config.PRELOADED.iteritems():
             have = already_have.get(platform, 0)
             if need > have:
@@ -118,5 +118,3 @@ class VirtualMachinesPreloader(Thread):
 
 
 pool = VirtualMachinesPool()
-preloader = VirtualMachinesPreloader()
-preloader.running = True

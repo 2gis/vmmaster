@@ -12,7 +12,7 @@ from .core.logger import log
 from .core.platform_server import PlatformHandler
 from .core.api import ApiHandler
 from .core.session_queue import QueueWorker, q
-from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPreloader, pool
+from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPoolPreloader, pool
 
 
 def _block_on(d, timeout=None):
@@ -48,7 +48,7 @@ class VMMasterServer(object):
         self.platforms = Platforms()
         self.worker = QueueWorker(q)
         self.worker.start()
-        self.preloader = VirtualMachinesPreloader()
+        self.preloader = VirtualMachinesPoolPreloader(pool)
         self.preloader.start()
 
         app = Flask(__name__)
@@ -60,7 +60,7 @@ class VMMasterServer(object):
         app.add_url_rule("/api/platforms", methods=['GET'], view_func=api_handler.platforms)
         app.add_url_rule("/api/queue", methods=['GET'], view_func=api_handler.queue)
         app.add_url_rule("/api/session/<id>/stop", methods=['POST'], view_func=api_handler.stop_session)
-        resource = WSGIResource(reactor, reactor.getThreadPool(), app)
+        resource = WSGIResource(self.reactor, self.reactor.getThreadPool(), app)
         site = Site(resource)
 
         self.bind = self.reactor.listenTCP(port, site)
