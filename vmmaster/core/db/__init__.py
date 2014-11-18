@@ -111,3 +111,5 @@ class Database(object):
         updated_obj = session.query(type(obj)).filter_by(id=obj.id).first()
         session.flush()
         return updated_obj
+
+database = None
