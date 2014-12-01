@@ -151,6 +151,9 @@ class Session(object):
         """ Make http request to some port in session
             and return the response. """
 
+        if request.headers.get("Host"):
+            del request.headers['Host']
+
         result = None
         if self._vmmaster_log_step:
             write_session_log(

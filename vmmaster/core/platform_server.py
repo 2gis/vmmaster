@@ -47,6 +47,9 @@ class Request(FlaskRequest):
         self.headers = headers
         self.body = self.data
 
+    def __str__(self):
+        return "%s %s %s" % (self.method, self.url, self.body)
+
     @property
     def closed(self):
         return self.input_stream._wrapped.closed
