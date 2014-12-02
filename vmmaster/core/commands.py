@@ -26,7 +26,7 @@ def start_session(request, session):
 
     status = graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
     if session.closed:
-        return 500, {}, "Session closed by user"
+        raise CreationException("Session closed by user")
 
     if not status:
         log.info("ping failed: TIMEOUT. Session: %s".format(session.id))
@@ -35,8 +35,6 @@ def start_session(request, session):
     # check status
     if not graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT):
         if session.timeouted:
-            return 500, {}, "failed to get status of selenium-server-standalone"
-        else:
             raise CreationException("failed to get status of selenium-server-standalone")
 
     if session.desired_capabilities.runScript:

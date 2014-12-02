@@ -145,7 +145,7 @@ class PlatformHandler(object):
         tr.daemon = True
         tr.start()
 
-        while tr.isAlive() and not req.closed:
+        while tr.isAlive() and not req.closed or not proxy.session_id:
             tr.join(0.1)
 
         if req.closed:
