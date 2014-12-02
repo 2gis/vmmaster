@@ -6,6 +6,7 @@ from StringIO import StringIO
 from multiprocessing.pool import ThreadPool
 
 from tests.test_normal import TestPositiveCase, TestRunSriptOnSessionCreation
+from tests.test_normal import TestParallelSessions1, TestParallelSessions2
 
 
 class TestCase(unittest.TestCase):
@@ -31,9 +32,9 @@ class TestCase(unittest.TestCase):
 
     def test_two_same_tests_parallel_run(self):
         suite1 = unittest.TestSuite()
-        suite1.addTest(TestPositiveCase("test_google"))
+        suite1.addTest(TestParallelSessions1("test"))
         suite2 = unittest.TestSuite()
-        suite2.addTest(TestPositiveCase("test_google"))
+        suite2.addTest(TestParallelSessions2("test"))
 
         pool = ThreadPool(2)
         deffered1 = pool.apply_async(self.runner.run, args=(suite1,))

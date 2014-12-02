@@ -14,8 +14,27 @@ class TestPositiveCase(TestCase):
 
 
 class TestRunSriptOnSessionCreation(TestCase):
-    def setUp(self):
-        self.desired_caps["runScript"] = {"script": 'echo "hello"'}
+    @classmethod
+    def setUpClass(cls):
+        cls.desired_capabilities["runScript"] = {"script": 'echo "hello" > ~/hello_file'}
+        super(TestRunSriptOnSessionCreation, cls).setUpClass()
 
     def test_run_script_on_session_creation(self):
-        pass
+        output = self.vmmaster.run_script("cat ~/hello_file").get("output")
+        self.assertEqual(u"hello\n", output)
+
+
+def parallel_tests_body(self):
+    self.driver.get('http://google.com')
+    feeling_lucky_button = self.driver.find_element_by_css_selector("#gbqfsb")
+    feeling_lucky_button.click()
+
+
+class TestParallelSessions1(TestCase):
+    def test(self):
+        parallel_tests_body(self)
+
+
+class TestParallelSessions2(TestCase):
+    def test(self):
+        parallel_tests_body(self)

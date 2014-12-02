@@ -161,11 +161,13 @@ class TestServer(unittest.TestCase):
         response = get_session_request(self.address, session)
         self.assertTrue("SessionException: There is no active session %s" % session in response.content)
 
-    def test_server_client_connection_drop(self):
+    def test_server_deleting_session_on_client_connection_drop(self):
+        response = new_session_request(self.address, self.desired_caps)
+        session = json.loads(response.content)["sessionId"].encode("utf-8")
+
         with patch.object(Request, 'input_stream', return_result=Mock(_wrapped=Mock(closed=True))):
             with patch.object(Session, 'delete') as mock:
-                new_session_request(self.address, self.desired_caps)
-
+                get_session_request(self.address, session)
         self.assertTrue(mock.called)
 
     def test_run_script(self):

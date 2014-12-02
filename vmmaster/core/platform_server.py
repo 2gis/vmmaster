@@ -3,6 +3,7 @@ import base64
 import sys
 from threading import Thread
 from traceback import format_exc
+from Queue import Queue
 
 from flask import request, Response
 from flask import Request as FlaskRequest
@@ -31,7 +32,7 @@ class BucketThread(Thread):
     def run(self):
         try:
             super(BucketThread, self).run()
-        except Exception:
+        except:
             self.bucket.put(sys.exc_info())
 
 
@@ -45,6 +46,9 @@ class Request(FlaskRequest):
                 headers[key] = value
         self.headers = headers
         self.body = self.data
+
+    def __str__(self):
+        return "%s %s %s" % (self.method, self.url, self.body)
 
     @property
     def closed(self):
@@ -136,9 +140,19 @@ class PlatformHandler(object):
     def process_request(self, proxy):
         req = proxy.request
         method = getattr(self, "do_" + req.method)
-        method(proxy)
+        error_bucket = Queue()
+        tr = BucketThread(target=method, args=(proxy,), bucket=error_bucket)
+        tr.daemon = True
+        tr.start()
+
+        while tr.isAlive() and not req.closed:
+            tr.join(0.1)
+
         if req.closed:
             raise ConnectionError("Client has disconnected")
+        elif not error_bucket.empty():
+            error = error_bucket.get()
+            raise error[0], error[1], error[2]
 
         return proxy.response
 
