@@ -35,7 +35,7 @@ def start_session(request, session):
     # check status
     if not graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT):
         if session.timeouted:
-            raise CreationException("failed to get status of selenium-server-standalone")
+            raise CreationException("Failed to get status of selenium-server-standalone")
 
     if session.desired_capabilities.runScript:
         startup_script(session)
@@ -49,6 +49,8 @@ def start_session(request, session):
         session.selenium_session = selenium_session
         body = set_body_session_id(body, session.id)
         headers["Content-Length"] = len(body)
+    else:
+        raise CreationException("Failed to start selenium session: %s" % body)
 
     return status, headers, body
 
