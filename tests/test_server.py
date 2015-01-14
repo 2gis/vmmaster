@@ -1,6 +1,5 @@
 import unittest
 import json
-import time
 from uuid import uuid4
 from threading import Thread
 import socket
@@ -8,7 +7,9 @@ import socket
 from mock import Mock, patch
 from nose.twistedtools import reactor
 
+import time
 from vmmaster.core.config import setup_config
+
 
 # Mocking
 def session_id(*args, **kwargs):
@@ -21,7 +22,7 @@ from vmmaster.core import connection
 connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network
 network.Network.__new__ = Mock()
-from vmmaster.core.platform_server import PlatformHandler, Request
+from vmmaster.webdriver.platform_server import PlatformHandler, Request
 PlatformHandler.take_screenshot = Mock()
 from vmmaster.core.virtual_machine.clone import Clone
 Clone.clone_origin = Mock()

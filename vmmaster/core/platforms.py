@@ -45,11 +45,11 @@ class Platforms(object):
         log.info("load platforms: %s" % str(cls.platforms))
 
     @classmethod
-    def _check_platform(cls, platform):
+    def check_platform(cls, platform):
         if platform not in cls.platforms:
             raise PlatformException("no such platform")
 
     @classmethod
     def get(cls, platform):
-        cls._check_platform(platform)
+        cls.check_platform(platform)
         return cls.platforms.get(platform, None)

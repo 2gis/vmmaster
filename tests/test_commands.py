@@ -11,10 +11,11 @@ from mock import Mock
 
 # Mocking
 from vmmaster.core import db
+from vmmaster.webdriver import commands
+
 db.database = Mock()
 from vmmaster.core.sessions import Session
 
-from vmmaster.core import commands
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.sessions import Sessions
 from vmmaster.core.virtual_machine import VirtualMachine
