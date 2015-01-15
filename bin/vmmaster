@@ -23,12 +23,13 @@ from vmmaster.core.config import setup_config, config
 from vmmaster.core.utils.init import init, home_dir
 from vmmaster.core import db
 
-try:
-    setup_config('%s/config.py' % home_dir())
-    db.database = db.Database(config.DATABASE)
-except AttributeError:
-    config = None
-    db.database = None
+if home_dir():
+  try:
+      setup_config('%s/config.py' % home_dir())
+      db.database = db.Database(config.DATABASE)
+  except AttributeError:
+      config = None
+      db.database = None
 
 from vmmaster.core.logger import setup_logging
 from vmmaster.server import VMMasterServer
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version='0.1')
     if arguments['init'] is True:
         init()
+	exit(0)
 
     if arguments['--daemon'] is True:
         daemon = VMMasterDaemon(os.path.join(home_dir(), 'vmmaster.pid'))
