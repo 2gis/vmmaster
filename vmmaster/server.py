@@ -24,6 +24,34 @@ class JSONEncoder(FlaskJSONEncoder):
         return super(JSONEncoder, self).default(obj)
 
 
+class vmmaster(Flask):
+    def __init__(self, *args, **kwargs):
+        super(vmmaster, self).__init__(*args, **kwargs)
+
+        self.network = Network()
+        sessions = Sessions()
+        platforms = Platforms()
+
+        self.json_encoder = JSONEncoder
+        self.platforms = platforms
+        self.queue = q
+        self.sessions = sessions
+
+        self.preloader = VirtualMachinesPoolPreloader(pool)
+        self.preloader.start()
+        self.worker = QueueWorker(q)
+        self.worker.start()
+
+    def cleanup(self):
+        log.info("Shutting down...")
+        self.worker.stop()
+        self.preloader.stop()
+        self.sessions.delete()
+        pool.free()
+        self.network.delete()
+        log.info("Server gracefully shut down.")
+
+
 def register_blueprints(app):
     from api import api
     from webdriver import webdriver
@@ -39,51 +67,36 @@ def create_app():
     if database is None:
         raise Exception("Need to setup database")
 
-    network = Network()
-    sessions = Sessions()
-    platforms = Platforms()
+    app = vmmaster(__name__)
 
-    app = Flask(__name__)
-    app.json_encoder = JSONEncoder
-    app.platforms = platforms
-    app.queue = q
-    app.sessions = sessions
-
-    preloader = VirtualMachinesPoolPreloader(pool)
-    preloader.start()
-    worker = QueueWorker(q)
-    worker.start()
-
-    atexit.register(shut_down_routine, functions_array=[
-        # order matters
-        (log.info, "Shutting down..."),
-        worker.stop,
-        preloader.stop,
-        pool.free,
-        sessions.delete,
-        network.delete,
-        (log.info, "Server gracefully shut down.")])
-
-    # platform_handler = PlatformHandler(sessions)
-    # app.add_url_rule("/wd/hub/<path:path>", methods=['GET', 'POST', 'DELETE'],
-    #                  endpoint='platform_handler', view_func=platform_handler)
     register_blueprints(app)
     return app
 
 
-def shut_down_routine(functions_array):
-    for function in functions_array:
-        if hasattr(function, '__len__') and len(function) > 1:
-            function[0](*function[1:])
-        else:
-            function()
+def _block_on(d, timeout=None):
+    from Queue import Queue, Empty
+    from twisted.internet.defer import TimeoutError
+    from twisted.python.failure import Failure
+    from twisted.internet.defer import Deferred
+    q = Queue()
+    if not isinstance(d, Deferred):
+        return None
+    d.addBoth(q.put)
+    try:
+        ret = q.get(timeout is not None, timeout)
+    except Empty:
+        raise TimeoutError
+    if isinstance(ret, Failure):
+        ret.raiseException()
+    else:
+        return ret
 
 
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
-        app = create_app()
-        resource = WSGIResource(self.reactor, self.reactor.getThreadPool(), app)
+        self.app = create_app()
+        resource = WSGIResource(self.reactor, self.reactor.getThreadPool(), self.app)
         site = Site(resource)
 
         self.bind = self.reactor.listenTCP(port, site)
@@ -92,3 +105,8 @@ class VMMasterServer(object):
     def run(self):
         self.reactor.run()
         del self
+
+    def __del__(self):
+        d = self.bind.stopListening()
+        _block_on(d, 20)
+        self.app.cleanup()

@@ -17,7 +17,6 @@ class DelayedVirtualMachine(object):
 
 class SessionQueue(list):
     def enqueue(self, desired_capabilities):
-
         log.info("Enqueue %s" % desired_capabilities)
         delayed_session = DelayedVirtualMachine(desired_capabilities)
         self.append(delayed_session)
@@ -28,11 +27,6 @@ class SessionQueue(list):
         if item:
             index = self.index(item)
         return self.pop(index)
-
-
-def do_job(job, vm):
-    result = job.perform(vm)
-    job._result = result
 
 
 class QueueWorker(Thread):

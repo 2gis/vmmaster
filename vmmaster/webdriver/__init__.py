@@ -93,9 +93,9 @@ def create_session():
     return send_response(proxy.response)
 
 
-@webdriver.route("/session/<session_id>/<path:url>", methods=['GET', 'POST', 'DELETE'])
+@webdriver.route("/session/<path:url>", methods=['GET', 'POST', 'DELETE'])
 @helpers.threaded
-def proxy_request(session_id, url):
+def proxy_request(url):
     req = request.proxy.request
     proxy = request.proxy
     last = url.split("/")[-1]

@@ -74,24 +74,32 @@ class VirtualMachinesPool(object):
         return cls.count_virtual_machines(cls.using)
 
     @classmethod
-    def add(cls, origin_name, prefix=None):
+    def add(cls, origin_name, prefix=None, to=None):
         if not cls.can_produce():
             raise CreationException("maximum count of virtual machines already running")
+
+        if to is None:
+            to = cls.using
 
         if prefix is None:
             prefix = "ondemand-%s" % uuid4()
         from ..platforms import Platforms
         clone = Clone(Platforms.get(origin_name), prefix)
-        cls.using.append(clone)
+        to.append(clone)
 
         try:
             clone.create()
-        except Exception:
+        except Exception as e:
+            log.error(e)
             clone.delete()
-            cls.using.remove(clone)
-            raise
+            to.remove(clone)
+            return
 
         return clone
+
+    @classmethod
+    def preload(cls, origin_name, prefix=None):
+        return cls.add(origin_name, prefix, to=cls.pool)
 
     @classmethod
     def return_vm(cls, vm):
@@ -118,7 +126,7 @@ class VirtualMachinesPoolPreloader(Thread):
             if self.pool.can_produce():
                 platform = self.need_load()
                 if platform is not None:
-                    self.pool.add(platform, "preloaded-%s" % uuid4())
+                    self.pool.preload(platform, "preloaded-%s" % uuid4())
 
             time.sleep(1)
 

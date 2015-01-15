@@ -42,7 +42,10 @@ def copy_files_to_home(home):
 
 
 def home_dir():
-    home = expanduser("~vmmaster")
+    user_path = "~%s" % "vmmaster"
+    home = expanduser(user_path)
+    if user_path == home:
+        return None
     return home
 
 

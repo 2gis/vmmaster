@@ -10,6 +10,8 @@ from nose.twistedtools import reactor
 import time
 from vmmaster.core.config import setup_config
 
+from helpers import wait_for
+
 
 # Mocking
 def session_id(*args, **kwargs):
@@ -21,18 +23,18 @@ db.database = Mock(create_session=Mock(side_effect=session_id))
 from vmmaster.core import connection
 connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network
-network.Network.__new__ = Mock()
-from vmmaster.webdriver.platform_server import PlatformHandler, Request
-PlatformHandler.take_screenshot = Mock()
+network.Network = Mock(name='Network')
 from vmmaster.core.virtual_machine.clone import Clone
 Clone.clone_origin = Mock()
 Clone.define_clone = Mock()
 Clone.start_virtual_machine = Mock()
 Clone.drive_path = Mock()
-from vmmaster.core import commands
+from vmmaster.webdriver import commands
 commands.ping_vm = Mock(__name__="check_vm_online")
-commands.selenium_status = Mock(__name__="check_vm_online")
-commands.start_selenium_session = Mock(__name__="start_selenium_session", return_value=(200, {}, json.dumps({'sessionId':"1"})))
+commands.selenium_status = Mock(__name__="selenium_status")
+commands.start_selenium_session = Mock(__name__="start_selenium_session",
+                                       return_value=(200, {}, json.dumps({'sessionId': "1"})))
+from vmmaster.webdriver.helpers import Request
 from vmmaster.core.utils import utils
 utils.delete_file = Mock()
 
@@ -117,7 +119,7 @@ class TestServer(unittest.TestCase):
         self.server = VMMasterServer(reactor, self.address[1])
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.platforms.platforms.keys()[0]
+                'platform': self.server.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
@@ -138,15 +140,14 @@ class TestServer(unittest.TestCase):
         t = Thread(target=new_session_request, args=(self.address, self.desired_caps))
         t.daemon = True
         self.assertEqual(0, len(q))
-        with patch.object(VirtualMachinesPool, 'can_produce') as mock:
-            t.start()
-            while not mock.called:
-                time.sleep(0.1)
+        t.start()
+        wait_for(lambda: len(q) > 0)
         self.assertEqual(2, len(VirtualMachinesPool.using))
         self.assertEqual(1, len(q))
 
     def test_delete_session(self):
         response = new_session_request(self.address, self.desired_caps)
+        print(response.content)
         session_id = json.loads(response.content)["sessionId"].encode("utf-8")
         with patch.object(Session, 'make_request', side_effect=Mock(return_value=(200, {}, None))):
             response = delete_session_request(self.address, session_id)
@@ -160,6 +161,7 @@ class TestServer(unittest.TestCase):
     def test_get_none_existing_session(self):
         session = uuid4()
         response = get_session_request(self.address, session)
+        print(response.content)
         self.assertTrue("SessionException: There is no active session %s" % session in response.content)
 
     def test_server_deleting_session_on_client_connection_drop(self):
@@ -197,7 +199,7 @@ class TestTimeoutSession(unittest.TestCase):
         self.server = VMMasterServer(reactor, self.address[1])
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.platforms.platforms.keys()[0]
+                'platform': self.server.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
@@ -211,7 +213,7 @@ class TestTimeoutSession(unittest.TestCase):
         response = new_session_request(self.address, self.desired_caps)
         session_id = json.loads(response.content)["sessionId"].encode("utf-8")
 
-        session = self.server.sessions.get_session(session_id)
+        session = self.server.app.sessions.get_session(session_id)
         session.timeout()
         vm_count = len(VirtualMachinesPool.using)
 
@@ -228,7 +230,7 @@ class TestServerShutdown(unittest.TestCase):
         self.server = VMMasterServer(reactor, self.address[1])
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.platforms.platforms.keys()[0]
+                'platform': self.server.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
@@ -239,7 +241,7 @@ class TestServerShutdown(unittest.TestCase):
     def test_server_shutdown_delete_sessions(self):
         new_session_request(self.address, self.desired_caps)
 
-        sessions = self.server.sessions.map
+        sessions = self.server.app.sessions.map
         self.assertEqual(1, len(sessions))
 
         del self.server

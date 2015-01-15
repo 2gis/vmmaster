@@ -53,7 +53,7 @@ def session(session_id):
         return render_json("Session %s not found" % session_id, 404)
 
 
-@api.route('/session/<int:session_id>/stop')
+@api.route('/session/<string:session_id>/stop', methods=['POST'])
 def stop_session(session_id):
     session = helpers.get_session(session_id)
     if session:
