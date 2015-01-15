@@ -4,12 +4,12 @@ import time
 
 from flask import Request
 
-from .utils import network_utils
-from .config import config
-from .logger import log
-from .exceptions import CreationException
-from .sessions import RequestHelper
-from .utils.graphite import graphite, send_metrics
+from ..core.utils import network_utils
+from ..core.config import config
+from ..core.logger import log
+from ..core.exceptions import CreationException
+from ..core.sessions import RequestHelper
+from ..core.utils.graphite import graphite, send_metrics
 
 
 class DesiredCapabilities(object):
@@ -19,6 +19,17 @@ class DesiredCapabilities(object):
         self.takeScreenshot = bool(takeScreenshot)
         self.runScript = dict(runScript)
 
+    def to_json(self):
+        return {
+            "name": self.name,
+            "platform": self.platform,
+            "takeScreenshot": self.takeScreenshot,
+            "runScript": self.runScript,
+        }
+
+    def __repr__(self):
+        return "<DesiredCapabilities name=%s platform=%s>" % (self.name, self.platform)
+
 
 def start_session(request, session):
     notdot_platform = "".join(session.platform.split("."))
@@ -27,10 +38,6 @@ def start_session(request, session):
     status = graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
     if session.closed:
         raise CreationException("Session closed by user")
-
-    if not status:
-        log.info("ping failed: TIMEOUT. Session: %s".format(session.id))
-        raise CreationException("failed to ping virtual machine")
 
     # check status
     if not graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT):
@@ -80,10 +87,10 @@ def ping_vm(session):
         time.sleep(0.1)
 
     if session.closed:
-        return False
+        raise CreationException("Session was closed while ping")
 
     if not network_utils.ping(ip, port):
-        return False
+        raise CreationException("Ping timeout")
 
     log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
 
@@ -203,10 +210,20 @@ def vmmaster_label(request, session):
     return 200, {}, json.dumps({"sessionId": session.id, "status": 0, "value": json_body["label"]})
 
 
+def reserve_session():
+    pass
+
+
+# def start_session():
+#     pass
+
+
 AgentCommands = {
     "runScript": run_script
 }
 
 InternalCommands = {
-    "vmmasterLabel": vmmaster_label
+    "vmmasterLabel": vmmaster_label,
+    "reserveSession": reserve_session,
+    "startSession": vmmaster_label,
 }

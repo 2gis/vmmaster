@@ -39,7 +39,7 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls):
-        return cls.count() < config.MAX_VM_COUNT
+        return config.MAX_VM_COUNT - cls.count()
 
     @classmethod
     def has(cls, platform):
@@ -58,35 +58,60 @@ class VirtualMachinesPool(object):
                 return vm
 
     @classmethod
-    def pooled_virtual_machines(cls):
+    def count_virtual_machines(cls, it):
         result = defaultdict(int)
-        for vm in cls.pool:
+        for vm in it:
             result[vm.platform] += 1
 
         return result
 
     @classmethod
-    def add(cls, origin_name, prefix=None):
+    def pooled_virtual_machines(cls):
+        return cls.count_virtual_machines(cls.pool)
+
+    @classmethod
+    def using_virtual_machines(cls):
+        return cls.count_virtual_machines(cls.using)
+
+    @classmethod
+    def add(cls, origin_name, prefix=None, to=None):
         if not cls.can_produce():
             raise CreationException("maximum count of virtual machines already running")
+
+        if to is None:
+            to = cls.using
 
         if prefix is None:
             prefix = "ondemand-%s" % uuid4()
         from ..platforms import Platforms
         clone = Clone(Platforms.get(origin_name), prefix)
-        cls.pool.append(clone)
+        to.append(clone)
 
         try:
             clone.create()
-        except Exception:
+        except Exception as e:
+            log.error(e)
             clone.delete()
-            cls.pool.remove(clone)
-            raise
+            to.remove(clone)
+            return
+
+        return clone
+
+    @classmethod
+    def preload(cls, origin_name, prefix=None):
+        return cls.add(origin_name, prefix, to=cls.pool)
 
     @classmethod
     def return_vm(cls, vm):
         cls.using.remove(vm)
         cls.pool.append(vm)
+
+    @property
+    def info(self):
+        return {
+            "pool": self.pooled_virtual_machines(),
+            "can_produce": self.can_produce()
+        }
 
 
 class VirtualMachinesPoolPreloader(Thread):
@@ -101,7 +126,7 @@ class VirtualMachinesPoolPreloader(Thread):
             if self.pool.can_produce():
                 platform = self.need_load()
                 if platform is not None:
-                    self.pool.add(platform, "preloaded-%s" % uuid4())
+                    self.pool.preload(platform, "preloaded-%s" % uuid4())
 
             time.sleep(1)
 
@@ -115,6 +140,7 @@ class VirtualMachinesPoolPreloader(Thread):
     def stop(self):
         self.running = False
         self.join()
+        log.info("Preloader stopped")
 
 
 pool = VirtualMachinesPool()

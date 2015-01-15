@@ -10,14 +10,14 @@ from flask import Request as FlaskRequest
 
 from . import commands
 
-from .config import config
-from .logger import log
-from .utils.utils import write_file
-from .db import database
-from .exceptions import SessionException, ConnectionError
-from .sessions import RequestHelper
-from .session_queue import q, Job
-from .platforms import Platforms
+from ..core.config import config
+from ..core.logger import log
+from ..core.utils.utils import write_file
+from ..core.db import database
+from ..core.exceptions import SessionException, ConnectionError
+from ..core.sessions import RequestHelper
+from ..core.session_queue import q, Job
+from ..core.platforms import Platforms
 
 
 def get_platform(platform, req, vm):

@@ -26,8 +26,8 @@ class TestVirtualMachinePool(unittest.TestCase):
     def test_get_parallel_two_vm(self):
         from multiprocessing.pool import ThreadPool
         threads = ThreadPool(processes=1)
-        pool.add(self.platform)
-        pool.add(self.platform)
+        pool.preload(self.platform)
+        pool.preload(self.platform)
 
         self.assertEqual(2, len(pool.pool))
 
@@ -38,15 +38,21 @@ class TestVirtualMachinePool(unittest.TestCase):
 
         self.assertEqual(2, len(pool.using))
 
-    def test_vm_creation(self):
+    def test_vm_preloading(self):
         self.assertEqual(0, len(pool.pool))
-        pool.add(self.platform)
+        pool.preload(self.platform)
         self.assertIsInstance(pool.pool[0], VirtualMachine)
         self.assertEqual(1, len(pool.pool))
 
-    def test_vm_deletion(self):
+    def test_vm_adding(self):
         self.assertEqual(0, len(pool.pool))
         pool.add(self.platform)
+        self.assertIsInstance(pool.using[0], VirtualMachine)
+        self.assertEqual(1, len(pool.using))
+
+    def test_vm_deletion(self):
+        self.assertEqual(0, len(pool.pool))
+        pool.preload(self.platform)
         self.assertEqual(1, len(pool.pool))
         vm = pool.get(self.platform)
         vm.delete()

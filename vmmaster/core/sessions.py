@@ -87,7 +87,7 @@ class Session(object):
     timeouted = False
     closed = False
 
-    _vmmaster_log_step = None
+    vmmaster_log_step = None
 
     def __init__(self, sessions, name, platform, vm):
         self.sessions = sessions
@@ -155,9 +155,9 @@ class Session(object):
             del request.headers['Host']
 
         result = None
-        if self._vmmaster_log_step:
+        if self.vmmaster_log_step:
             write_session_log(
-                self._vmmaster_log_step.id,
+                self.vmmaster_log_step.id,
                 "%s %s" % (request.method, request.url),
                 request.body)
 
@@ -184,13 +184,22 @@ class Session(object):
             else:
                 t.join(0.1)
 
-        if self._vmmaster_log_step:
+        if self.vmmaster_log_step:
             write_session_log(
-                self._vmmaster_log_step.id,
+                self.vmmaster_log_step.id,
                 "%s" % result[0],
                 result[2])
 
         return result
+
+    @property
+    def info(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "platform": self.platform,
+            "duration": self.duration
+        }
 
 
 class Sessions(object):

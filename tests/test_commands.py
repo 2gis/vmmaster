@@ -5,19 +5,21 @@ import threading
 import BaseHTTPServer
 import copy
 import json
-import sys
 
 from mock import Mock
 
 # Mocking
 from vmmaster.core import db
-db.database = Mock()
+db.database = Mock(name='Database')
+
+from vmmaster.webdriver import commands
+
 from vmmaster.core.sessions import Session
 
-from vmmaster.core import commands
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.sessions import Sessions
 from vmmaster.core.virtual_machine import VirtualMachine
+from vmmaster.core.exceptions import CreationException
 
 
 class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -192,10 +194,14 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         result = commands.ping_vm(self.session)
         self.assertTrue(result)
 
-    def test_check_vm_online_ping_failed(self):
+    def test_check_vm_online_ping_failed_timeout(self):
         config.SELENIUM_PORT = self.port + 1
-        result = commands.ping_vm(self.session)
-        self.assertFalse(result)
+        self.assertRaises(CreationException, commands.ping_vm, self.session)
+
+    def test_check_vm_online_ping_failed_when_session_closed(self):
+        config.PING_TIMEOUT = 2
+        self.session.closed = True
+        self.assertRaises(CreationException, commands.ping_vm, self.session)
 
     def test_check_vm_online_status_failed(self):
         def do_GET(handler):
