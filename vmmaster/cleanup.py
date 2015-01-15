@@ -2,6 +2,7 @@ import os
 import time
 import sys
 import math
+import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -125,7 +126,7 @@ def run():
     write("Total: %s sessions, %s vmmaster logsteps, %s session logsteps, %s screenshots deleted\n" % (
         outdated_sessions_count, outdated_vmmaster_logsteps_count, outdated_session_logsteps_count, outdated_screenshots_count)
     )
-    write("Done!\n")
+    write("Done on %s!\n" % str(datetime.datetime.now()))
 
 
 if __name__ == "__main__":
