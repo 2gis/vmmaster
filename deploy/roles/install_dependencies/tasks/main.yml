@@ -1,0 +1,15 @@
+---
+- name: install dependencies | update packages cache
+  apt: update_cache=yes
+
+- name: install dependencies | install python-dev, python-pip, python-libvirt, virtinst, libvirt-bin, libvirt-dev, kvm
+  apt: pkg={{item}} state=latest force=yes
+  with_items:
+    - python-dev
+    - python-pip
+    - python-libvirt
+    - virtinst
+    - libvirt-bin
+    - libvirt-dev
+    - kvm
+    - git

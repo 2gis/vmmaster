@@ -1,0 +1,54 @@
+# home fir for vmmaster
+vmmaster_path: /var/lib/vmmaster
+
+# vmmaster version as commit or branch name
+vmmaster_version: master
+
+# install postgres and add config database path
+use_postgres: false
+
+# only update vmamster from repo
+update: false
+
+# config name from install_vmmaster/templates/
+vmmaster_config_name: all
+
+# postgres params
+postgres_user: vmmaster
+postgres_password: vmmaster
+postgres_db: vmmaster_db
+postgres_host: localhost
+
+# config params from install_vmmaster/templates/
+vmmaster_config:
+    basedir: os.path.dirname(os.path.realpath(__file__))
+    port: 9000
+
+    clones_dir: "clones"
+    origins_dir: "origins"
+    session_dir: "session"
+
+    # screenshots
+    screenshots_dir: "screenshots"
+    screenshots_days: 7
+
+    # logging
+    log_dir: "log"
+    log_size: 5242880
+
+    # vm related stuff
+    max_vm_count: 2
+    preloaded:
+      - {type: "ubuntu-14.04-x64", count: 1}
+    session_timeout: 360
+    ping_timeout: 180
+
+    # additional logging
+    graylog: ('logserver', 12201)
+
+    # graphite
+    graphite: ('graphite', 2003)
+
+    # selenium
+    selenium_port: "4455"
+    vmmaster_agent_port: "9000"
