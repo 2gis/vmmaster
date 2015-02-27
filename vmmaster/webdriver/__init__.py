@@ -10,8 +10,6 @@ import helpers
 
 
 from ..core.db import database
-from ..core.session_queue import q
-from ..core.platforms import Platforms
 from ..core.logger import log
 from ..core.exceptions import SessionException, ConnectionError
 
@@ -76,15 +74,7 @@ def create_session():
     req = request.proxy.request
     proxy = request.proxy
     desired_caps = commands.get_desired_capabilities(req)
-    Platforms.check_platform(desired_caps.platform)
-
-    delayed_vm = q.enqueue(desired_caps)
-    while delayed_vm.vm is None:
-        time.sleep(0.1)
-
-    vm = delayed_vm.vm
-    session = current_app.sessions.start_session(desired_caps.name, desired_caps.platform, vm)
-    session.set_desired_capabilities(desired_caps)
+    session = helpers.get_session(desired_caps)
     proxy.session_id = session.id
     session.vmmaster_log_step = helpers.write_vmmaster_log(
         proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))

@@ -20,6 +20,8 @@ from ..core.config import config
 from ..core.logger import log
 from ..core.utils.utils import write_file
 from ..core.db import database
+from ..core.session_queue import q
+from ..core.platforms import Platforms
 
 
 class BucketThread(Thread):
@@ -185,3 +187,16 @@ def get_vm():
     delayed_vm = q.enqueue(desired_caps)
     while delayed_vm.vm is None:
         time.sleep(0.1)
+
+
+def get_session(desired_caps):
+    Platforms.check_platform(desired_caps.platform)
+
+    delayed_vm = q.enqueue(desired_caps)
+    while delayed_vm.vm is None:
+        time.sleep(0.1)
+
+    vm = delayed_vm.vm
+    session = current_app.sessions.start_session(desired_caps.name, desired_caps.platform, vm)
+    session.set_desired_capabilities(desired_caps)
+    return session
