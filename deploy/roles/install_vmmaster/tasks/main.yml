@@ -1,0 +1,28 @@
+---
+- name: install vmmaster | stop vmmaster
+  command: service vmmaster stop
+  when: update
+
+- name: install vmmaster | install vmmaster with pip
+  pip: name='git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster' extra_args='-U'
+
+- name: install vmmaster | vmmaster initialize
+  shell: "echo {{vmmaster_path}} | vmmaster init"
+  when: not update
+
+- name: install vmmaster | apply special config.py in vmmaster directory
+  template: src={{vmmaster_config_name}} dest={{vmmaster_path}}/config.py mode=0644
+  when: vmmaster_config_name != ""
+
+- name:
+  file: path={{item.path}} owner=vmmaster group={{item.group}} mode={{item.mod}} state={{item.state}}
+  with_items:
+    - {path: "{{vmmaster_path}}/origins", group: libvirtd,  state: "directory", mod: "0775"}
+    - {path: "{{vmmaster_path}}/clones", group: libvirtd, state: "directory", mod: "0775"}
+    - {path: "{{vmmaster_path}}/session", group: libvirtd, state: "directory", mod: "0775"}
+    - {path: "{{vmmaster_path}}/screenshots", group: vmmaster, state: "directory", mod: "0775"}
+    - {path: "{{vmmaster_path}}/log", group: vmmaster, state: "directory", mod: "0775"}
+    - {path: "{{vmmaster_path}}/config.py", group: libvirtd, state: "file", mod: "0644"}
+
+- name: install vmmaster | vmmaster start
+  command: service vmmaster start

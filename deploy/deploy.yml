@@ -1,0 +1,8 @@
+---
+- hosts: servers
+  user: ansible
+  sudo: yes
+  roles:
+    - {role: install_dependencies, when: not update}
+    - {role: install_postgres, when: use_postgres and not update}
+    - {role: install_vmmaster}
