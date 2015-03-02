@@ -2,43 +2,43 @@ import os
 
 
 class Config(object):
-    BASEDIR = {{vmmaster_config.basedir}}
-    PORT = {{vmmaster_config.port}}
+    BASEDIR = {{vmmaster_basedir}}
+    PORT = {{vmmaster_port}}
 
 {% if use_postgres %}
     DATABASE = "postgresql://{{postgres_user}}:{{postgres_password}}@{{postgres_host}}/{{postgres_db}}"
 {% else %}
     DATABASE = "sqlite:///app.db"
-    {% endif %}
+{% endif %}
 
-    CLONES_DIR = BASEDIR + "/{{vmmaster_config.clones_dir}}"
-    ORIGINS_DIR = BASEDIR + "/{{vmmaster_config.origins_dir}}"
-    SESSION_DIR = BASEDIR + "/{{vmmaster_config.session_dir}}"
+    CLONES_DIR = BASEDIR + "/{{vmmaster_clones_dir}}"
+    ORIGINS_DIR = BASEDIR + "/{{vmmaster_origins_dir}}"
+    SESSION_DIR = BASEDIR + "/{{vmmaster_session_dir}}"
 
     # screenshots
-    SCREENSHOTS_DIR = BASEDIR + "/{{vmmaster_config.screenshots_dir}}"
-    SCREENSHOTS_DAYS = {{vmmaster_config.screenshots_days}}
+    SCREENSHOTS_DIR = BASEDIR + "/{{vmmaster_screenshots_dir}}"
+    SCREENSHOTS_DAYS = {{vmmaster_screenshots_days}}
 
     # logging
-    LOG_DIR = BASEDIR + "/{{vmmaster_config.log_dir}}"
-    LOG_SIZE = {{vmmaster_config.log_size}}
+    LOG_DIR = BASEDIR + "/{{vmmaster_log_dir}}"
+    LOG_SIZE = {{vmmaster_log_size}}
 
     # vm related stuff
-    MAX_VM_COUNT = {{vmmaster_config.max_vm_count}}
+    MAX_VM_COUNT = {{vmmaster_max_vm_count}}
     PRELOADED = {
-{% for vm in vmmaster_config.preloaded %}
-        # "{{vm.type}}": {{vm.count}},
+{% for vm in vmmaster_preloaded if vmmaster_use_preloaded %}
+        "{{vm.type}}": {{vm.count}},
 {% endfor %}
     }
-    SESSION_TIMEOUT = {{vmmaster_config.session_timeout}}
-    PING_TIMEOUT = {{vmmaster_config.ping_timeout}}
+    SESSION_TIMEOUT = {{vmmaster_session_timeout}}
+    PING_TIMEOUT = {{vmmaster_ping_timeout}}
 
     # additional logging
-    # GRAYLOG = {{vmmaster_config.graylog}}
+    # GRAYLOG = {{vmmaster_graylog}}
 
     # graphite
-    # GRAPHITE = {{vmmaster_config.graphite}}
+    # GRAPHITE = {{vmmaster_graphite}}
 
     # selenium
-    SELENIUM_PORT = {{vmmaster_config.selenium_port}}
-    VMMASTER_AGENT_PORT = {{vmmaster_config.vmmaster_agent_port}}
+    SELENIUM_PORT = {{vmmaster_selenium_port}}
+    VMMASTER_AGENT_PORT = {{vmmaster_agent_port}}

@@ -4,7 +4,8 @@
   when: update
 
 - name: install vmmaster | install vmmaster with pip
-  pip: name='git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster' extra_args='-U'
+#  pip: name='git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster' extra_args='-U'
+  shell: sudo pip install -U git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster
 
 - name: install vmmaster | vmmaster initialize
   shell: "echo {{vmmaster_path}} | vmmaster init"
@@ -12,7 +13,7 @@
 
 - name: install vmmaster | apply special config.py in vmmaster directory
   template: src={{vmmaster_config_name}} dest={{vmmaster_path}}/config.py mode=0644
-  when: vmmaster_config_name != ""
+  when: vmmaster_config_name != "" and change_vmmaster_config
 
 - name:
   file: path={{item.path}} owner=vmmaster group={{item.group}} mode={{item.mod}} state={{item.state}}
