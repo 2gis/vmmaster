@@ -5,7 +5,7 @@ from StringIO import StringIO
 
 from multiprocessing.pool import ThreadPool
 
-from tests.test_normal import TestPositiveCase, TestRunSriptOnSessionCreation
+from tests.test_normal import TestPositiveCase, TestRunScriptOnSessionCreation
 from tests.test_normal import TestParallelSessions1, TestParallelSessions2
 
 
@@ -24,7 +24,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_run_script_on_session_creation(self):
-        suite = self.loader.loadTestsFromTestCase(TestRunSriptOnSessionCreation)
+        suite = self.loader.loadTestsFromTestCase(TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
         self.assertEqual(1, result.testsRun)
         self.assertEqual(0, len(result.errors), result.errors)

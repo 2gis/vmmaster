@@ -13,11 +13,11 @@ class TestPositiveCase(TestCase):
         raise Exception('some client exception')
 
 
-class TestRunSriptOnSessionCreation(TestCase):
+class TestRunScriptOnSessionCreation(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.desired_capabilities["runScript"] = {"script": 'echo "hello" > ~/hello_file'}
-        super(TestRunSriptOnSessionCreation, cls).setUpClass()
+        super(TestRunScriptOnSessionCreation, cls).setUpClass()
 
     def test_run_script_on_session_creation(self):
         output = self.vmmaster.run_script("cat ~/hello_file").get("output")
