@@ -20,5 +20,5 @@
   sudo_user: postgres
 
 - name: install postgres | create postgres user
-  postgresql_user: db={{postgres_user}} name={{postgres_user}} password={{postgres_password}} priv=ALL
+  postgresql_user: db={{postgres_db}} name={{postgres_user}} password={{postgres_password}} priv=ALL
   sudo_user: postgres

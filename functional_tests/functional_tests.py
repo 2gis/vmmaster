@@ -53,4 +53,5 @@ class TestCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestCase))
+    results = unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestCase))
+    if not results.wasSuccessful(): exit(1)

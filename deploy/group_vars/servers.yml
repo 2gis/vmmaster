@@ -10,45 +10,46 @@ use_postgres: false
 # only update vmamster from repo
 update: false
 
-# config name from install_vmmaster/templates/
-vmmaster_config_name: all
-
 # postgres params
 postgres_user: vmmaster
 postgres_password: vmmaster
 postgres_db: vmmaster_db
 postgres_host: localhost
 
+# config name from install_vmmaster/templates/
+change_vmmaster_config: true
+vmmaster_config_name: all
+
 # config params from install_vmmaster/templates/
-vmmaster_config:
-    basedir: os.path.dirname(os.path.realpath(__file__))
-    port: 9000
+vmmaster_basedir: os.path.dirname(os.path.realpath(__file__))
+vmmaster_port: 9000
 
-    clones_dir: "clones"
-    origins_dir: "origins"
-    session_dir: "session"
+vmmaster_clones_dir: "clones"
+vmmaster_origins_dir: "origins"
+vmmaster_session_dir: "session"
 
-    # screenshots
-    screenshots_dir: "screenshots"
-    screenshots_days: 7
+# screenshots
+vmmaster_screenshots_dir: "screenshots"
+vmmaster_screenshots_days: 7
 
-    # logging
-    log_dir: "log"
-    log_size: 5242880
+# logging
+vmmaster_log_dir: "log"
+vmmaster_log_size: 5242880
 
-    # vm related stuff
-    max_vm_count: 2
-    preloaded:
-      - {type: "ubuntu-14.04-x64", count: 1}
-    session_timeout: 360
-    ping_timeout: 180
+# vm related stuff
+vmmaster_max_vm_count: 2
+vmmaster_use_preloaded: false
+vmmaster_preloaded:
+  - {type: "ubuntu-14.04-x64", count: 1}
+vmmaster_session_timeout: 360
+vmmaster_ping_timeout: 180
 
-    # additional logging
-    graylog: ('logserver', 12201)
+# additional logging
+vmmaster_graylog: ('logserver', 12201)
 
-    # graphite
-    graphite: ('graphite', 2003)
+# graphite
+vmmaster_graphite: ('graphite', 2003)
 
-    # selenium
-    selenium_port: "4455"
-    vmmaster_agent_port: "9000"
+# selenium
+vmmaster_selenium_port: "4455"
+vmmaster_agent_port: "9000"
