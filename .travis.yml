@@ -9,4 +9,4 @@ install:
   - pip install human_curl
   - pip install git+https://github.com/2gis/lode_runner
   - pip install -r requirements.txt
-script: PYTHONPATH=`pwd` lode_runner tests/
+script: PYTHONPATH=`pwd` lode_runner -v tests/

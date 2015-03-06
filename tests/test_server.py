@@ -24,11 +24,11 @@ from vmmaster.core import connection
 connection.Virsh.__new__ = Mock()
 from vmmaster.core.network import network
 network.Network = Mock(name='Network')
-from vmmaster.core.virtual_machine.clone import Clone
-Clone.clone_origin = Mock()
-Clone.define_clone = Mock()
-Clone.start_virtual_machine = Mock()
-Clone.drive_path = Mock()
+from vmmaster.core.virtual_machine.clone import KVMClone
+KVMClone.clone_origin = Mock()
+KVMClone.define_clone = Mock()
+KVMClone.start_virtual_machine = Mock()
+KVMClone.drive_path = Mock()
 from vmmaster.webdriver import commands
 commands.ping_vm = Mock(__name__="check_vm_online")
 commands.selenium_status = Mock(__name__="selenium_status")

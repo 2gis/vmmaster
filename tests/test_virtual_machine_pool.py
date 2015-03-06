@@ -59,7 +59,7 @@ class TestVirtualMachinePool(unittest.TestCase):
         self.assertEqual(0, pool.count())
 
     def test_max_vm_count(self):
-        config.MAX_VM_COUNT = 2
+        config.KVM_MAX_VM_COUNT = 2
 
         pool.add(self.platform)
         pool.add(self.platform)
