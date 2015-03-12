@@ -1,7 +1,7 @@
 # vmmaster
-[![Build Status](https://travis-ci.org/nwlunatic/vmmaster.svg)](https://travis-ci.org/nwlunatic/vmmaster)
+[![Build Status](https://travis-ci.org/2gis/vmmaster.svg)](https://travis-ci.org/2gis/vmmaster)
 
-## dependenies:
+## dependencies:
 + libvirt
 + kvm
 
@@ -15,7 +15,7 @@ vmmaster init
 
 ### ansible
 
-TODO
+[how to install vmmaster using Ansible?](deploy/README.md)
 
 ## commands to create qcow2 VM's origins
 ### create qcow2 drive
