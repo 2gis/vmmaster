@@ -112,7 +112,10 @@ class Session(object):
     def delete(self):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
-            self.virtual_machine.delete()
+            if config.REBUILD_EXIST_VM:
+                self.virtual_machine.rebuild()
+            else:
+                self.virtual_machine.delete()
             self.virtual_machine = None
 
         self.sessions.delete_session(self.id)

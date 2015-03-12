@@ -23,7 +23,7 @@ setup(
     name='vmmaster',
     version='0.1',
     description='Python KVM-based virtual machine environment system for selenium testing',
-    url='https://github.com/nwlunatic/vmmaster',
+    url='https://github.com/2gis/vmmaster',
     packages=find_packages(),
     install_requires=reqs,
     scripts=[

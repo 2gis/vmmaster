@@ -31,9 +31,18 @@ class Config(object):
     USE_OPENSTACK = False
     OPENSTACK_MAX_VM_COUNT = 2
     OPENSTACK_PRELOADED = {
-        # fixme
+        # "ubuntu-14.04-x64-SNAPSHOT": 1
     }
 
+    OPENSTACK_AUTH_URL = "localhost"
+    OPENSTACK_USERNAME = "user"
+    OPENSTACK_PASSWORD = "password"
+    OPENSTACK_TENANT_NAME = "test"
+    OPENSTACK_NETWORK_NAME = "net"
+
+    REBUILD_EXIST_VM = False
+    VM_CHECK = False
+    VM_CHECK_TIMEOUT = 1800
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 

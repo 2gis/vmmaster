@@ -23,6 +23,10 @@ class VirtualMachinesPool(object):
         cls.using.remove(vm)
 
     @classmethod
+    def add_vm(cls, vm, to):
+        to.append(vm)
+
+    @classmethod
     def free(cls):
         log.info("deleting using machines")
         for vm in list(cls.using):
@@ -96,7 +100,7 @@ class VirtualMachinesPool(object):
         origin = Platforms.get(origin_name)
         clone = origin.make_clone(origin, prefix)
 
-        to.append(clone)
+        cls.add_vm(clone, to)
 
         try:
             clone.create()
@@ -156,9 +160,41 @@ class VirtualMachinesPoolPreloader(Thread):
                 return platform
 
     def stop(self):
+        log.info("Preloader stopping...")
         self.running = False
         self.join()
         log.info("Preloader stopped")
+
+
+class VirtualMachineChecker(Thread):
+    def __init__(self, pool):
+        Thread.__init__(self)
+        self.running = True
+        self.daemon = True
+        self.pool = pool
+
+    def run(self):
+        while self.running:
+            self.fix_broken_vm()
+            time.sleep(config.VM_CHECK_TIMEOUT)
+
+    def fix_broken_vm(self):
+        for vm in self.pool.pool:
+            if vm.ready:
+                log.info("Check for {clone} with ip: {ip}:{port}".format(clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
+                if not vm.vm_is_ready:
+                    try:
+                        vm.rebuild()
+                    except Exception as e:
+                        log.error(e)
+                        vm.delete()
+                        self.pool.remove(vm)
+
+    def stop(self):
+        log.info("VMChecker stopping...")
+        self.running = False
+        self.join()
+        log.info("VMChecker stopped")
 
 
 pool = VirtualMachinesPool()

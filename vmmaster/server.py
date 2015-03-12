@@ -14,7 +14,8 @@ from .core.network.network import Network
 from .core.logger import log
 
 from .core.session_queue import QueueWorker, q
-from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPoolPreloader, pool
+from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPoolPreloader, pool, VirtualMachineChecker
+from .core.config import config
 
 
 class JSONEncoder(FlaskJSONEncoder):
@@ -39,6 +40,9 @@ class vmmaster(Flask):
 
         self.preloader = VirtualMachinesPoolPreloader(pool)
         self.preloader.start()
+        if config.VM_CHECK:
+            self.vmchecker = VirtualMachineChecker(pool)
+            self.vmchecker.start()
         self.worker = QueueWorker(q)
         self.worker.start()
 
@@ -46,6 +50,8 @@ class vmmaster(Flask):
         log.info("Shutting down...")
         self.worker.stop()
         self.preloader.stop()
+        if config.VM_CHECK:
+            self.vmchecker.stop()
         self.sessions.delete()
         pool.free()
         self.network.delete()

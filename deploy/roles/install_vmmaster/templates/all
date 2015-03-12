@@ -41,6 +41,15 @@ class Config(object):
 {% endfor %}
     }
 
+    OPENSTACK_AUTH_URL = "{{openstack_auth_url}}"
+    OPENSTACK_USERNAME = "{{openstack_username}}"
+    OPENSTACK_PASSWORD = "{{openstack_password}}"
+    OPENSTACK_TENANT_NAME = "{{openstack_tenant_name}}"
+    OPENSTACK_NETWORK_NAME = "{{openstack_network_name}}"
+
+    REBUILD_EXIST_VM = {{vmmaster_rebuild_exist_vm}}
+    VM_CHECK = {{vmmaster_vm_check}}
+    VM_CHECK_TIMEOUT = {{vmmaster_vm_check_timeout}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
 

@@ -3,6 +3,7 @@ import os
 from .config import config
 from .exceptions import PlatformException
 from .logger import log
+from .utils import openstack_utils
 
 from .virtual_machine.clone import KVMClone, OpenstackClone
 
@@ -35,6 +36,14 @@ class KVMOrigin(Platform):
 
 class OpenstackOrigin(Platform):
     name = None
+
+    def __init__(self, origin):
+        self.id = origin.id
+        self.name = origin.name
+        self.min_disk = origin.min_disk
+        self.min_ram = origin.min_ram
+        self.flavor_name = origin.instance_type_name
+        self.flavor_id = origin.instance_type_flavorid
 
     @staticmethod
     def make_clone(origin, prefix):
@@ -69,7 +78,17 @@ class KVMPlatforms(PlatformsInterface):
 
 
 class OpenstackPlatforms(PlatformsInterface):
-    pass
+    platforms = dict()
+
+    def __init__(self):
+        self.client = openstack_utils.glance_client()
+        self.platforms = self._load_platforms()
+        log.info("load openstack platforms: {}".format(str(self.platforms)))
+
+    def _load_platforms(self):
+        origins = [image for image in self.client.images.list()
+                   if image.status == 'active' and image.get('image_type', None) == 'snapshot']
+        return [OpenstackOrigin(origin) for origin in origins]
 
 
 class Platforms(object):
