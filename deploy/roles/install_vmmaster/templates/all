@@ -23,13 +23,24 @@ class Config(object):
     LOG_DIR = BASEDIR + "/{{vmmaster_log_dir}}"
     LOG_SIZE = {{vmmaster_log_size}}
 
-    # vm related stuff
-    MAX_VM_COUNT = {{vmmaster_max_vm_count}}
-    PRELOADED = {
-{% for vm in vmmaster_preloaded if vmmaster_use_preloaded %}
+    # kvm
+    USE_KVM = {{use_kvm}}
+    KVM_MAX_VM_COUNT = {{vmmaster_kvm_max_vm_count}}
+    KVM_PRELOADED = {
+{% for vm in vmmaster_kvm_preloaded if vmmaster_use_kvm_preloaded %}
         "{{vm.type}}": {{vm.count}},
 {% endfor %}
     }
+
+    # openstack
+    USE_OPENSTACK = {{use_openstack}}
+    OPENSTACK_MAX_VM_COUNT = {{vmmaster_openstack_max_vm_count}}
+    OPENSTACK_PRELOADED = {
+{% for vm in vmmaster_openstack_preloaded if vmmaster_use_openstack_preloaded %}
+        # "{{vm.type}}": {{vm.count}},
+{% endfor %}
+    }
+
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
 

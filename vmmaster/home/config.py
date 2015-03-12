@@ -18,11 +18,20 @@ class Config(object):
     LOG_DIR = BASEDIR + "/log"
     LOG_SIZE = 5242880
 
-    # vm related stuff
-    MAX_VM_COUNT = 2
-    PRELOADED = {
+    # kvm
+    USE_KVM = True
+    KVM_MAX_VM_COUNT = 2
+    KVM_PRELOADED = {
         # "ubuntu-14.04-x64": 1
     }
+
+    # openstack
+    USE_OPENSTACK = False
+    OPENSTACK_MAX_VM_COUNT = 2
+    OPENSTACK_PRELOADED = {
+        # fixme
+    }
+
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 

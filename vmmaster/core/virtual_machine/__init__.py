@@ -5,6 +5,7 @@ from ..dispatcher import dispatcher, Signals
 class VirtualMachine(object):
     name = None
     ip = None
+    mac = None
     ready = False
 
     def __init__(self):

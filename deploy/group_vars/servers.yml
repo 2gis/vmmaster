@@ -36,11 +36,20 @@ vmmaster_screenshots_days: 7
 vmmaster_log_dir: "log"
 vmmaster_log_size: 5242880
 
-# vm related stuff
-vmmaster_max_vm_count: 2
-vmmaster_use_preloaded: false
-vmmaster_preloaded:
+# kvm
+use_kvm: "True"
+vmmaster_kvm_max_vm_count: 2
+vmmaster_use_kvm_preloaded: false
+vmmaster_kvm_preloaded:
   - {type: "ubuntu-14.04-x64", count: 1}
+
+# openstack
+use_openstack: "False"
+vmmaster_openstack_max_vm_count: 2
+vmmaster_use_openstack_preloaded: false
+vmmaster_openstack_preloaded:
+  - {type: "ubuntu-14.04-x64", count: 1}
+
 vmmaster_session_timeout: 360
 vmmaster_ping_timeout: 180
 

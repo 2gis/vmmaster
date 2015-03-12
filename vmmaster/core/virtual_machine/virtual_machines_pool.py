@@ -39,7 +39,14 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls):
-        return config.MAX_VM_COUNT - cls.count()
+        max_count = 0
+
+        if config.USE_KVM:
+            max_count += config.KVM_MAX_VM_COUNT
+        if config.USE_OPENSTACK:
+            max_count += config.OPENSTACK_MAX_VM_COUNT
+
+        return max_count - cls.count()
 
     @classmethod
     def has(cls, platform):
@@ -75,6 +82,8 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def add(cls, origin_name, prefix=None, to=None):
+        from ..platforms import Platforms
+
         if not cls.can_produce():
             raise CreationException("maximum count of virtual machines already running")
 
@@ -82,9 +91,11 @@ class VirtualMachinesPool(object):
             to = cls.using
 
         if prefix is None:
-            prefix = "ondemand-%s" % uuid4()
-        from ..platforms import Platforms
-        clone = Clone(Platforms.get(origin_name), prefix)
+            prefix = "ondemand-{}".format(uuid4())
+
+        origin = Platforms.get(origin_name)
+        clone = origin.make_clone(origin, prefix)
+
         to.append(clone)
 
         try:
@@ -126,13 +137,20 @@ class VirtualMachinesPoolPreloader(Thread):
             if self.pool.can_produce():
                 platform = self.need_load()
                 if platform is not None:
-                    self.pool.preload(platform, "preloaded-%s" % uuid4())
+                    self.pool.preload(platform, "preloaded-{}".format(uuid4()))
 
             time.sleep(1)
 
     def need_load(self):
         already_have = self.pool.pooled_virtual_machines()
-        for platform, need in config.PRELOADED.iteritems():
+        platforms = {}
+
+        if config.USE_KVM:
+            platforms.update(config.KVM_PRELOADED)
+        if config.USE_OPENSTACK:
+            platforms.update(config.OPENSTACK_PRELOADED)
+
+        for platform, need in platforms.iteritems():
             have = already_have.get(platform, 0)
             if need > have:
                 return platform

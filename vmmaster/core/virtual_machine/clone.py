@@ -12,13 +12,6 @@ from ..exceptions import libvirtError
 
 
 class Clone(VirtualMachine):
-    name = None
-    mac = None
-    ip = None
-
-    dumpxml_file = None
-    drive_path = None
-
     def __init__(self, origin, prefix):
         super(Clone, self).__init__()
         self.prefix = prefix
@@ -26,15 +19,29 @@ class Clone(VirtualMachine):
         self.platform = origin.name
         self.ready = False
 
-        self.conn = Virsh()
-        self.network = Network()
-
     def __str__(self):
-        return "%s(%s)" % (self.name, self.ip)
+        return "{name}({ip})".format(name=self.name, ip=self.ip)
 
     @property
     def name(self):
-        return "%s-clone-%s" % (self.platform, self.prefix)
+        return "{}-clone-{}".format(self.platform, self.prefix)
+
+    def delete(self):
+        raise NotImplementedError
+
+    def create(self):
+        raise NotImplementedError
+
+
+class KVMClone(Clone):
+    dumpxml_file = None
+    drive_path = None
+
+    def __init__(self, origin, prefix):
+        super(KVMClone, self).__init__(origin, prefix)
+
+        self.conn = Virsh()
+        self.network = Network()
 
     def delete(self):
         log.info("deleting clone: {}".format(self.name))
@@ -57,7 +64,7 @@ class Clone(VirtualMachine):
             pool.remove_vm(self)
         except ValueError:
             pass
-        super(Clone, self).delete()
+        VirtualMachine.delete(self)
 
     def create(self):
         log.info("creating clone of {platform}".format(platform=self.platform))
@@ -67,8 +74,8 @@ class Clone(VirtualMachine):
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
-        log.info("created {clone} on ip: {ip}".format(clone=self.name, ip=self.ip))
         self.ready = True
+        log.info("created {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
         return self
 
     def clone_origin(self, origin_name):
@@ -145,3 +152,14 @@ class Clone(VirtualMachine):
         xml = self.get_virtual_machine_dumpxml(self.name)
         graphics = xml.getElementsByTagName('graphics')[0]
         return graphics.getAttribute('port')
+
+
+class OpenstackClone(Clone):
+    def __init__(self, origin, prefix):
+        super(OpenstackClone, self).__init__(origin, prefix)
+
+    def create(self):
+        log.info("creating openstack vm")
+
+    def delete(self):
+        log.info("deleting openstack vm")
