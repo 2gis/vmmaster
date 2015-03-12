@@ -1,13 +1,18 @@
 # coding: utf-8
 
 from helpers import TestCase
+from ConfigParser import RawConfigParser
 
 
 class TestPositiveCase(TestCase):
-    def test_google(self):
-        self.driver.get('http://google.com')
-        feeling_lucky_button = self.driver.find_element_by_css_selector("#gbqfsb")
-        feeling_lucky_button.click()
+    def test_micro_app(self):
+        self.config = RawConfigParser()
+        with open("tests/config", "r") as configfile:
+            self.config.readfp(configfile)
+        micro_app_addr = self.config.get("Network", "addr")
+        self.driver.get(micro_app_addr)
+        go_button = self.driver.find_element_by_xpath("//input[2]")
+        go_button.click()
 
     def test_error(self):
         raise Exception('some client exception')
@@ -25,9 +30,13 @@ class TestRunScriptOnSessionCreation(TestCase):
 
 
 def parallel_tests_body(self):
-    self.driver.get('http://google.com')
-    feeling_lucky_button = self.driver.find_element_by_css_selector("#gbqfsb")
-    feeling_lucky_button.click()
+    config = RawConfigParser()
+    with open("tests/config", "r") as configfile:
+        config.readfp(configfile)
+    micro_app_addr = config.get("Network", "addr")
+    self.driver.get(micro_app_addr)
+    go_button = self.driver.find_element_by_xpath("//input[2]")
+    go_button.click()
 
 
 class TestParallelSessions1(TestCase):
