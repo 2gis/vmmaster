@@ -7,6 +7,6 @@ install:
   - cp /usr/lib/python2.7/dist-packages/libvirt* ~/virtualenv/python2.7/lib/python2.7/site-packages/
   - pip install mock
   - pip install human_curl
-  - pip install git+https://github.com/nwlunatic/lode_runner
+  - pip install git+https://github.com/2gis/lode_runner
   - pip install -r requirements.txt
 script: PYTHONPATH=`pwd` lode_runner tests/
