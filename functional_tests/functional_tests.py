@@ -18,10 +18,14 @@ from ConfigParser import RawConfigParser
 class TestCaseWithMicroApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.p = subprocess.Popen(["tox", "-e", "run"], preexec_fn=setsid)  # run simple flask app via tox
+        cls.p = subprocess.Popen(["tox", "-e", "run"], preexec_fn=setsid)  # Run flask micro app via tox and gunicorn
         config = RawConfigParser()
         config.read("tests/config")
-        config.set("Network", "addr", "http://" + str(ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]) + ":5000")
+        try:
+            this_machine_ip = ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
+        except ValueError:
+            this_machine_ip = ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
+        config.set("Network", "addr", "http://%s:5000" % this_machine_ip)
         with open('tests/config', 'wb') as configfile:
             config.write(configfile)
 
@@ -43,6 +47,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_two_same_tests_parallel_run(self):
+        # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
         suite2 = unittest.TestSuite()
@@ -64,7 +69,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual(0, len(result2.failures), result2.failures)
 
 
-class TestCaseWithoutMicroApp(unittest.TestCase):
+class TestCase(unittest.TestCase):
     def setUp(self):
         self.loader = unittest.TestLoader()
         self.runner = unittest.TextTestRunner(stream=StringIO())
@@ -79,8 +84,10 @@ class TestCaseWithoutMicroApp(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    results = [unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestCaseWithMicroApp)),
-               unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestCaseWithoutMicroApp))]
-    for res in results:
-        if not res.wasSuccessful():
-            exit(1)
+    suite = unittest.TestSuite()
+    tests1 = unittest.TestLoader().loadTestsFromTestCase(TestCase)
+    tests2 = unittest.TestLoader().loadTestsFromTestCase(TestCaseWithMicroApp)
+    suite.addTests([tests1, tests2])
+    res = unittest.TextTestRunner().run(suite)
+    if not res.wasSuccessful():
+        exit(1)
