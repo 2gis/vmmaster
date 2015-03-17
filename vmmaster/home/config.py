@@ -4,7 +4,9 @@ import os
 class Config(object):
     BASEDIR = os.path.dirname(os.path.realpath(__file__))
     PORT = 9000
-    DATABASE = "sqlite:///" + BASEDIR + "/vmmaster.db"
+
+    # PostgreSQL dbname
+    DATABASE_NAME = "postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb"
 
     CLONES_DIR = BASEDIR + "/clones"
     ORIGINS_DIR = BASEDIR + "/origins"

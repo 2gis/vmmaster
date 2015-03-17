@@ -4,6 +4,7 @@
 ## dependencies:
 + libvirt
 + kvm
++ postgresql
 
 ## install
 ### manual
