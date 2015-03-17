@@ -4,8 +4,6 @@ from threading import Thread
 from collections import defaultdict
 from uuid import uuid4
 
-from .clone import Clone
-
 from ..exceptions import CreationException
 from ..config import config
 from ..logger import log
@@ -23,7 +21,9 @@ class VirtualMachinesPool(object):
         cls.using.remove(vm)
 
     @classmethod
-    def add_vm(cls, vm, to):
+    def add_vm(cls, vm, to=None):
+        if to is None:
+            to = cls.pool
         to.append(vm)
 
     @classmethod
@@ -50,12 +50,14 @@ class VirtualMachinesPool(object):
         if config.USE_OPENSTACK:
             max_count += config.OPENSTACK_MAX_VM_COUNT
 
-        return max_count - cls.count()
+        can_produce = max_count - cls.count()
+
+        return can_produce if can_produce >= 0 else 0
 
     @classmethod
     def has(cls, platform):
         for vm in cls.pool:
-            if vm.platform == platform and vm.ready:
+            if vm.platform == platform and vm.ready and not vm.checking:
                 return True
 
         return False
@@ -63,10 +65,15 @@ class VirtualMachinesPool(object):
     @classmethod
     def get(cls, platform):
         for vm in sorted(cls.pool, key=lambda v: v.creation_time):
-            if vm.platform == platform and vm.ready:
-                cls.pool.remove(vm)
-                cls.using.append(vm)
-                return vm
+            log.info("Getting VM %s has ready property is %s and checking property is %s" % (vm.name, vm.ready, vm.checking))
+            if vm.platform == platform and vm.ready and not vm.checking:
+                if vm.vm_is_ready():
+                    cls.pool.remove(vm)
+                    cls.using.append(vm)
+                    return vm
+                else:
+                    cls.pool.remove(vm)
+                    vm.delete()
 
     @classmethod
     def count_virtual_machines(cls, it):
@@ -123,8 +130,17 @@ class VirtualMachinesPool(object):
 
     @property
     def info(self):
+        def print_view(lst):
+            return [{"name": l.name, "ip": l.ip, "ready": l.ready, "checking": l.checking} for l in lst]
         return {
-            "pool": self.pooled_virtual_machines(),
+            "pool": {
+                'count': self.pooled_virtual_machines(),
+                'list': print_view(self.pool),
+            },
+            "using": {
+                'count': self.using_virtual_machines(),
+                'list': print_view(self.using),
+            },
             "can_produce": self.can_produce()
         }
 
@@ -141,12 +157,14 @@ class VirtualMachinesPoolPreloader(Thread):
             if self.pool.can_produce():
                 platform = self.need_load()
                 if platform is not None:
+                    log.info("VM for preloaded was found. Preloading vm for platform %s " % platform)
                     self.pool.preload(platform, "preloaded-{}".format(uuid4()))
 
-            time.sleep(1)
+            time.sleep(config.PRELOADER_FREQUENCY)
 
     def need_load(self):
-        already_have = self.pool.pooled_virtual_machines()
+        using = [vm for vm in self.pool.using if 'preloaded' in vm.prefix] if self.pool.using is not [] else []
+        already_have = self.pool.count_virtual_machines(self.pool.pool + using)
         platforms = {}
 
         if config.USE_KVM:
@@ -160,7 +178,6 @@ class VirtualMachinesPoolPreloader(Thread):
                 return platform
 
     def stop(self):
-        log.info("Preloader stopping...")
         self.running = False
         self.join()
         log.info("Preloader stopped")
@@ -169,31 +186,32 @@ class VirtualMachinesPoolPreloader(Thread):
 class VirtualMachineChecker(Thread):
     def __init__(self, pool):
         Thread.__init__(self)
-        self.running = True
+        self.running = config.VM_CHECK
         self.daemon = True
         self.pool = pool
 
     def run(self):
         while self.running:
             self.fix_broken_vm()
-            time.sleep(config.VM_CHECK_TIMEOUT)
+            time.sleep(config.VM_CHECK_FREQUENCY)
 
     def fix_broken_vm(self):
         for vm in self.pool.pool:
+            vm.checking = True
+            log.info("Check for {clone} with {ip}:{port}".format(clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
-                log.info("Check for {clone} with ip: {ip}:{port}".format(clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
-                if not vm.vm_is_ready:
+                if not vm.vm_is_ready():
                     try:
                         vm.rebuild()
                     except Exception as e:
                         log.error(e)
                         vm.delete()
                         self.pool.remove(vm)
+            vm.checking = False
 
     def stop(self):
-        log.info("VMChecker stopping...")
         self.running = False
-        self.join()
+        self.join(1)
         log.info("VMChecker stopped")
 
 

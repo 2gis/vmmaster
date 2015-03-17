@@ -1,11 +1,13 @@
 import keystoneclient.v2_0.client as ksclient
-from novaclient import client as novaclient
+from novaclient.v2.client import client as novaclient
 import glanceclient.v2.client as glclient
 from ..config import config
 
 
 def keystone_client():
-    return ksclient.Client(auth_url='%s:5000/v2.0' % config.OPENSTACK_AUTH_URL,
+    return ksclient.Client(auth_url='%s:%s/%s' % (config.OPENSTACK_AUTH_URL,
+                                                  config.OPENSTACK_PORT,
+                                                  config.OPENSTACK_CLIENT_VERSION),
                            username=config.OPENSTACK_USERNAME,
                            password=config.OPENSTACK_PASSWORD,
                            tenant_name=config.OPENSTACK_TENANT_NAME)
@@ -16,7 +18,9 @@ def nova_client():
                              username=config.OPENSTACK_USERNAME,
                              api_key=config.OPENSTACK_PASSWORD,
                              project_id=config.OPENSTACK_TENANT_NAME,
-                             auth_url='%s:5000/v2.0' % config.OPENSTACK_AUTH_URL)  # fixme hot and port
+                             auth_url='%s:%s/%s' % (config.OPENSTACK_AUTH_URL,
+                                                    config.OPENSTACK_PORT,
+                                                    config.OPENSTACK_CLIENT_VERSION))
 
 
 def glance_client():

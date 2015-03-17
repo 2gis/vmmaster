@@ -37,19 +37,21 @@ class Config(object):
     OPENSTACK_MAX_VM_COUNT = {{vmmaster_openstack_max_vm_count}}
     OPENSTACK_PRELOADED = {
 {% for vm in vmmaster_openstack_preloaded if vmmaster_use_openstack_preloaded %}
-        # "{{vm.type}}": {{vm.count}},
+        "{{vm.type}}": {{vm.count}},
 {% endfor %}
     }
 
     OPENSTACK_AUTH_URL = "{{openstack_auth_url}}"
+    OPENSTACK_PORT = {{openstack_port}}
+    OPENSTACK_CLIENT_VERSION = "{{openstack_client_version}}"
     OPENSTACK_USERNAME = "{{openstack_username}}"
     OPENSTACK_PASSWORD = "{{openstack_password}}"
     OPENSTACK_TENANT_NAME = "{{openstack_tenant_name}}"
     OPENSTACK_NETWORK_NAME = "{{openstack_network_name}}"
 
-    REBUILD_EXIST_VM = {{vmmaster_rebuild_exist_vm}}
     VM_CHECK = {{vmmaster_vm_check}}
-    VM_CHECK_TIMEOUT = {{vmmaster_vm_check_timeout}}
+    VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}
+    PRELOADER_FREQUENCY = {{preloader_frequency}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
 

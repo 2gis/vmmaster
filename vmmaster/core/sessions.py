@@ -112,11 +112,11 @@ class Session(object):
     def delete(self):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
-            if config.REBUILD_EXIST_VM:
+            if self.virtual_machine.name is not None and 'preloaded' in self.virtual_machine.name:
                 self.virtual_machine.rebuild()
             else:
                 self.virtual_machine.delete()
-            self.virtual_machine = None
+                self.virtual_machine = None
 
         self.sessions.delete_session(self.id)
         self.timer.stop()
@@ -201,7 +201,8 @@ class Session(object):
             "id": self.id,
             "name": self.name,
             "platform": self.platform,
-            "duration": self.duration
+            "duration": self.duration,
+            "vm_name": self.virtual_machine.name,
         }
 
 

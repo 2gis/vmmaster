@@ -1,6 +1,8 @@
 ---
 - name: install vmmaster | stop vmmaster
   service: name=vmmaster state=stopped enabled=no
+  failed_when: "vmmaster_status | failed and 'service not found' not in vmmaster_status.msg"
+  register: vmmaster_status
 
 - name: install postgres
   include: ../../install_postgres/tasks/main.yml

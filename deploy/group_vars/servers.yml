@@ -1,3 +1,6 @@
+# user for deploy on remote host
+deploy_user: ansible
+
 # home fir for vmmaster
 vmmaster_path: /var/lib/vmmaster
 
@@ -51,14 +54,16 @@ vmmaster_openstack_preloaded:
   - {type: "ubuntu-14.04-x64", count: 1}
 
 openstack_auth_url: "localhost"
+openstack_port: 5000
+openstack_client_version: "v2.0"
 openstack_username: "user"
 openstack_password: "password"
 openstack_tenant_name: "test"
 openstack_network_name: "net"
 
-vmmaster_rebuild_exist_vm: "False"
 vmmaster_vm_check: "False"
-vmmaster_vm_check_timeout: 1800
+vmmaster_vm_check_frequency: 1800
+preloader_frequency: 3
 vmmaster_session_timeout: 360
 vmmaster_ping_timeout: 180
 
