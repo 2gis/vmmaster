@@ -21,24 +21,32 @@ def useradd(home):
     encrypted_password = crypt.crypt(password, "22")
     shell = '/bin/bash'
     group = 'libvirtd'
-
-    subprocess.call(
-        ["sudo", "/usr/sbin/useradd",
-            "--create-home", "--home-dir=%s" % home,
-            "--groups=%s" % group,
-            "--shell=%s" % shell,
-            "-p", encrypted_password,
-            "vmmaster"]
+    user_add = subprocess.Popen(
+        ["sudo", "useradd",
+         "--create-home", "--home-dir=%s" % home,
+         "--groups=%s" % group,
+         "--shell=%s" % shell,
+         "-p", encrypted_password,
+         "vmmaster"], stdin=subprocess.PIPE
     )
+    output, err = user_add.communicate()
+    if err:
+        cout(repr(err), color=FAIL)
+        exit(1)
 
 
 def copy_files_to_home(home):
     copy = ["/bin/cp", "-r", package_dir() + "home" + os.sep + ".", home]
-    change_user_vmmaster()
     return_code, output = run_command(copy)
     if return_code != 0:
         cout("\nFailed to copy files to home dir: %s\n" % home_dir(), color=FAIL)
         exit(output)
+    chown = ["/bin/chown", "-R", "vmmaster:vmmaster", home]
+    return_code, output = run_command(chown)
+    if return_code != 0:
+        cout("\nFailed to change owner for: %s\n" % home_dir(), color=FAIL)
+        exit(output)
+    change_user_vmmaster()
 
 
 def home_dir():
