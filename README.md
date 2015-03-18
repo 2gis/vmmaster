@@ -5,6 +5,8 @@
 + libvirt
 + kvm
 + postgresql
++ libpq-dev
++ python-psycopg2
 
 ## install
 ### manual
