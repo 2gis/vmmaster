@@ -2,6 +2,7 @@ import unittest
 import json
 from uuid import uuid4
 from threading import Thread
+from multiprocessing.pool import ThreadPool
 import socket
 
 from mock import Mock, patch
@@ -190,6 +191,16 @@ class TestServer(unittest.TestCase):
             response = vmmaster_label(self.address, session_id, "step-label")
         self.assertEqual(200, response.status)
         self.assertEqual(output, response.content)
+
+    def test_vmmaster_no_such_platform(self):
+        desired_caps = {
+            'desiredCapabilities': {
+                'platform': 'no_platform'
+            }
+        }
+        response = new_session_request(self.address, desired_caps)
+        error = json.loads(response.content).get('value')
+        self.assertTrue('PlatformException("no such platform")' in error, error)
 
 
 class TestTimeoutSession(unittest.TestCase):

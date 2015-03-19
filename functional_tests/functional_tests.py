@@ -41,7 +41,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
     def test_positive_case(self):
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
-        self.assertEqual(2, result.testsRun)
+        self.assertEqual(2, result.testsRun, result.errors)
         self.assertEqual(1, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
@@ -61,8 +61,8 @@ class TestCaseWithMicroApp(unittest.TestCase):
         result1 = deffered1.get()
         result2 = deffered2.get()
 
-        self.assertEqual(1, result1.testsRun)
-        self.assertEqual(1, result2.testsRun)
+        self.assertEqual(1, result1.testsRun, result1.errors)
+        self.assertEqual(1, result2.testsRun, result2.errors)
         self.assertEqual(0, len(result1.errors), result1.errors)
         self.assertEqual(0, len(result2.errors), result2.errors)
         self.assertEqual(0, len(result1.failures), result1.failures)
@@ -78,7 +78,7 @@ class TestCase(unittest.TestCase):
     def test_run_script_on_session_creation(self):
         suite = self.loader.loadTestsFromTestCase(TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
-        self.assertEqual(1, result.testsRun)
+        self.assertEqual(1, result.testsRun, result.errors)
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
