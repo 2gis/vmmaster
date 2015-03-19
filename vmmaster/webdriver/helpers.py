@@ -50,7 +50,7 @@ def threaded(func):
         tr.daemon = True
         tr.start()
 
-        while tr.isAlive() and not req.closed or not proxy.session_id:
+        while tr.isAlive() and not req.closed:
             tr.join(0.1)
 
         if req.closed:

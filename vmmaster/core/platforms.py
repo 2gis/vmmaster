@@ -92,7 +92,7 @@ class Platforms(object):
 
     @classmethod
     def check_platform(cls, platform):
-        if platform not in cls.platforms:
+        if platform not in cls.platforms.keys():
             raise PlatformException("no such platform")
 
     @classmethod
