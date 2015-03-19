@@ -15,6 +15,10 @@
     - libpq-dev
     - python-psycopg2
 
+- name: install postgres | delete exist postgres database
+  postgresql_db: name={{postgres_db}} login_user=postgres state=absent
+  sudo_user: postgres
+
 - name: install postgres | create postgres database
   postgresql_db: name={{postgres_db}} login_user=postgres
   sudo_user: postgres

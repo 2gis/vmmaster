@@ -1,7 +1,10 @@
 ---
 - name: install vmmaster | stop vmmaster
-  command: service vmmaster stop
-  when: update
+  service: name=vmmaster state=stopped enabled=no
+
+- name: install postgres
+  include: ../../install_postgres/tasks/main.yml
+  when: use_postgres and not update
 
 - name: install vmmaster | install vmmaster with pip
 #  pip: name='git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster' extra_args='-U'
