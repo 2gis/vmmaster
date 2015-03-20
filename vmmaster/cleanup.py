@@ -97,10 +97,6 @@ def delete_session_data(session, db_session=None):
     outdated_screenshots_count += len(screenshots)
 
     rm(screenshots)
-    for logstep in session_logsteps:
-        db_session.delete(logstep)
-    for logstep in vmmaster_logsteps:
-        db_session.delete(logstep)
     db_session.delete(session)
     db_session.commit()
     try:
