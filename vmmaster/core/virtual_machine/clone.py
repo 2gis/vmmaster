@@ -1,14 +1,22 @@
+import time
+
 from xml.dom import minidom
 from uuid import uuid4
+from novaclient.exceptions import NotFound
 
 from . import VirtualMachine
+from .virtual_machines_pool import pool
 
 from ..dumpxml import dumpxml
 from ..network.network import Network
 from ..connection import Virsh
 from ..logger import log
 from ..utils import utils
-from ..exceptions import libvirtError
+from ..utils import openstack_utils
+from ..exceptions import libvirtError, CreationException
+from ..config import config
+
+from ...core.utils import network_utils
 
 
 class Clone(VirtualMachine):
@@ -18,6 +26,7 @@ class Clone(VirtualMachine):
         self.origin = origin
         self.platform = origin.name
         self.ready = False
+        self.checking = False
 
     def __str__(self):
         return "{name}({ip})".format(name=self.name, ip=self.ip)
@@ -32,6 +41,27 @@ class Clone(VirtualMachine):
     def create(self):
         raise NotImplementedError
 
+    def rebuild(self):
+        raise NotImplementedError
+
+    def vm_is_ready(self):
+        port = config.SELENIUM_PORT
+        timeout = config.PING_TIMEOUT
+        start = time.time()
+        log.info("Starting ping: {ip}:{port}".format(ip=self.ip, port=port))
+        while time.time() - start < timeout:
+            if network_utils.ping(self.ip, port):
+                log.info("Check is successful for {clone} with {ip}:{port}".format(clone=self.name, ip=self.ip, port=port))
+                break
+
+            time.sleep(0.1)
+
+        if not network_utils.ping(self.ip, port):
+            log.info("Check is failed for {clone} with {ip}:{port}".format(clone=self.name, ip=self.ip, port=port))
+            return False
+
+        return True
+
 
 class KVMClone(Clone):
     dumpxml_file = None
@@ -44,7 +74,7 @@ class KVMClone(Clone):
         self.network = Network()
 
     def delete(self):
-        log.info("deleting clone: {}".format(self.name))
+        log.info("deleting kvm clone: {}".format(self.name))
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
         try:
@@ -60,14 +90,13 @@ class KVMClone(Clone):
             log.warning(e)
             pass
         try:
-            from .virtual_machines_pool import pool
             pool.remove_vm(self)
         except ValueError:
             pass
         VirtualMachine.delete(self)
 
     def create(self):
-        log.info("creating clone of {platform}".format(platform=self.platform))
+        log.info("creating kvm clone of {platform}".format(platform=self.platform))
         origin = self.platform
         self.dumpxml_file = self.clone_origin(origin)
 
@@ -75,8 +104,27 @@ class KVMClone(Clone):
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
         self.ready = True
-        log.info("created {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+
+        log.info("created kvm {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
         return self
+
+    def vm_is_ready(self):
+        return super(KVMClone, self).vm_is_ready()
+
+    def rebuild(self):
+        log.info("rebuilding kvm clone of {platform}".format(platform=self.platform))
+
+        try:
+            pool.remove_vm(self)
+        except ValueError:
+            pass
+
+        if self.checking:
+            self.delete()
+            self.create()
+
+        pool.add_vm(self)
+        log.info("rebuilded kvm {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
 
     def clone_origin(self, origin_name):
         self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
@@ -155,11 +203,103 @@ class KVMClone(Clone):
 
 
 class OpenstackClone(Clone):
+
     def __init__(self, origin, prefix):
         super(OpenstackClone, self).__init__(origin, prefix)
+        self.nova_client = openstack_utils.nova_client()
 
     def create(self):
-        log.info("creating openstack vm")
+        log.info("creating openstack clone of {platform}".format(platform=self.platform))
+
+        self.nova_client.servers.create(name=self.name, image=self.image, flavor=self.flavor, nics=self.network)
+        self._wait_for_activated_service()
+
+        if self.check_vm_exist(self.name):
+            server = self.nova_client.servers.find(name=self.name)
+            addresses = server.addresses.get(config.OPENSTACK_NETWORK_NAME, None)
+
+            if addresses is not None:
+                ip = addresses[0].get('addr', None)
+                self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
+                
+                if ip is not None:
+                    self.ip = ip
+                    self.ready = True
+
+            log.info("created openstack {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+
+    def _wait_for_activated_service(self, tries=10, timeout=5):
+        from time import sleep
+        i = 0
+        while True:
+            if self.vm_is_ready():
+                break
+            else:
+                if i > tries:
+                    raise CreationException
+                i += 1
+                log.info('Status for %s is not active, wait for %ss. before next try...' % (self.name, timeout))
+                sleep(timeout)
+
+    @property
+    def image(self):
+        return self.nova_client.images.find(name=self.platform)
+
+    @property
+    def flavor(self):
+        return self.nova_client.flavors.find(name=self.origin.flavor_name)
+
+    @property
+    def network(self):
+        net = getattr(config, 'OPENSTACK_NETWORK_NAME', None)
+        if net is None:
+            pass  # fixme
+        return [{'net-id': self.nova_client.networks.find(label=net).id}]
+
+    def vm_is_ready(self):
+        server = self.nova_client.servers.find(name=self.name)
+        return True if str(server.status).lower() == 'active' \
+                       and getattr(server, 'addresses', None) is not None else False
+
+    def check_vm_exist(self, server_name):
+        try:
+            return bool(self.nova_client.servers.find(name=server_name))
+        except NotFound:
+            return False
 
     def delete(self):
-        log.info("deleting openstack vm")
+        if self.check_vm_exist(self.name):
+            log.info("deleting openstack clone: {clone}".format(clone=self.name))
+            try:
+                pool.using.remove(self)
+            except ValueError:
+                pass
+
+            self.nova_client.servers.find(name=self.name).delete()
+            VirtualMachine.delete(self)
+
+            log.info("deleted openstack clone: {clone}".format(clone=self.name))
+        else:
+            log.info("{clone} can not be removed because it does not exist".format(clone=self.name))
+
+    def rebuild(self):
+        log.info("rebuilding openstack {clone}".format(clone=self.name))
+
+        try:
+            pool.using.remove(self)
+        except ValueError:
+            pass
+
+        pool.pool.append(self)
+
+        self.ready = False
+        self.nova_client.servers.find(name=self.name).rebuild(self.image)
+        try:
+            self._wait_for_activated_service(self.name)
+        except CreationException:
+            self.delete()
+            pool.pool.remove(self)
+
+        self.ready = True
+
+        log.info("rebuilded openstack {clone}".format(clone=self.name))

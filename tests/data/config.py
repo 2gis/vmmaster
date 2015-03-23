@@ -30,6 +30,17 @@ class Config(object):
         # fixme
     }
 
+    OPENSTACK_AUTH_URL = "localhost"
+    OPENSTACK_PORT = 5000
+    OPENSTACK_CLIENT_VERSION = "v2.0"
+    OPENSTACK_USERNAME = "user"
+    OPENSTACK_PASSWORD = "password"
+    OPENSTACK_TENANT_NAME = "test"
+    OPENSTACK_NETWORK_NAME = "net"
+
+    VM_CHECK = False
+    VM_CHECK_FREQUENCY = 1800
+    PRELOADER_FREQUENCY = 3
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 

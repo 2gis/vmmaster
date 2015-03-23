@@ -6,6 +6,12 @@ from vmmaster.core.virtual_machine import VirtualMachine
 from vmmaster.core.exceptions import CreationException
 from vmmaster.core.network.network import Network
 from vmmaster.core.platforms import Platforms
+from vmmaster.core.exceptions import CreationException
+from mock import Mock
+from vmmaster.core.virtual_machine.clone import Clone
+Clone.vm_is_ready = Mock(__name__="vm_is_ready")
+from vmmaster.core.network import network
+network.Network = Mock(name='Network')
 
 
 class TestVirtualMachinePool(unittest.TestCase):
