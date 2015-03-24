@@ -11,7 +11,8 @@ from vmmaster.core.utils.init import home_dir
 from vmmaster.core.config import setup_config, config
 setup_config('%s/config.py' % home_dir())
 from vmmaster.core.db import Session, VmmasterLogStep, SessionLogStep
-from vmmaster.core.utils.utils import rm, change_user_vmmaster
+from vmmaster.core.utils.utils import change_user_vmmaster
+from shutil import rmtree
 
 outdated_sessions = None
 outdated_vmmaster_logsteps_count = 0
@@ -63,7 +64,6 @@ def get_screenshots(log_steps):
     for log_step in log_steps:
         if log_step.screenshot:
             screenshots += [log_step.screenshot]
-
     return screenshots
 
 
@@ -83,46 +83,29 @@ def old_sessions(db_session=None):
 
 
 @transaction
-def delete_session_data(session, db_session=None):
-    vmmaster_logsteps = db_session.query(VmmasterLogStep).filter(VmmasterLogStep.session_id == session.id).all()
-    global outdated_vmmaster_logsteps_count
-    outdated_vmmaster_logsteps_count += len(vmmaster_logsteps)
-
-    session_logsteps = get_session_log_steps(db_session, vmmaster_logsteps)
-    global outdated_session_logsteps_count
-    outdated_session_logsteps_count += len(session_logsteps)
-
-    screenshots = get_screenshots(vmmaster_logsteps)
-    global outdated_screenshots_count
-    outdated_screenshots_count += len(screenshots)
-
-    rm(screenshots)
-    db_session.delete(session)
+def delete_session_data(outdated_sessions, db_session=None):
+    outdated_sessions_count = len(outdated_sessions)
+    write("got %s sessions.\n" % str(outdated_sessions_count))
+    write("deleting...\n")
+    for num, session in enumerate(outdated_sessions):
+        db_session.delete(session)
     db_session.commit()
-    try:
-        os.rmdir(os.path.join(config.SCREENSHOTS_DIR, str(session.id)))
-    except OSError:
-        pass
+    write("\n\n")
+    write("Total: %s sessions\n" % str(outdated_sessions_count))
+    # Now delete files:
+    for session in outdated_sessions:
+        session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
+        try:
+            rmtree(session_dir)
+        except OSError:
+            print "Unable to delete %s." % str(session_dir)
+    write("Done on %s!\n" % str(datetime.datetime.now()))
 
 
 def run():
     change_user_vmmaster()
-
     outdated_sessions = old_sessions()
-    outdated_sessions_count = len(outdated_sessions)
-    write("got %s sessions.\n" % str(outdated_sessions_count))
-    write("deleting...\n")
-
-    for num, session in enumerate(outdated_sessions):
-        delete_session_data(session)
-        percentage = (num + 1)/float(outdated_sessions_count) * 100
-        progressbar(percentage)
-
-    write("\n\n")
-    write("Total: %s sessions, %s vmmaster logsteps, %s session logsteps, %s screenshots deleted\n" % (
-        outdated_sessions_count, outdated_vmmaster_logsteps_count, outdated_session_logsteps_count, outdated_screenshots_count)
-    )
-    write("Done on %s!\n" % str(datetime.datetime.now()))
+    delete_session_data(outdated_sessions)
 
 
 if __name__ == "__main__":
