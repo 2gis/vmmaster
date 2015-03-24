@@ -6,6 +6,9 @@
   apt: pkg={{item}} state=latest force=yes
   with_items:
     - python-dev
+    - build-essential
+    - libssl-dev
+    - libffi-dev
     - python-pip
     - python-libvirt
     - virtinst
