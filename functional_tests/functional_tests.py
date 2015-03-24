@@ -1,14 +1,13 @@
 # coding: utf-8
 
 import unittest
+import lode_runner
+import subprocess
+
 from StringIO import StringIO
 
 from multiprocessing.pool import ThreadPool
 
-from tests.test_normal import TestPositiveCase, TestRunScriptOnSessionCreation
-from tests.test_normal import TestParallelSessions1, TestParallelSessions2
-
-import subprocess
 from os import setsid, killpg
 from signal import SIGTERM
 from netifaces import ifaddresses, AF_INET
@@ -39,6 +38,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.stream = StringIO()
 
     def test_positive_case(self):
+        from tests.test_normal import TestPositiveCase
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
         self.assertEqual(2, result.testsRun, result.errors)
@@ -47,6 +47,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_two_same_tests_parallel_run(self):
+        from tests.test_normal import TestParallelSessions1, TestParallelSessions2
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
@@ -76,6 +77,7 @@ class TestCase(unittest.TestCase):
         self.stream = StringIO()
 
     def test_run_script_on_session_creation(self):
+        from tests.test_normal import TestRunScriptOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
         self.assertEqual(1, result.testsRun, result.errors)
@@ -84,10 +86,4 @@ class TestCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    suite = unittest.TestSuite()
-    tests1 = unittest.TestLoader().loadTestsFromTestCase(TestCase)
-    tests2 = unittest.TestLoader().loadTestsFromTestCase(TestCaseWithMicroApp)
-    suite.addTests([tests1, tests2])
-    res = unittest.TextTestRunner().run(suite)
-    if not res.wasSuccessful():
-        exit(1)
+    lode_runner.run(defaultTest=[__name__])
