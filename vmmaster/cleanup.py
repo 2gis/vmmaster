@@ -2,7 +2,7 @@ import os
 import time
 import sys
 import math
-import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,9 +10,10 @@ from sqlalchemy.orm import sessionmaker
 from vmmaster.core.utils.init import home_dir
 from vmmaster.core.config import setup_config, config
 setup_config('%s/config.py' % home_dir())
-from vmmaster.core.db import Session, VmmasterLogStep, SessionLogStep
+from vmmaster.core.db import Session, SessionLogStep
 from vmmaster.core.utils.utils import change_user_vmmaster
 from shutil import rmtree
+from errno import ENOENT
 
 outdated_sessions = None
 outdated_vmmaster_logsteps_count = 0
@@ -85,25 +86,38 @@ def old_sessions(db_session=None):
 @transaction
 def delete_session_data(outdated_sessions, db_session=None):
     outdated_sessions_count = len(outdated_sessions)
-    write("got %s sessions.\n" % str(outdated_sessions_count))
-    write("deleting...\n")
-    for num, session in enumerate(outdated_sessions):
-        db_session.delete(session)
-    db_session.commit()
-    write("\n\n")
-    write("Total: %s sessions\n" % str(outdated_sessions_count))
-    # Now delete files:
-    for session in outdated_sessions:
-        session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
-        try:
-            rmtree(session_dir)
-        except OSError as os_error:
-            err_msg = os_error.args[1]
-            if err_msg == 'No such file or directory':
-                pass
-            else:
-                print 'Unable to delete %s (%s)' % (str(session_dir), err_msg)
-    write("Done on %s!\n" % str(datetime.datetime.now()))
+    start = datetime.now()
+    write("\nStart %s.\n" % str(start))
+    write("Got %s sessions. " % str(outdated_sessions_count))
+    if outdated_sessions_count:
+        first_id = outdated_sessions[0].id
+        last_id = outdated_sessions[-1].id
+        checkpoint = start
+        time_step = timedelta(days=0, seconds=10)
+        write("Deleting...\n")
+        for num, session in enumerate(outdated_sessions):
+            delta = datetime.now() - checkpoint
+            if delta > time_step:  # Show deletion progress each 10 seconds (not every single delete)
+                percentage = (num + 1)/float(outdated_sessions_count) * 100
+                write("Still working, progress %s%%\n" % str(percentage))
+                checkpoint = datetime.now()
+            db_session.delete(session)
+        db_session.commit()
+        write("Total: %s sessions (%d:%d) deleted\n" % (
+            str(outdated_sessions_count), first_id, last_id))
+        # Now delete files:
+        for session in outdated_sessions:
+            session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
+            try:
+                rmtree(session_dir)
+            except OSError as os_error:
+                if os_error.errno == ENOENT:  # Ignore 'No such file or directory' error
+                    pass
+                else:
+                    write('Unable to delete %s (%s)' % (str(session_dir), os_error.strerror))
+        write("Done on %s.\n" % str(datetime.now()))
+    else:
+        write("Nothing to delete.\n")
 
 
 def run():
