@@ -1,10 +1,5 @@
 from setuptools import setup,  find_packages
 import os
-from pip.req import parse_requirements
-
-# parse_requirements() returns generator of pip.req.InstallRequirement objects
-install_reqs = parse_requirements("requirements.txt")
-reqs = [str(ir.req) for ir in install_reqs]
 
 home = []
 for path, subdirs, files in os.walk('vmmaster/home'):
@@ -25,7 +20,21 @@ setup(
     description='Python KVM-based virtual machine environment system for selenium testing',
     url='https://github.com/2gis/vmmaster',
     packages=find_packages(),
-    install_requires=reqs,
+    install_requires=[
+        'Flask==0.10.1',
+        'twisted==14.0.0',
+        'sqlalchemy==0.9.4',
+        'netifaces>=0.8',
+        'graypy==0.2.9',
+        'docopt==0.6.1',
+        'alembic==0.6.5',
+        'PyDispatcher==2.0.3',
+        'requests==2.3.0',
+        'python-glanceclient==0.16.1',
+        'python-keystoneclient==1.2.0',
+        'python-neutronclient==2.3.11',
+        'python-novaclient==2.22.0'
+    ],
     scripts=[
         'bin/vmmaster',
         'bin/vmmaster_cleanup'

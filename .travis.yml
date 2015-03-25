@@ -8,5 +8,5 @@ install:
   - pip install mock
   - pip install human_curl
   - pip install git+https://github.com/2gis/lode_runner
-  - pip install -r requirements.txt
+  - pip install -e .
 script: PYTHONPATH=`pwd` lode_runner -v tests/
