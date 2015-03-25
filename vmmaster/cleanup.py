@@ -97,8 +97,12 @@ def delete_session_data(outdated_sessions, db_session=None):
         session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
         try:
             rmtree(session_dir)
-        except OSError:
-            print "Unable to delete %s." % str(session_dir)
+        except OSError as os_error:
+            err_msg = os_error.args[1]
+            if err_msg == 'No such file or directory':
+                pass
+            else:
+                print 'Unable to delete %s (%s)' % (str(session_dir), err_msg)
     write("Done on %s!\n" % str(datetime.datetime.now()))
 
 
