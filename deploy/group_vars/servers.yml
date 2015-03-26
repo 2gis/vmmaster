@@ -8,7 +8,7 @@ vmmaster_path: /var/lib/vmmaster
 vmmaster_version: master
 
 # install postgres and add config database path
-use_postgres: false
+use_postgres: true
 
 # only update vmamster from repo
 update: false
@@ -59,7 +59,7 @@ openstack_client_version: "v2.0"
 openstack_username: "user"
 openstack_password: "password"
 openstack_tenant_name: "test"
-openstack_network_name: "net"
+openstack_tenant_id: "id"
 
 vmmaster_vm_check: "False"
 vmmaster_vm_check_frequency: 1800

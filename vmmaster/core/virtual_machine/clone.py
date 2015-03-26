@@ -3,6 +3,8 @@ import time
 from xml.dom import minidom
 from uuid import uuid4
 from novaclient.exceptions import NotFound
+from netifaces import ifaddresses, AF_INET
+import SubnetTree
 
 from . import VirtualMachine
 from .virtual_machines_pool import pool
@@ -207,21 +209,29 @@ class OpenstackClone(Clone):
     def __init__(self, origin, prefix):
         super(OpenstackClone, self).__init__(origin, prefix)
         self.nova_client = openstack_utils.nova_client()
+        self.network_client = openstack_utils.neutron_client()
+        self.network_id = self.get_network_id()
+        self.network_name = self.get_network_name(self.network_id)
 
     def create(self):
-        log.info("creating openstack clone of {platform}".format(platform=self.platform))
+        log.info("creating openstack clone of {} with image={}, flavor={}".format(self.platform,
+                                                                                  self.image,
+                                                                                  self.flavor))
 
-        self.nova_client.servers.create(name=self.name, image=self.image, flavor=self.flavor, nics=self.network)
+        try:
+            self.nova_client.servers.create(name=self.name, image=self.image, flavor=self.flavor, nics=[{'net-id': self.network_id}])
+        except Exception as e:
+            log.info("Creating error: %s" % e)
         self._wait_for_activated_service()
 
         if self.check_vm_exist(self.name):
             server = self.nova_client.servers.find(name=self.name)
-            addresses = server.addresses.get(config.OPENSTACK_NETWORK_NAME, None)
+            addresses = server.addresses.get(self.network_name, None)
 
             if addresses is not None:
                 ip = addresses[0].get('addr', None)
                 self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
-                
+
                 if ip is not None:
                     self.ip = ip
                     self.ready = True
@@ -249,12 +259,37 @@ class OpenstackClone(Clone):
     def flavor(self):
         return self.nova_client.flavors.find(name=self.origin.flavor_name)
 
-    @property
-    def network(self):
-        net = getattr(config, 'OPENSTACK_NETWORK_NAME', None)
-        if net is None:
-            pass  # fixme
-        return [{'net-id': self.nova_client.networks.find(label=net).id}]
+    def get_network_name(self, network_id):
+        for net in self.network_client.list_networks().get('networks', []):
+            if net['id'] == network_id:
+                return net['name']
+
+    def get_network_id(self):
+        try:
+            self_ip = ifaddresses('eth0').get(AF_INET, [{'addr': None}])[0]['addr']
+        except ValueError:
+            self_ip = None
+
+        if self_ip:
+            stree = SubnetTree.SubnetTree()
+            for subnet in self.network_client.list_subnets()['subnets']:
+                if subnet['tenant_id'] == config.OPENSTACK_TENANT_ID:
+                    stree[str(subnet['cidr'])] = str(subnet['network_id'])
+                    log.info("Associate vm with network id %s and subnet id %s" % (str(subnet['network_id']),
+                                                                                   str(subnet['id'])))
+
+            try:
+                net_id = stree[self_ip]
+                log.info("Current network id for creating vm: %s" % net_id)
+                return net_id
+            except KeyError:
+                log.info("Error: Network id not found in your project.")
+                return None
+        else:
+            log.info("Error: Your server have not ip address.")
+            pass
+            # fixme
+            # create new network
 
     def vm_is_ready(self):
         server = self.nova_client.servers.find(name=self.name)
