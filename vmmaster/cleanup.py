@@ -11,8 +11,6 @@ setup_config('%s/config.py' % home_dir())
 from vmmaster.core.db import Session, SessionLogStep
 from vmmaster.core.utils.utils import change_user_vmmaster
 
-from shutil import rmtree
-from errno import ENOENT
 from logging import getLogger, Formatter, StreamHandler, DEBUG
 
 
@@ -57,6 +55,19 @@ def old_sessions(db_session=None):
     return db_session.query(Session).filter(Session.time < old()).all()
 
 
+def delete_files(sessions=None):
+    from shutil import rmtree
+    from errno import ENOENT
+
+    for session in sessions:
+        session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
+        try:
+            rmtree(session_dir)
+        except OSError as os_error:
+            if os_error.errno != ENOENT:  # Ignore 'No such file or directory' error
+                log.info('Unable to delete %s (%s)' % (str(session_dir), os_error.strerror))
+
+
 @transaction
 def delete_session_data(sessions=None, db_session=None):
     from datetime import datetime, timedelta
@@ -78,14 +89,7 @@ def delete_session_data(sessions=None, db_session=None):
                 checkpoint = datetime.now()
             db_session.delete(session)
         db_session.commit()
-        # Now delete files:
-        for session in sessions:
-            session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
-            try:
-                rmtree(session_dir)
-            except OSError as os_error:
-                if os_error.errno != ENOENT:  # Ignore 'No such file or directory' error
-                    log.info('Unable to delete %s (%s)' % (str(session_dir), os_error.strerror))
+        delete_files(sessions)
         log.info("Total: %s sessions (%d:%d) have been deleted.\n" % (
             str(sessions_count), first_id, last_id))
     else:
