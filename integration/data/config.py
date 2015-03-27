@@ -4,7 +4,7 @@ import os
 class Config(object):
     BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-    DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/test"
+    DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/vmmaster_db"
 
     CLONES_DIR = BASE_DIR + "/clones"
     ORIGINS_DIR = BASE_DIR + "/origins"
