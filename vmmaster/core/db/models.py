@@ -32,9 +32,39 @@ class VmmasterLogStep(Base):
 class Session(Base):
     __tablename__ = 'sessions'
 
-    id = Column(Integer, Sequence('session_id_seq'),  primary_key=True)
+    id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        default=0
+    )
     status = Column('status', Enum('unknown', 'running', 'succeed', 'failed', name='status', native_enum=False))
     name = Column(String)
     error = Column(String)
     time = Column(Float)
     session_steps = relationship(VmmasterLogStep, backref="session", passive_deletes=True)
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(length=50), unique=True, nullable=False)
+    hash = Column(String(160))
+    salt = Column(String(16), unique=True)
+    group_id = Column(
+        Integer,
+        ForeignKey('user_groups.id', ondelete='SET DEFAULT'),
+        nullable=False,
+        default=0
+    )
+    sessions = relationship(Session, backref="user", passive_deletes=True)
+
+
+class UserGroup(Base):
+    __tablename__ = 'user_groups'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    users = relationship(User, backref="group", passive_deletes=True)

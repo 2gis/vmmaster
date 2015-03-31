@@ -2,6 +2,7 @@ from __future__ import with_statement
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
+from vmmaster.core.db.models import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -9,18 +10,19 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-# fileConfig(config.config_file_name)
+fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -40,6 +42,7 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online():
     """Run migrations in 'online' mode.
 
@@ -48,15 +51,35 @@ def run_migrations_online():
 
     """
     engine = engine_from_config(
-                config.get_section(config.config_ini_section),
-                prefix='sqlalchemy.',
-                poolclass=pool.NullPool)
+        config.get_section(config.config_ini_section),
+        prefix='sqlalchemy.',
+        poolclass=pool.NullPool
+    )
+    from sqlalchemy.exc import InvalidRequestError
+    try:
+        target_metadata.reflect(engine, only=[
+            'django_content_type',
+            'django_content_type',
+            'django_admin_log',
+            'django_migrations',
+            'django_session',
+            'auth_group',
+            'auth_group_permissions',
+            'auth_user',
+            'auth_user_groups',
+            'auth_permission',
+            'auth_user_user_permissions',
+            'dashboard_log_step',
+            'dashboard_session']
+        )
+    except InvalidRequestError:
+        pass
 
     connection = engine.connect()
     context.configure(
-                connection=connection,
-                target_metadata=target_metadata
-                )
+        connection=connection,
+        target_metadata=target_metadata
+    )
 
     try:
         with context.begin_transaction():
