@@ -6,7 +6,7 @@ class Config(object):
     PORT = 9000
 
     # PostgreSQL dbname
-    DATABASE_NAME = "postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb"
+    DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb"
 
     CLONES_DIR = BASEDIR + "/clones"
     ORIGINS_DIR = BASEDIR + "/origins"
