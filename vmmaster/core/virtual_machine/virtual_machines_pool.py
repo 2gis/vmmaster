@@ -114,7 +114,10 @@ class VirtualMachinesPool(object):
         except Exception as e:
             log.error(e)
             clone.delete()
-            to.remove(clone)
+            try:
+                to.remove(clone)
+            except ValueError:
+                pass
             return
 
         return clone

@@ -40,7 +40,7 @@ class Config(object):
     OPENSTACK_USERNAME = "user"
     OPENSTACK_PASSWORD = "password"
     OPENSTACK_TENANT_NAME = "test"
-    OPENSTACK_NETWORK_NAME = "net"
+    OPENSTACK_TENANT_ID = ""
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800

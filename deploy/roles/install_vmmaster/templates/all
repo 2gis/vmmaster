@@ -47,7 +47,7 @@ class Config(object):
     OPENSTACK_USERNAME = "{{openstack_username}}"
     OPENSTACK_PASSWORD = "{{openstack_password}}"
     OPENSTACK_TENANT_NAME = "{{openstack_tenant_name}}"
-    OPENSTACK_NETWORK_NAME = "{{openstack_network_name}}"
+    OPENSTACK_TENANT_ID = "{{openstack_tenant_id}}"
 
     VM_CHECK = {{vmmaster_vm_check}}
     VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}
