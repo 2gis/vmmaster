@@ -35,8 +35,7 @@ def upgrade():
         sa.UniqueConstraint('salt'),
         sa.UniqueConstraint('username')
     )
-    op.add_column('sessions', sa.Column('user_id', sa.Integer(), nullable=True))
-    op.create_index('sessions_fkey_idx', 'sessions', ['user_id'])
+    op.add_column('sessions', sa.Column('user_id', sa.Integer(), nullable=True, default=1))
     # Seed data:
     op.get_bind().execute(text("insert into user_groups (id, name) values (0, 'NOGROUP')"))
     op.get_bind().execute(text("insert into users (id, group_id, username) values (0, 0, 'anonymous')"))

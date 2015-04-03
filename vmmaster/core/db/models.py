@@ -33,12 +33,7 @@ class Session(Base):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
-    user_id = Column(
-        Integer,
-        ForeignKey('users.id', ondelete='CASCADE'),
-        nullable=False,
-        default=0
-    )
+    user_id = Column(Integer, nullable=True, default=1)
     status = Column('status', Enum('unknown', 'running', 'succeed', 'failed', name='status', native_enum=False))
     name = Column(String)
     error = Column(String)
