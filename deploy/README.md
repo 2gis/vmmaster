@@ -24,7 +24,7 @@ ansible-playbook -i hosts/servers deploy.yml
 ansible-playbook -i hosts/servers deploy.yml --extra-vars "use_postgres=true"
 ```
 
-Если ваш юзер на удаленной машине не ansible
+Если ваш пользователь на удаленной машине не ansible:
 ```
 ansible-playbook -i hosts/servers deploy.yml --extra-vars "deploy_user=username"
 ```
