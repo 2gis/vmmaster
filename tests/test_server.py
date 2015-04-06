@@ -32,7 +32,8 @@ KVMClone.start_virtual_machine = Mock()
 KVMClone.drive_path = Mock()
 from vmmaster.webdriver import commands
 commands.ping_vm = Mock(__name__="check_vm_online")
-commands.selenium_status = Mock(__name__="selenium_status")
+commands.selenium_status = Mock(__name__="selenium_status",
+                                return_value=(200, {}, json.dumps({'status': 0})))
 commands.start_selenium_session = Mock(__name__="start_selenium_session",
                                        return_value=(200, {}, json.dumps({'sessionId': "1"})))
 from vmmaster.webdriver.helpers import Request
@@ -148,7 +149,6 @@ class TestServer(unittest.TestCase):
 
     def test_delete_session(self):
         response = new_session_request(self.address, self.desired_caps)
-        print(response.content)
         session_id = json.loads(response.content)["sessionId"].encode("utf-8")
         with patch.object(Session, 'make_request', side_effect=Mock(return_value=(200, {}, None))):
             response = delete_session_request(self.address, session_id)
@@ -162,7 +162,6 @@ class TestServer(unittest.TestCase):
     def test_get_none_existing_session(self):
         session = uuid4()
         response = get_session_request(self.address, session)
-        print(response.content)
         self.assertTrue("SessionException: There is no active session %s" % session in response.content)
 
     def test_server_deleting_session_on_client_connection_drop(self):

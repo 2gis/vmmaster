@@ -116,7 +116,6 @@ class Session(object):
                 self.virtual_machine.rebuild()
             else:
                 self.virtual_machine.delete()
-                self.virtual_machine = None
 
         self.sessions.delete_session(self.id)
         self.timer.stop()
@@ -157,7 +156,6 @@ class Session(object):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        result = None
         if self.vmmaster_log_step:
             write_session_log(
                 self.vmmaster_log_step.id,
@@ -167,10 +165,13 @@ class Session(object):
         self.timer.restart()
         q = Queue()
         url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
+
         req = lambda: requests.request(method=request.method, url=url, headers=request.headers, data=request.body)
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
+
+        result = None
         while not result:
             if self.timeouted:
                 result = (500, {}, "Session timeouted")

@@ -5,6 +5,8 @@ import threading
 import BaseHTTPServer
 import copy
 import json
+import time
+import requests
 
 from mock import Mock
 
@@ -141,6 +143,60 @@ class CommonCommandsTestCase(unittest.TestCase):
         self.session.delete()
 
 
+class TestStartSessionCommands(CommonCommandsTestCase):
+
+    def setUp(self):
+        super(TestStartSessionCommands, self).setUp()
+        config.PING_TIMEOUT = 1
+        self.session.desired_capabilities = Mock()
+        self.session.desired_capabilities.runScript = False
+        commands.ping_vm = Mock(__name__="check_vm_online")
+
+    @staticmethod
+    def request_mock():
+        response = Mock()
+        response.status_code = 200
+        response.headers = {}
+        response.content = json.dumps({"status": 0})
+        return response
+
+    def test_start_session_when_selenium_status_failed(self):
+        commands.selenium_status = Mock(__name__="selenium_status",
+                                        return_value=(200, {}, json.dumps({'status': 1})))
+
+        request = copy.deepcopy(self.request)
+        self.assertRaises(CreationException, commands.start_session, request, self.session)
+
+    def test_start_session_when_start_selenium_session_failed(self):
+        commands.selenium_status = Mock(__name__="selenium_status",
+                                        return_value=(200, {}, json.dumps({'status': 0})))
+        commands.start_selenium_session = Mock(__name__="start_selenium_session",
+                                               return_value=(500, {}, json.dumps({'sessionId': "1"})))
+
+        request = copy.deepcopy(self.request)
+        self.assertRaises(CreationException, commands.start_session, request, self.session)
+
+    def test_start_session_when_session_was_timeouted(self):
+        requests.request = Mock(__name__="request",
+                                return_value=self.request_mock())
+        commands.start_selenium_session = Mock(__name__="start_selenium_session",
+                                               return_value=(200, {}, json.dumps({'sessionId': "1"})))
+
+        self.session.timeouted = True
+        request = copy.deepcopy(self.request)
+        self.assertRaises(CreationException, commands.start_session, request, self.session)
+
+    def test_start_session_when_session_was_closed(self):
+        requests.request = Mock(__name__="request",
+                                return_value=self.request_mock())
+        commands.start_selenium_session = Mock(__name__="start_selenium_session",
+                                               return_value=(200, {}, json.dumps({'sessionId': "1"})))
+
+        self.session.closed = True
+        request = copy.deepcopy(self.request)
+        self.assertRaises(CreationException, commands.start_session, request, self.session)
+
+
 class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
     def test_session_response_success(self):
         request = copy.deepcopy(self.request)
@@ -167,7 +223,14 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
                 continue
             self.assertDictContainsSubset({key: value}, request_headers)
         self.assertEqual(body, request.body)
-        print body
+
+    def test_start_selenium_session_when_session_closed(self):
+        self.session.closed = True
+
+        request = copy.deepcopy(self.request)
+        request.headers.update({"reply": "200"})
+
+        self.assertRaises(CreationException, commands.start_selenium_session, request, self.session, self.port)
 
 
 class TestCheckVmOnline(CommonCommandsTestCase):
@@ -208,8 +271,19 @@ class TestCheckVmOnline(CommonCommandsTestCase):
             handler.send_reply(500, self.response_headers, body=self.response_body)
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
-        result = commands.selenium_status(request, self.session, self.port)
-        self.assertFalse(result)
+        status, headers, body = commands.selenium_status(request, self.session, self.port)
+        self.assertEqual(status, 500)
+
+    def test_check_vm_online_status_failed_when_session_closed(self):
+        self.session.closed = True
+
+        def do_GET(handler):
+            handler.send_reply(200, self.response_headers, body=self.response_body)
+
+        Handler.do_GET = do_GET
+        request = copy.deepcopy(self.request)
+
+        self.assertRaises(CreationException, commands.selenium_status, request, self.session, self.port)
 
 
 class TestGetDesiredCapabilities(unittest.TestCase):

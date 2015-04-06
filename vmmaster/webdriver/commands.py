@@ -34,31 +34,41 @@ class DesiredCapabilities(object):
 def start_session(request, session):
     notdot_platform = "".join(session.platform.split("."))
     _start = time.time()
+    status, headers, body, s_status = None, None, None, None
 
-    status = graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
-    if session.closed:
-        raise CreationException("Session closed by user")
+    graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
 
-    # check status
-    if not graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT):
-        if session.timeouted:
-            raise CreationException("Failed to get status of selenium-server-standalone")
+    for attempt in range(3):
+        status, headers, body = graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT)
+        try:
+            s_status = json.loads(body).get("status", None)
+        except ValueError:
+            # if body is not JSON object
+            pass
+        if s_status == 0:
+            break
+    if s_status != 0:
+        raise CreationException("Failed to get selenium status: %s" % body)
 
     if session.desired_capabilities.runScript:
         startup_script(session)
 
-    response = graphite("%s.%s" % (notdot_platform, "start_selenium_session"))(start_selenium_session)(request, session, config.SELENIUM_PORT)
-    status, headers, body = response
-    send_metrics("%s.%s" % (notdot_platform, "creation_total"), time.time() - _start)
+    for attempt_start in range(3):
+        status, headers, body = graphite("%s.%s" % (notdot_platform, "start_selenium_session"))(start_selenium_session)(request, session, config.SELENIUM_PORT)
 
-    if status == httplib.OK:
-        selenium_session = json.loads(body)["sessionId"]
-        session.selenium_session = selenium_session
-        body = set_body_session_id(body, session.id)
-        headers["Content-Length"] = len(body)
-    else:
+        if status == httplib.OK:
+            selenium_session = json.loads(body)["sessionId"]
+            session.selenium_session = selenium_session
+            body = set_body_session_id(body, session.id)
+            headers["Content-Length"] = len(body)
+            break
+        else:
+            pass
+
+    if status != httplib.OK:
         raise CreationException("Failed to start selenium session: %s" % body)
 
+    send_metrics("%s.%s" % (notdot_platform, "creation_total"), time.time() - _start)
     return status, headers, body
 
 
@@ -79,7 +89,7 @@ def ping_vm(session):
     port = config.SELENIUM_PORT
     timeout = config.PING_TIMEOUT
     start = time.time()
-    log.info("starting ping: {ip}:{port}".format(ip=ip, port=port))
+    log.info("Starting ping: {ip}:{port}".format(ip=ip, port=port))
     while time.time() - start < timeout and not session.closed:
         session.timer.restart()
         if network_utils.ping(ip, port):
@@ -92,45 +102,44 @@ def ping_vm(session):
     if not network_utils.ping(ip, port):
         raise CreationException("Ping timeout")
 
-    log.info("ping successful: {ip}:{port}".format(ip=ip, port=port))
+    log.info("Ping successful: {ip}:{port}".format(ip=ip, port=port))
 
     return True
 
 
 def start_selenium_session(request, session, port):
-    status = None
-    headers = None
-    body = None
-    for attempt in range(3):
-        log.info("ATTEMPT %s start selenium-server-standalone session for %s" % (attempt, session.id))
-        log.info("with %s %s %s %s" % (request.method, request.path, request.headers, request.body))
-        status, headers, body = session.make_request(port, RequestHelper(request.method, request.path, request.headers, request.body))
-        if status == httplib.OK:
-            log.info("SUCCESS start selenium-server-standalone session for %s" % session.id)
-            return status, headers, body
+    if session.closed:
+        raise CreationException("Session was closed before starting selenium")
 
-        # need to read response to keep sending requests
-        log.info("FAILED start selenium-server-standalone session for %s - %s : %s" % (session.id, status, body))
+    log.info("with %s %s %s %s" % (request.method, request.path, request.headers, request.body))
 
+    status, headers, body = session.make_request(port, RequestHelper(request.method, request.path, request.headers, request.body))
+    if status == httplib.OK:
+        log.info("SUCCESS start selenium-server-standalone session for %s" % session.id)
+        return status, headers, body
+
+    # need to read response to keep sending requests
+    log.info("FAILED start selenium-server-standalone session for %s - %s : %s" % (session.id, status, body))
     return status, headers, body
 
 
 def selenium_status(request, session, port):
     parts = request.path.split("/")
     parts[-1] = "status"
-    status = "/".join(parts)
+    status_cmd = "/".join(parts)
 
-    log.info("getting selenium-server-standalone status for %s" % session.id)
-    # try to get status for 3 times
-    for check in range(3):
-        code, headers, body = session.make_request(port, RequestHelper("GET", status))
-        if code == httplib.OK:
-            log.info("SUCCESS get selenium-server-standalone status for %s" % session.id)
-            return True
-        else:
-            log.info("FAIL    get selenium-server-standalone status for %s" % session.id)
+    if session.closed:
+        raise CreationException("Session was closed while before getting selenium status")
 
-    return False
+    log.info("Getting selenium-server-standalone status for %s" % session.id)
+
+    status, headers, body = session.make_request(port, RequestHelper("GET", status_cmd))
+    if status == httplib.OK:
+        log.info("SUCCESS get selenium-server-standalone status for %s" % session.id)
+        return status, headers, body
+
+    log.info("FAIL get selenium-server-standalone status for %s" % session.id)
+    return status, headers, body
 
 
 def replace_platform_with_any(request):
