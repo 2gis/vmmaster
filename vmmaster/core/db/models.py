@@ -53,7 +53,9 @@ class User(Base):
     group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=0)
     is_active = Column(Boolean, default=True)
     date_joined = Column(DateTime, default=datetime.now)
+    last_login = Column(DateTime)
     token = Column(String(50), nullable=True, default=None)
+
     #
     sessions = relationship(Session, backref="user", passive_deletes=True)
 

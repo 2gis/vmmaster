@@ -33,6 +33,7 @@ def upgrade():
         sa.Column('group_id', sa.Integer(), nullable=True),
         sa.Column('is_active', sa.Boolean(), nullable=True),
         sa.Column('date_joined', sa.DateTime(), nullable=True),
+        sa.Column('last_login', sa.DateTime(), nullable=True),
         sa.Column('token', sa.String(length=50), nullable=True),
         sa.ForeignKeyConstraint(['group_id'], ['user_groups.id'], ondelete='SET DEFAULT'),
         sa.PrimaryKeyConstraint('id'),
