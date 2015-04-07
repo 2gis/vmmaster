@@ -50,9 +50,18 @@ class User(Base):
     password = Column(String(128))
     salt = Column(String(16), unique=True)
     allowed_machines = Column(Integer, default=0)
-    is_staff = Column(Boolean, default=False)
+    group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=0)
     is_active = Column(Boolean, default=True)
     date_joined = Column(DateTime, default=datetime.now)
     token = Column(String(50), nullable=True, default=None)
     #
     sessions = relationship(Session, backref="user", passive_deletes=True)
+
+
+class UserGroup(Base):
+    __tablename__ = 'user_groups'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(length=20), unique=True, nullable=False)
+    #
+    users = relationship(User, backref="group", passive_deletes=True)

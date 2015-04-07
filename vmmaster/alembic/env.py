@@ -55,26 +55,6 @@ def run_migrations_online():
         prefix='sqlalchemy.',
         poolclass=pool.NullPool
     )
-    from sqlalchemy.exc import InvalidRequestError
-    try:
-        target_metadata.reflect(engine, only=[
-            'django_content_type',
-            'django_content_type',
-            'django_admin_log',
-            'django_migrations',
-            'django_session',
-            'auth_group',
-            'auth_group_permissions',
-            'auth_user',
-            'auth_user_groups',
-            'auth_permission',
-            'auth_user_user_permissions',
-            'dashboard_log_step',
-            'dashboard_session']
-        )
-    except InvalidRequestError:
-        pass
-
     connection = engine.connect()
     context.configure(
         connection=connection,
