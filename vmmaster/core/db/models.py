@@ -1,8 +1,9 @@
 # coding: utf-8
 
-from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, ForeignKey
+from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, ForeignKey, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -33,7 +34,7 @@ class Session(Base):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
-    user_id = Column(Integer, nullable=True, default=1)
+    user_id = Column(ForeignKey('users.id', ondelete='SET DEFAULT'), nullable=True, default=0)
     status = Column('status', Enum('unknown', 'running', 'succeed', 'failed', name='status', native_enum=False))
     name = Column(String)
     error = Column(String)
@@ -45,21 +46,13 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True)
-    username = Column(String(length=50), unique=True, nullable=False)
-    hash = Column(String(160))
+    username = Column(String(length=30), unique=True, nullable=False)
+    password = Column(String(128))
     salt = Column(String(16), unique=True)
-    group_id = Column(
-        Integer,
-        ForeignKey('user_groups.id', ondelete='SET DEFAULT'),
-        nullable=False,
-        default=0
-    )
+    allowed_machines = Column(Integer, default=0)
+    is_staff = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    date_joined = Column(DateTime, default=datetime.now)
+    token = Column(String(50), nullable=True, default=None)
+    #
     sessions = relationship(Session, backref="user", passive_deletes=True)
-
-
-class UserGroup(Base):
-    __tablename__ = 'user_groups'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    users = relationship(User, backref="group", passive_deletes=True)
