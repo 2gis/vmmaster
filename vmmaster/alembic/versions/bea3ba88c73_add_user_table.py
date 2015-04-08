@@ -42,11 +42,12 @@ def upgrade():
     )
     op.add_column('sessions', sa.Column('user_id', sa.Integer(), nullable=True))
     # Create default groups
-    op.get_bind().execute(text("INSERT INTO user_groups (id, name) VALUES (0, 'nogroup')"))
-    op.get_bind().execute(text("INSERT INTO user_groups (id, name) VALUES (1, 'admin')"))
+    op.get_bind().execute(text("INSERT INTO user_groups (name) VALUES ('nogroup')"))
+    op.get_bind().execute(text("INSERT INTO user_groups (name) VALUES ('admin')"))
     # Create default user
     op.get_bind().execute(
-        text("INSERT INTO users (id, group_id, is_active, username) VALUES (0, 0, True, 'anonymous')")
+        text("INSERT INTO users (group_id, is_active, username) "
+             "VALUES ((SELECT min(id) from user_groups), True, 'anonymous')")
     )
 
 

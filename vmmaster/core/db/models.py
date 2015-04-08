@@ -34,7 +34,7 @@ class Session(Base):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
-    user_id = Column(ForeignKey('users.id', ondelete='SET DEFAULT'), nullable=True, default=0)
+    user_id = Column(ForeignKey('users.id', ondelete='SET DEFAULT'), nullable=True, default=1)
     status = Column('status', Enum('unknown', 'running', 'succeed', 'failed', name='status', native_enum=False))
     name = Column(String)
     error = Column(String)
@@ -50,13 +50,12 @@ class User(Base):
     password = Column(String(128))
     salt = Column(String(16), unique=True)
     allowed_machines = Column(Integer, default=0)
-    group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=0)
+    group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=1)
     is_active = Column(Boolean, default=True)
     date_joined = Column(DateTime, default=datetime.now)
     last_login = Column(DateTime)
     token = Column(String(50), nullable=True, default=None)
-
-    #
+    
     sessions = relationship(Session, backref="user", passive_deletes=True)
 
 
@@ -65,5 +64,5 @@ class UserGroup(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(length=20), unique=True, nullable=False)
-    #
+
     users = relationship(User, backref="group", passive_deletes=True)
