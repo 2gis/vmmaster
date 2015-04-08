@@ -1,3 +1,5 @@
+from functools import wraps
+from threading import Thread
 import time
 
 from xml.dom import minidom
@@ -19,6 +21,19 @@ from ..exceptions import libvirtError, CreationException
 from ..config import config
 
 from ...core.utils import network_utils
+
+
+def threaded_wait(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        def thread_target():
+            return func(self, *args, **kwargs)
+
+        tr = Thread(target=thread_target)
+        tr.daemon = True
+        tr.start()
+
+    return wrapper
 
 
 class Clone(VirtualMachine):
@@ -222,27 +237,31 @@ class OpenstackClone(Clone):
             self.nova_client.servers.create(name=self.name, image=self.image, flavor=self.flavor, nics=[{'net-id': self.network_id}])
         except Exception as e:
             log.info("Creating error: %s" % e)
-        self._wait_for_activated_service()
 
-        if self.check_vm_exist(self.name):
-            server = self.nova_client.servers.find(name=self.name)
-            addresses = server.addresses.get(self.network_name, None)
+        def get_ip():
+            if self.check_vm_exist(self.name):
+                server = self.nova_client.servers.find(name=self.name)
+                addresses = server.addresses.get(self.network_name, None)
 
-            if addresses is not None:
-                ip = addresses[0].get('addr', None)
-                self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
+                if addresses is not None:
+                    ip = addresses[0].get('addr', None)
+                    self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
 
-                if ip is not None:
-                    self.ip = ip
-                    self.ready = True
+                    if ip is not None:
+                        self.ip = ip
 
-            log.info("created openstack {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+                log.info("created openstack {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+        self._wait_for_activated_service(get_ip)
 
-    def _wait_for_activated_service(self, tries=10, timeout=5):
+    @threaded_wait
+    def _wait_for_activated_service(self, method=None, tries=10, timeout=5):
         from time import sleep
         i = 0
         while True:
             if self.vm_is_ready():
+                self.ready = True
+                if method is not None:
+                    method()
                 break
             else:
                 if i > tries:
@@ -329,12 +348,12 @@ class OpenstackClone(Clone):
 
         self.ready = False
         self.nova_client.servers.find(name=self.name).rebuild(self.image)
+
+        def is_succesful():
+            log.info("rebuilded openstack {clone}".format(clone=self.name))
+
         try:
-            self._wait_for_activated_service(self.name)
+            self._wait_for_activated_service(is_succesful)
         except CreationException:
             self.delete()
             pool.pool.remove(self)
-
-        self.ready = True
-
-        log.info("rebuilded openstack {clone}".format(clone=self.name))

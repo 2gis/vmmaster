@@ -5,6 +5,7 @@ import time
 from flask import Request
 
 from ..core.utils import network_utils
+from ..webdriver.helpers import check_to_exist_ip
 from ..core.config import config
 from ..core.logger import log
 from ..core.exceptions import CreationException
@@ -75,7 +76,7 @@ def startup_script(session):
 
 def ping_vm(session):
     # ping ip:port
-    ip = session.virtual_machine.ip
+    ip = check_to_exist_ip(session.virtual_machine)
     port = config.SELENIUM_PORT
     timeout = config.PING_TIMEOUT
     start = time.time()
