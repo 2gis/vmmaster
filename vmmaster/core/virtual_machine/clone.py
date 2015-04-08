@@ -259,9 +259,9 @@ class OpenstackClone(Clone):
         i = 0
         while True:
             if self.vm_is_ready():
-                self.ready = True
                 if method is not None:
                     method()
+                self.ready = True
                 break
             else:
                 if i > tries:
@@ -329,8 +329,10 @@ class OpenstackClone(Clone):
             except ValueError:
                 pass
 
-            self.nova_client.servers.find(name=self.name).delete()
-            VirtualMachine.delete(self)
+            try:
+                self.nova_client.servers.find(name=self.name).delete()
+            except Exception as e:
+                log.info("Delete vm %s was FAILED. %s" % (self.name, e.message))
 
             log.info("deleted openstack clone: {clone}".format(clone=self.name))
         else:
@@ -347,7 +349,11 @@ class OpenstackClone(Clone):
         pool.pool.append(self)
 
         self.ready = False
-        self.nova_client.servers.find(name=self.name).rebuild(self.image)
+        try:
+            self.nova_client.servers.find(name=self.name).rebuild(self.image)
+        except Exception as e:
+            log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
+            self.delete()
 
         def is_succesful():
             log.info("rebuilded openstack {clone}".format(clone=self.name))
