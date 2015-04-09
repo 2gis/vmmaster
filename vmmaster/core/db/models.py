@@ -49,7 +49,7 @@ class User(Base):
     username = Column(String(length=30), unique=True, nullable=False)
     password = Column(String(128))
     salt = Column(String(16), unique=True)
-    allowed_machines = Column(Integer, default=0)
+    allowed_machines = Column(Integer, default=1)
     group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=1)
     is_active = Column(Boolean, default=True)
     date_joined = Column(DateTime, default=datetime.now)

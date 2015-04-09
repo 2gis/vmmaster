@@ -46,8 +46,8 @@ def upgrade():
     op.get_bind().execute(text("INSERT INTO user_groups (name) VALUES ('admin')"))
     # Create default user
     op.get_bind().execute(
-        text("INSERT INTO users (group_id, is_active, username) "
-             "VALUES ((SELECT min(id) from user_groups), True, 'anonymous')")
+        text("INSERT INTO users (group_id, is_active, username, allowed_machines) "
+             "VALUES ((SELECT min(id) from user_groups), True, 'anonymous', -1)")
     )
 
 
