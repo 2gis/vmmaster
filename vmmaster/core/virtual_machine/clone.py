@@ -50,7 +50,7 @@ class Clone(VirtualMachine):
 
     @property
     def name(self):
-        return "{}-clone-{}".format(self.platform, self.prefix)
+        return "{}-clone-{}".format(self.origin.name, self.prefix)
 
     def delete(self):
         raise NotImplementedError
@@ -218,13 +218,14 @@ class OpenstackClone(Clone):
 
     def __init__(self, origin, prefix):
         super(OpenstackClone, self).__init__(origin, prefix)
+        self.platform = origin.short_name
         self.nova_client = openstack_utils.nova_client()
         self.network_client = openstack_utils.neutron_client()
         self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
 
     def create(self):
-        log.info("creating openstack clone of {} with image={}, flavor={}".format(self.platform,
+        log.info("creating openstack clone of {} with image={}, flavor={}".format(self.name,
                                                                                   self.image,
                                                                                   self.flavor))
 
@@ -280,7 +281,7 @@ class OpenstackClone(Clone):
 
     @property
     def image(self):
-        return self.nova_client.images.find(name=self.platform)
+        return self.nova_client.images.find(name=self.origin.name)
 
     @property
     def flavor(self):

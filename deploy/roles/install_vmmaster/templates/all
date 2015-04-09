@@ -49,6 +49,7 @@ class Config(object):
     OPENSTACK_TENANT_NAME = "{{openstack_tenant_name}}"
     OPENSTACK_TENANT_ID = "{{openstack_tenant_id}}"
     OPENSTACK_ZONE_FOR_VM_CREATE = "{{openstack_zone_for_vm_create}}"
+    OPENSTACK_PLATFORM_NAME_PREFIX = "{{openstack_platform_name_prefix}}"
 
     VM_CHECK = {{vmmaster_vm_check}}
     VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}

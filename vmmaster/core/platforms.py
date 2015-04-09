@@ -40,6 +40,7 @@ class OpenstackOrigin(Platform):
     def __init__(self, origin):
         self.id = origin.id
         self.name = origin.name
+        self.short_name = origin.name.split(config.OPENSTACK_PLATFORM_NAME_PREFIX)[1]
         self.min_disk = origin.min_disk
         self.min_ram = origin.min_ram
         self.flavor_name = origin.instance_type_name
@@ -87,7 +88,10 @@ class OpenstackPlatforms(PlatformsInterface):
 
     def _load_platforms(self):
         origins = [image for image in self.client.images.list()
-                   if image.status == 'active' and image.get('image_type', None) == 'snapshot']
+                   if image.status == 'active'
+                   and image.get('image_type', None) == 'snapshot'
+                   and config.OPENSTACK_PLATFORM_NAME_PREFIX in image.name]
+
         return [OpenstackOrigin(origin) for origin in origins]
 
 
@@ -105,7 +109,7 @@ class Platforms(object):
         if config.USE_KVM:
             cls.platforms.update({vm.name: vm for vm in KVMPlatforms().platforms})
         if config.USE_OPENSTACK:
-            cls.platforms.update({vm.name: vm for vm in OpenstackPlatforms().platforms})
+            cls.platforms.update({vm.short_name: vm for vm in OpenstackPlatforms().platforms})
 
         log.info("load all platforms: {}".format(str(cls.platforms)))
 

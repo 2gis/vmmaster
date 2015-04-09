@@ -31,7 +31,7 @@ class Config(object):
     USE_OPENSTACK = False
     OPENSTACK_MAX_VM_COUNT = 2
     OPENSTACK_PRELOADED = {
-        # "ubuntu-14.04-x64-SNAPSHOT": 1
+        # "ubuntu-14.04-x64": 1
     }
 
     OPENSTACK_AUTH_URL = "localhost"
@@ -42,6 +42,7 @@ class Config(object):
     OPENSTACK_TENANT_NAME = "test"
     OPENSTACK_TENANT_ID = ""
     OPENSTACK_ZONE_FOR_VM_CREATE = ""
+    OPENSTACK_PLATFORM_NAME_PREFIX = "origin-"
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800

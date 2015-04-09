@@ -61,6 +61,7 @@ openstack_password: "password"
 openstack_tenant_name: "test"
 openstack_tenant_id: "id"
 openstack_zone_for_vm_create: ""
+openstack_platform_name_prefix: "origin-"
 
 vmmaster_vm_check: "False"
 vmmaster_vm_check_frequency: 1800
