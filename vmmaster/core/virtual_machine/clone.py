@@ -106,10 +106,8 @@ class KVMClone(Clone):
         except ValueError, e:
             log.warning(e)
             pass
-        try:
-            pool.remove_vm(self)
-        except ValueError:
-            pass
+
+        pool.remove_vm(self)
         VirtualMachine.delete(self)
 
     def create(self):
@@ -131,10 +129,7 @@ class KVMClone(Clone):
     def rebuild(self):
         log.info("rebuilding kvm clone of {platform}".format(platform=self.platform))
 
-        try:
-            pool.remove_vm(self)
-        except ValueError:
-            pass
+        pool.remove_vm(self)
 
         if self.checking:
             self.delete()
@@ -265,7 +260,10 @@ class OpenstackClone(Clone):
                 break
             else:
                 if i > tries:
-                    raise CreationException
+                    log.info("VM %s has not been created." % self.name)
+                    self.delete()
+                    pool.remove_vm(self)
+
                 i += 1
                 log.info('Status for %s is not active, wait for %ss. before next try...' % (self.name, timeout))
                 sleep(timeout)
@@ -311,8 +309,12 @@ class OpenstackClone(Clone):
             # create new network
 
     def vm_is_ready(self):
-        server = self.nova_client.servers.find(name=self.name)
-        return True if str(server.status).lower() == 'active' \
+        try:
+            server = self.nova_client.servers.find(name=self.name)
+        except Exception as e:
+            log.info("VM %s not found in openstack. Error message: %s" % (self.name, e.message))
+            server = None
+        return True if server is not None and str(server.status).lower() == 'active' \
                        and getattr(server, 'addresses', None) is not None else False
 
     def check_vm_exist(self, server_name):
@@ -324,10 +326,7 @@ class OpenstackClone(Clone):
     def delete(self):
         if self.check_vm_exist(self.name):
             log.info("deleting openstack clone: {clone}".format(clone=self.name))
-            try:
-                pool.using.remove(self)
-            except ValueError:
-                pass
+            pool.remove_vm(self)
 
             try:
                 self.nova_client.servers.find(name=self.name).delete()
@@ -341,11 +340,7 @@ class OpenstackClone(Clone):
     def rebuild(self):
         log.info("rebuilding openstack {clone}".format(clone=self.name))
 
-        try:
-            pool.using.remove(self)
-        except ValueError:
-            pass
-
+        pool.remove_vm(self)
         pool.pool.append(self)
 
         self.ready = False
@@ -358,8 +353,4 @@ class OpenstackClone(Clone):
         def is_succesful():
             log.info("rebuilded openstack {clone}".format(clone=self.name))
 
-        try:
-            self._wait_for_activated_service(is_succesful)
-        except CreationException:
-            self.delete()
-            pool.pool.remove(self)
+        self._wait_for_activated_service(is_succesful)
