@@ -21,6 +21,5 @@ def upgrade():
 
 
 def downgrade():
-    # FIXME: sqlite not supported column drop
     op.drop_column('sessions', 'status')
     op.drop_column('sessions', 'error')

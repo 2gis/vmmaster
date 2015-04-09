@@ -16,7 +16,6 @@ from sqlalchemy.schema import Sequence, CreateSequence
 
 
 def upgrade():
-    # FIXME: sqlite not support sequence
     op.execute(CreateSequence(Sequence("log_step_id_seq")))
     op.execute(CreateSequence(Sequence("session_id_seq")))
 
