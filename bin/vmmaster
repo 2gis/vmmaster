@@ -18,6 +18,7 @@ import os
 
 from twisted.internet import reactor
 from docopt import docopt
+from pkg_resources import get_distribution
 
 from vmmaster.core.config import setup_config, config
 from vmmaster.core.utils.init import init, home_dir
@@ -50,7 +51,8 @@ class VMMasterDaemon(Daemon):
 
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version='0.1')
+    version = '%s' % get_distribution('vmmaster').version
+    arguments = docopt(__doc__, version=version)
     if arguments['init'] is True:
         init()
         exit(0)

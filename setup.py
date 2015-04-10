@@ -34,7 +34,10 @@ setup(
         'python-keystoneclient==1.2.0',
         'python-neutronclient==2.3.11',
         'python-novaclient==2.22.0',
-        'pysubnettree==0.23'
+        'pysubnettree==0.23',
+        'cmd2==0.6.7',
+        'pyparsing==2.0.1',
+        'msgpack-python==0.4.0'
     ],
     scripts=[
         'bin/vmmaster',
