@@ -1,5 +1,5 @@
 # vmmaster
-[![Build Status](https://travis-ci.org/2gis/vmmaster.svg)](https://travis-ci.org/2gis/vmmaster)
+[![Build Status](https://travis-ci.org/2gis/vmmaster.svg?branch=master)](https://travis-ci.org/2gis/vmmaster)
 
 ## dependencies:
 + libvirt
