@@ -228,8 +228,18 @@ class OpenstackClone(Clone):
                                                                                   self.image,
                                                                                   self.flavor))
 
+        kwargs = {
+            'name': self.name,
+            'image': self.image,
+            'flavor': self.flavor,
+            'nics': [{'net-id': self.network_id}]
+        }
+
+        if bool(config.OPENSTACK_ZONE_FOR_VM_CREATE):
+            kwargs.update({'availability_zone': config.OPENSTACK_ZONE_FOR_VM_CREATE})
+
         try:
-            self.nova_client.servers.create(name=self.name, image=self.image, flavor=self.flavor, nics=[{'net-id': self.network_id}])
+            self.nova_client.servers.create(**kwargs)
         except Exception as e:
             log.info("Creating error: %s" % e)
 

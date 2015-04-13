@@ -41,6 +41,7 @@ class Config(object):
     OPENSTACK_PASSWORD = "password"
     OPENSTACK_TENANT_NAME = "test"
     OPENSTACK_TENANT_ID = ""
+    OPENSTACK_ZONE_FOR_VM_CREATE = ""
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800
