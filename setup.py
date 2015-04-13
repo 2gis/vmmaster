@@ -4,7 +4,7 @@ import versioneer
 
 versioneer.VCS = 'git'
 versioneer.versionfile_source = 'vmmaster/_version.py'
-versioneer.versionfile_build = None
+versioneer.versionfile_build = 'vmmaster/_version.py'
 versioneer.tag_prefix = ''  # tags are like 0.1.0
 versioneer.parentdir_prefix = 'vmmaster-'  # dirname like 'myproject-0.1.0'
 
@@ -42,10 +42,7 @@ setup(
         'python-keystoneclient==1.2.0',
         'python-neutronclient==2.3.11',
         'python-novaclient==2.22.0',
-        'pysubnettree==0.23',
-        'cmd2==0.6.7',
-        'pyparsing==2.0.1',
-        'msgpack-python==0.4.0'
+        'pysubnettree==0.23'
     ],
     scripts=[
         'bin/vmmaster',
