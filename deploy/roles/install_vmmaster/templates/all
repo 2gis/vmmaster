@@ -60,7 +60,7 @@ class Config(object):
     # GRAYLOG = {{vmmaster_graylog}}
 
     # graphite
-    # GRAPHITE = {{vmmaster_graphite}}
+    GRAPHITE = {{vmmaster_graphite}}
 
     # selenium
     SELENIUM_PORT = {{vmmaster_selenium_port}}
