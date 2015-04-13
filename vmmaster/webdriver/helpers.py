@@ -14,7 +14,7 @@ from flask.ctx import _request_ctx_stack
 
 import commands
 
-from ..core.exceptions import SessionException, ConnectionError
+from ..core.exceptions import SessionException, ConnectionError, CreationException
 from ..core.sessions import RequestHelper
 from ..core.config import config
 from ..core.logger import log
@@ -187,6 +187,20 @@ def get_vm():
     delayed_vm = q.enqueue(desired_caps)
     while delayed_vm.vm is None:
         time.sleep(0.1)
+
+
+def check_to_exist_ip(vm, tries=10, timeout=5):
+    from time import sleep
+    i = 0
+    while True:
+        if vm.ip is not None:
+            return vm.ip
+        else:
+            if i > tries:
+                raise CreationException('Error: VM %s have not ip address' % vm.name)
+            i += 1
+            log.info('IP is %s for VM %s, wait for %ss. before next try...' % (vm.ip, vm.name, timeout))
+            sleep(timeout)
 
 
 def get_session(desired_caps):

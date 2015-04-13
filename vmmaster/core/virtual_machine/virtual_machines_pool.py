@@ -18,7 +18,16 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def remove_vm(cls, vm):
-        cls.using.remove(vm)
+        if vm in list(cls.using):
+            try:
+                cls.using.remove(vm)
+            except ValueError:
+                pass
+        if vm in list(cls.pool):
+            try:
+                cls.pool.remove(vm)
+            except ValueError:
+                pass
 
     @classmethod
     def add_vm(cls, vm, to=None):
