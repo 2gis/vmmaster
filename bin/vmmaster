@@ -51,8 +51,7 @@ class VMMasterDaemon(Daemon):
 
 
 if __name__ == '__main__':
-    version = '%s' % get_distribution('vmmaster').version
-    arguments = docopt(__doc__, version=version)
+    arguments = docopt(__doc__, version=get_distribution('vmmaster').version)
     if arguments['init'] is True:
         init()
         exit(0)
