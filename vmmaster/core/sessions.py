@@ -139,7 +139,7 @@ class Session(object):
 
     def close(self):
         self.closed = True
-        self.failed("Session closed by user")
+        self.failed("Session closed by user.")
 
     def timeout(self):
         self.timeouted = True

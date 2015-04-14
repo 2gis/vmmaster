@@ -2,8 +2,6 @@ import json
 import httplib
 import time
 
-from flask import Request
-
 from ..core.utils import network_utils
 from ..webdriver.helpers import check_to_exist_ip
 from ..core.config import config

@@ -3,16 +3,14 @@
 import time
 import base64
 import sys
+import commands
+
 from functools import wraps
 from threading import Thread
-from traceback import format_exc
 from Queue import Queue
 
 from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
-from flask.ctx import _request_ctx_stack
-
-import commands
 
 from ..core.exceptions import SessionException, ConnectionError, CreationException
 from ..core.sessions import RequestHelper
@@ -54,6 +52,8 @@ def threaded(func):
             tr.join(0.1)
 
         if req.closed:
+            session = current_app.sessions.get_session(proxy.session_id)
+            session.close()
             raise ConnectionError("Client has disconnected")
         elif not error_bucket.empty():
             error = error_bucket.get()
