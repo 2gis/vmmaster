@@ -1,5 +1,12 @@
 from setuptools import setup,  find_packages
 import os
+import versioneer
+
+versioneer.VCS = 'git'
+versioneer.versionfile_source = 'vmmaster/_version.py'
+versioneer.versionfile_build = 'vmmaster/_version.py'
+versioneer.tag_prefix = ''  # tags are like 0.1.0
+versioneer.parentdir_prefix = 'vmmaster-'  # dirname like 'myproject-0.1.0'
 
 home = []
 for path, subdirs, files in os.walk('vmmaster/home'):
@@ -16,7 +23,8 @@ alembic.append('alembic.ini')
 
 setup(
     name='vmmaster',
-    version='0.1',
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     description='Python KVM-based virtual machine environment system for selenium testing',
     url='https://github.com/2gis/vmmaster',
     packages=find_packages(),

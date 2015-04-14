@@ -35,6 +35,7 @@ from vmmaster.core.logger import setup_logging
 from vmmaster.server import VMMasterServer
 from vmmaster.core.daemon import Daemon
 from vmmaster.core.utils.utils import change_user_vmmaster
+from vmmaster import __version__
 
 
 def main():
@@ -50,7 +51,7 @@ class VMMasterDaemon(Daemon):
 
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version='0.1')
+    arguments = docopt(__doc__, version=__version__)
     if arguments['init'] is True:
         init()
         exit(0)
