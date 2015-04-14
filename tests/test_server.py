@@ -62,7 +62,7 @@ def request(host, method, url, headers=None, body=None):
     return r
 
 
-def request_with_drop(address, desired_caps):
+def request_with_drop(address, desired_caps, method=None):
     dc = json.dumps(desired_caps)
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,6 +76,8 @@ def request_with_drop(address, desired_caps):
     "%s\r\n" % dc
 
     s.send(req)
+    if method is not None:
+        method()
     s.close()
 
 
@@ -114,6 +116,17 @@ def server_is_up(address):
             raise RuntimeError("server is not running on %s:%s" % address)
 
 
+def server_is_down(address):
+    s = get_socket(address[0], address[1])
+    time_start = time.time()
+    timeout = 5
+    while s:
+        s = get_socket(address[0], address[1])
+        time.sleep(0.1)
+        if time.time() - time_start > timeout:
+            raise RuntimeError("server is running on %s:%s" % address)
+
+
 class TestServer(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
@@ -128,6 +141,7 @@ class TestServer(unittest.TestCase):
 
     def tearDown(self):
         del self.server
+        server_is_down(self.address)
 
     def test_server_create_new_session(self):
         response = new_session_request(self.address, self.desired_caps)
@@ -216,6 +230,7 @@ class TestTimeoutSession(unittest.TestCase):
 
     def tearDown(self):
         del self.server
+        server_is_down(self.address)
 
     def test_server_delete_timeouted_session(self):
         self.assertEqual(0, VirtualMachinesPool.count())
@@ -231,6 +246,54 @@ class TestTimeoutSession(unittest.TestCase):
         response = get_session_request(self.address, session_id)
         self.assertTrue("SessionException: There is no active session %s" % session_id in response.content,
                         "SessionException: There is no active session %s not in %s" % (session_id, response.content))
+
+    def test_server_delete_closed_session(self):
+        self.assertEqual(0, VirtualMachinesPool.count())
+        response = new_session_request(self.address, self.desired_caps)
+        session_id = json.loads(response.content)["sessionId"].encode("utf-8")
+
+        session = self.server.app.sessions.get_session(session_id)
+        session.close()
+        vm_count = len(VirtualMachinesPool.using)
+
+        self.assertEqual(0, vm_count)
+        response = get_session_request(self.address, session_id)
+        self.assertTrue("SessionException: There is no active session %s" % session_id in response.content,
+                        "SessionException: There is no active session %s not in %s" % (session_id, response.content))
+
+    def test_req_closed_during_session_creating(self):
+        def method():
+            while True:
+                try:
+                    if len(self.server.app.sessions.map) == 1:
+                        # close the connection when the session was created
+                        break
+                except:
+                    pass
+
+        self.assertEqual(0, VirtualMachinesPool.count())
+        request_with_drop(self.address, self.desired_caps, method)
+        time.sleep(2)  # waiting for vmmaster response
+        vm_count = len(VirtualMachinesPool.using)
+        self.assertEqual(0, vm_count)
+        self.assertEqual(0, len(self.server.app.sessions.map))
+
+    def test_req_closed_when_request_append_to_queue(self):
+        def method():
+            while True:
+                try:
+                    if len(self.server.app.queue) == 1:
+                        # close the connection when the request is queued
+                        break
+                except:
+                    pass
+
+        self.assertEqual(0, VirtualMachinesPool.count())
+        request_with_drop(self.address, self.desired_caps, method)
+        time.sleep(2)  # waiting for vmmaster response
+        vm_count = len(VirtualMachinesPool.using)
+        self.assertEqual(0, vm_count)
+        self.assertEqual(0, len(self.server.app.sessions.map))
 
 
 class TestServerShutdown(unittest.TestCase):
