@@ -38,13 +38,14 @@ class OpenstackOrigin(Platform):
     name = None
 
     def __init__(self, origin):
+        self.client = openstack_utils.nova_client()
         self.id = origin.id
         self.name = origin.name
         self.short_name = origin.name.split(config.OPENSTACK_PLATFORM_NAME_PREFIX)[1]
         self.min_disk = origin.min_disk
         self.min_ram = origin.min_ram
-        self.flavor_name = origin.instance_type_name
         self.flavor_id = origin.instance_type_flavorid
+        self.flavor_name = (lambda s: s.client.flavors.get(s.flavor_id).name)(self)
 
     @staticmethod
     def make_clone(origin, prefix):
