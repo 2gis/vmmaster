@@ -51,6 +51,7 @@ class Config(object):
     PING_TIMEOUT = 180
 
     # additional logging
+    # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
     # GRAYLOG = ('logserver', 12201)
 
     # graphite

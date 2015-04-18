@@ -70,6 +70,7 @@ vmmaster_session_timeout: 360
 vmmaster_ping_timeout: 180
 
 # additional logging
+# sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
 vmmaster_graylog: ('logserver', 12201)
 
 # graphite

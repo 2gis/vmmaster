@@ -34,7 +34,7 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG
     log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
     if hasattr(config, 'GRAYLOG'):
-        graylog_handler = graypy.GELFHandler(config.GRAYLOG)
+        graylog_handler = graypy.GELFHandler(host=config.GRAYLOG[0], port=config.GRAYLOG[1])
         graylog_handler.setFormatter(log_formatter)
         log.addHandler(graylog_handler)
 
