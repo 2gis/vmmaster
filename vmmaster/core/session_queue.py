@@ -44,7 +44,7 @@ class QueueWorker(Thread):
                     vm = pool.get(platform)
                     self.queue.dequeue(delayed_vm)
                     delayed_vm.vm = vm
-                elif pool.can_produce():
+                elif pool.can_produce(platform):
                     vm = pool.add(platform)
                     self.queue.dequeue(delayed_vm)
                     delayed_vm.vm = vm

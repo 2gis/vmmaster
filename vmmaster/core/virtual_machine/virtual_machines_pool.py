@@ -51,17 +51,10 @@ class VirtualMachinesPool(object):
         return len(cls.pool) + len(cls.using)
 
     @classmethod
-    def can_produce(cls):
-        max_count = 0
+    def can_produce(cls, platform):
+        from ..platforms import Platforms
 
-        if config.USE_KVM:
-            max_count += config.KVM_MAX_VM_COUNT
-        if config.USE_OPENSTACK:
-            max_count += config.OPENSTACK_MAX_VM_COUNT
-
-        can_produce = max_count - cls.count()
-
-        return can_produce if can_produce >= 0 else 0
+        return Platforms.can_produce(platform)
 
     @classmethod
     def has(cls, platform):
@@ -104,7 +97,7 @@ class VirtualMachinesPool(object):
     def add(cls, origin_name, prefix=None, to=None):
         from ..platforms import Platforms
 
-        if not cls.can_produce():
+        if not cls.can_produce(origin_name):
             raise CreationException("maximum count of virtual machines already running")
 
         if to is None:
@@ -142,6 +135,8 @@ class VirtualMachinesPool(object):
 
     @property
     def info(self):
+        from flask import current_app
+
         def print_view(lst):
             return [{"name": l.name, "ip": l.ip, "ready": l.ready, "checking": l.checking} for l in lst]
         return {
@@ -153,7 +148,7 @@ class VirtualMachinesPool(object):
                 'count': self.using_virtual_machines(),
                 'list': print_view(self.using),
             },
-            "can_produce": self.can_produce()
+            "can_produce": current_app.platforms.max_count() - self.count()
         }
 
 
@@ -166,9 +161,9 @@ class VirtualMachinesPoolPreloader(Thread):
 
     def run(self):
         while self.running:
-            if self.pool.can_produce():
-                platform = self.need_load()
-                if platform is not None:
+            platform = self.need_load()
+            if platform is not None:
+                if self.pool.can_produce(platform):
                     log.info("VM for preloaded was found. Preloading vm for platform %s " % platform)
                     self.pool.preload(platform, "preloaded-{}".format(uuid4()))
 
