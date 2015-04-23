@@ -148,6 +148,8 @@ class VirtualMachinesPool(object):
                 'count': self.using_virtual_machines(),
                 'list': print_view(self.using),
             },
+            "max_count": current_app.platforms.max_count(),
+            "already_use": self.count(),
             "can_produce": current_app.platforms.max_count() - self.count()
         }
 
