@@ -6,6 +6,7 @@ from .logger import log
 from .utils import openstack_utils
 
 from .virtual_machine.clone import KVMClone, OpenstackClone
+from .virtual_machine.virtual_machines_pool import pool
 
 
 class Platform(object):
@@ -61,58 +62,127 @@ class PlatformsInterface(object):
     def platforms(self):
         raise NotImplementedError
 
+    @staticmethod
+    def max_count():
+        raise NotImplementedError
+
+    @staticmethod
+    def can_produce(platform):
+        raise NotImplementedError
+
 
 class KVMPlatforms(PlatformsInterface):
-    platforms = dict()
-
-    def __init__(self):
-        self.platforms = self._load_platforms()
-        log.info("load kvm platforms: {}".format(str(self.platforms)))
-
     @staticmethod
     def _discover_origins(origins_dir):
         origins = [origin for origin in os.listdir(origins_dir) if os.path.isdir(os.path.join(origins_dir, origin))]
         return [KVMOrigin(origin, os.path.join(origins_dir, origin)) for origin in origins]
 
-    @classmethod
-    def _load_platforms(cls):
-        return cls._discover_origins(config.ORIGINS_DIR)
+    @property
+    def platforms(self):
+        pfms = self._discover_origins(config.ORIGINS_DIR)
+
+        log.info("load kvm platforms: {}".format(str(pfms)))
+        return pfms
+
+    @staticmethod
+    def max_count():
+        return config.KVM_MAX_VM_COUNT
+
+    @staticmethod
+    def can_produce(platform):
+        return KVMPlatforms.max_count() - pool.count()
 
 
 class OpenstackPlatforms(PlatformsInterface):
-    platforms = dict()
-
-    def __init__(self):
-        self.client = openstack_utils.glance_client()
-        self.platforms = self._load_platforms()
-        log.info("load openstack platforms: {}".format(str(self.platforms)))
-
-    def _load_platforms(self):
-        origins = [image for image in self.client.images.list()
+    @property
+    def platforms(self):
+        origins = [image for image in openstack_utils.glance_client().images.list()
                    if image.status == 'active'
                    and image.get('image_type', None) == 'snapshot'
                    and config.OPENSTACK_PLATFORM_NAME_PREFIX in image.name]
 
-        return [OpenstackOrigin(origin) for origin in origins]
+        pfms = [OpenstackOrigin(origin) for origin in origins]
+        log.info("load openstack platforms: {}".format(str(pfms)))
+        return pfms
+
+    @staticmethod
+    def max_count():
+        config_max_count = config.OPENSTACK_MAX_VM_COUNT
+        limits = openstack_utils.nova_client().limits.get().to_dict().get('absolute', {'maxTotalInstances': 0})
+
+        if config_max_count <= limits.get('maxTotalInstances', 0):
+            max_count = config_max_count
+            # Maximum count of virtual machines use from vmmaster config
+        else:
+            max_count = limits.get('maxTotalInstances', 0)
+            # Maximum count of virtual machines use from openstack limits
+
+        return max_count
+
+    @staticmethod
+    def can_produce(platform):
+        flavor_name = Platforms.get(platform).flavor_name
+        limits = openstack_utils.nova_client().limits.get().to_dict().get('absolute', {'maxTotalCores': 0,
+                                                                       'maxTotalInstances': 0,
+                                                                       'maxTotalRAMSize': 0,
+                                                                       'totalCoresUsed': 0,
+                                                                       'totalInstancesUsed': 0,
+                                                                       'totalRAMUsed': 0})
+        flavor_params = openstack_utils.nova_client().flavors.find(name=flavor_name).to_dict()
+
+        if flavor_params.get('vcpus', 0) >= limits.get('maxTotalCores', 0) - limits.get('totalCoresUsed', 0):
+            log.info('I can\'t produce new virtual machine with platform %s because not enough CPU resources' % platform)
+        elif flavor_params.get('ram', 0) >= limits.get('maxTotalRAMSize', 0) - limits.get('totalRAMUsed', 0):
+            log.info('I can\'t produce new virtual machine with platform %s because not enough RAM resources' % platform)
+        elif limits.get('totalInstancesUsed', 0) >= limits.get('maxTotalInstances', 0) \
+                and OpenstackPlatforms.max_count() - pool.count() >= 0:
+            log.info('I can\'t produce new virtual machine with platform %s because not enough Instances resources' % platform)
+        else:
+            log.info('I can produce new virtual machine with platform %s' % platform)
+            return True
+
+        return False
 
 
 class Platforms(object):
     platforms = dict()
+    kvm_platforms = None
+    openstack_platforms = None
 
     def __new__(cls, *args, **kwargs):
         log.info("creating all platforms")
         inst = object.__new__(cls)
+        if config.USE_KVM:
+            cls.kvm_platforms = {vm.name: vm for vm in KVMPlatforms().platforms}
+        if config.USE_OPENSTACK:
+            cls.openstack_platforms = {vm.short_name: vm for vm in OpenstackPlatforms().platforms}
         cls._load_platforms()
         return inst
 
     @classmethod
     def _load_platforms(cls):
-        if config.USE_KVM:
-            cls.platforms.update({vm.name: vm for vm in KVMPlatforms().platforms})
-        if config.USE_OPENSTACK:
-            cls.platforms.update({vm.short_name: vm for vm in OpenstackPlatforms().platforms})
+        if bool(cls.kvm_platforms):
+            cls.platforms.update(cls.kvm_platforms)
+        if bool(cls.openstack_platforms):
+            cls.platforms.update(cls.openstack_platforms)
 
         log.info("load all platforms: {}".format(str(cls.platforms)))
+
+    @classmethod
+    def max_count(cls):
+        m_count = 0
+        if bool(cls.kvm_platforms):
+            m_count += KVMPlatforms().max_count()
+        if bool(cls.openstack_platforms):
+            m_count += OpenstackPlatforms().max_count()
+        return m_count
+
+    @classmethod
+    def can_produce(cls, platform):
+        if config.USE_KVM and platform in cls.kvm_platforms.keys():
+            return KVMPlatforms.can_produce(platform)
+        if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
+            return OpenstackPlatforms.can_produce(platform)
 
     @classmethod
     def check_platform(cls, platform):
