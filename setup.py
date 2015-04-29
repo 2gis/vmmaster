@@ -44,7 +44,8 @@ setup(
         'python-novaclient==2.22.0',
         'pysubnettree==0.23',
         'Flask-HTTPAuth==2.4.0',
-        'oslo.i18n==1.7.0'
+        'oslo.i18n==1.7.0',
+        'websocket-client==0.30.0'
     ],
     scripts=[
         'bin/vmmaster',

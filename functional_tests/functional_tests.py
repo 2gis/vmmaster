@@ -84,6 +84,35 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
+    def test_run_script_with_install_package_on_session_creation(self):
+        from tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
+        suite = self.loader.loadTestsFromTestCase(TestRunScriptWithInstallPackageOnSessionCreation)
+        result = self.runner.run(suite)
+        self.assertEqual(1, result.testsRun, result.errors)
+        self.assertEqual(0, len(result.errors), result.errors)
+        self.assertEqual(0, len(result.failures), result.failures)
+
+    def test_run_script_tests_parallel_run(self):
+        from tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
+        suite1 = unittest.TestSuite()
+        suite1.addTest(TestParallelSlowRunScriptOnSession1("test"))
+        suite2 = unittest.TestSuite()
+        suite2.addTest(TestParallelSlowRunScriptOnSession2("test"))
+
+        pool = ThreadPool(2)
+        deffered1 = pool.apply_async(self.runner.run, args=(suite1,))
+        deffered2 = pool.apply_async(self.runner.run, args=(suite2,))
+        deffered1.wait()
+        deffered2.wait()
+        result1 = deffered1.get()
+        result2 = deffered2.get()
+
+        self.assertEqual(1, result1.testsRun, result1.errors)
+        self.assertEqual(1, result2.testsRun, result2.errors)
+        self.assertEqual(0, len(result1.errors), result1.errors)
+        self.assertEqual(0, len(result2.errors), result2.errors)
+        self.assertEqual(0, len(result1.failures), result1.failures)
+        self.assertEqual(0, len(result2.failures), result2.failures)
 
 if __name__ == "__main__":
     lode_runner.run(defaultTest=[__name__])
