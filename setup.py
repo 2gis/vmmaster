@@ -42,7 +42,8 @@ setup(
         'python-keystoneclient==1.2.0',
         'python-neutronclient==2.3.11',
         'python-novaclient==2.22.0',
-        'pysubnettree==0.23'
+        'pysubnettree==0.23',
+        'Flask-HTTPAuth==2.4.0'
     ],
     scripts=[
         'bin/vmmaster',

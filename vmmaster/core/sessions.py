@@ -89,18 +89,22 @@ class Session(object):
 
     vmmaster_log_step = None
 
-    def __init__(self, sessions, name, platform, vm):
+    def __init__(self, sessions, name, platform, vm, username=None):
         self.sessions = sessions
         self.name = name
         self.platform = platform
         self.virtual_machine = vm
         self._start = time.time()
         log.info("starting new session on %s." % self.virtual_machine)
-        db_session = database.create_session(status="running", name=self.name, time=time.time())
-        self.id = str(db_session.id)
+        self.db_session = database.create_session(status="running", name=self.name, time=time.time(), username=username)
+        self.id = str(self.db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
         log.info("session %s started on %s." % (self.id, self.virtual_machine))
+
+    @property
+    def user_id(self):
+        return self.db_session.user_id
 
     @property
     def duration(self):
@@ -222,8 +226,8 @@ class Sessions(object):
             session = self.get_session(session_id)
             session.delete()
 
-    def start_session(self, session_name, platform, vm):
-        session = Session(self, session_name, platform, vm)
+    def start_session(self, session_name, platform, vm, username=None):
+        session = Session(self, session_name, platform, vm, username)
         self.map[str(session.id)] = session
         return session
 
