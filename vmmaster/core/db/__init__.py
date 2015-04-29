@@ -27,6 +27,10 @@ def threaded_transaction(func):
 
 def transaction(func):
     def wrapper(self, *args, **kwargs):
+        # Try to use passed database session
+        if 'session' in kwargs.keys():
+            if kwargs['session'] is not None:
+                return func(self, *args, **kwargs)
         session = self.Session()
         try:
             return func(self, session=session, *args, **kwargs)
@@ -63,13 +67,13 @@ class Database(object):
             _session.name = name
         session.add(_session)
         session.commit()
-        created_session = session.query(Session).filter_by(id=_session.id).first()
+        created_session = self.get_session(_session.id, session=session)
         session.flush()
         return created_session
 
     @transaction
     def get_session(self, session_id, session=None):
-        return session.query(Session).filter_by(id=session_id).first()
+        return session.query(Session).get(session_id)
 
     @transaction
     def create_vmmaster_log_step(self, session_id, control_line, body, screenshot="", time=time(), session=None):
@@ -80,13 +84,13 @@ class Database(object):
                                     time=time)
         session.add(_log_step)
         session.commit()
-        created_log_step = session.query(VmmasterLogStep).filter_by(id=_log_step.id).first()
+        created_log_step = self.get_vmmaster_log_step(_log_step.id, session=session)
         session.flush()
         return created_log_step
 
     @transaction
     def get_vmmaster_log_step(self, log_step_id, session=None):
-        return session.query(VmmasterLogStep).filter_by(id=log_step_id).first()
+        return session.query(VmmasterLogStep).get(log_step_id)
 
     @transaction
     def create_session_log_step(self, vmmaster_log_step_id, control_line, body, time=time(), session=None):
@@ -96,19 +100,19 @@ class Database(object):
                                    time=time)
         session.add(_log_step)
         session.commit()
-        created_log_step = session.query(SessionLogStep).filter_by(id=_log_step.id).first()
+        created_log_step = self.get_session_log_step(_log_step.id, session=session)
         session.flush()
         return created_log_step
 
     @transaction
     def get_session_log_step(self, log_step_id, session=None):
-        return session.query(SessionLogStep).filter_by(id=log_step_id).first()
+        return session.query(SessionLogStep).get(log_step_id)
 
     @transaction
     def update(self, obj, session=None):
         session.merge(obj)
         session.commit()
-        updated_obj = session.query(type(obj)).filter_by(id=obj.id).first()
+        updated_obj = session.query(type(obj)).get(obj.id)
         session.flush()
         return updated_obj
 
