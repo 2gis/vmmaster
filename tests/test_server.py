@@ -149,6 +149,16 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
+    def test_server_create_new_session_with_dc(self):
+        # Let's do it with user/token
+        _desired_caps = self.desired_caps.copy()
+        _desired_caps["desiredCapabilities"]["user"] = "anonymous"
+        _desired_caps["desiredCapabilities"]["token"] = None
+        response = new_session_request(self.address, _desired_caps)
+        vm_count = len(VirtualMachinesPool.using)
+        self.assertEqual(200, response.status)
+        self.assertEqual(1, vm_count)
+
     def test_server_maximum_vm_running(self):
         from vmmaster.core.session_queue import q
         new_session_request(self.address, self.desired_caps)
