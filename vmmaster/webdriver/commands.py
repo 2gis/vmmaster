@@ -1,6 +1,7 @@
 import json
 import httplib
 import time
+from functools import partial
 
 from ..core.utils import network_utils
 from ..webdriver.helpers import check_to_exist_ip
@@ -63,25 +64,29 @@ def startup_script(session):
 
 
 def ping_vm(session):
-    # ping ip:port
     ip = check_to_exist_ip(session.virtual_machine)
-    port = config.SELENIUM_PORT
+    ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
     timeout = config.PING_TIMEOUT
+
+    log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
+    _ping = partial(network_utils.ping, ip)
     start = time.time()
-    log.info("Starting ping: {ip}:{port}".format(ip=ip, port=port))
     while time.time() - start < timeout and not session.closed:
         session.timer.restart()
-        if network_utils.ping(ip, port):
+        result = map(_ping, ports)
+        if all(result):
             break
         time.sleep(0.1)
+
+    result = map(_ping, ports)
+    if not all(result):
+        fails = [port for port, res in zip(ports, result) if res is False]
+        raise CreationException("Failed to ping ports %s" % str(fails))
 
     if session.closed:
         raise CreationException("Session was closed while ping")
 
-    if not network_utils.ping(ip, port):
-        raise CreationException("Ping timeout")
-
-    log.info("Ping successful: {ip}:{port}".format(ip=ip, port=port))
+    log.info("Ping successful: {ip}:{ports}".format(ip=ip, ports=str(ports)))
 
     return True
 
