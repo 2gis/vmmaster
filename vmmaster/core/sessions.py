@@ -174,9 +174,9 @@ class Session(object):
         result = None
         while not result:
             if self.timeouted:
-                result = (500, {}, "Session timeouted")
+                result = (500, {}, '{"status": 1, "value": "Session timeouted"}')
             elif self.closed:
-                result = (500, {}, "Session closed")
+                result = (500, {}, '{"status": 1, "value": "Session closed"}')
             elif not t.isAlive():
                 response = q.get()
                 del q

@@ -77,5 +77,5 @@ vmmaster_graylog: ('logserver', 12201)
 vmmaster_graphite: ('graphite', 2003)
 
 # selenium
-vmmaster_selenium_port: "4455"
-vmmaster_agent_port: "9000"
+vmmaster_selenium_port: 4455
+vmmaster_agent_port: 9000
