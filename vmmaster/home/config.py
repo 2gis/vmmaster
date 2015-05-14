@@ -58,5 +58,5 @@ class Config(object):
     # GRAPHITE = ('graphite', 2003)
 
     # selenium
-    SELENIUM_PORT = "4455"
-    VMMASTER_AGENT_PORT = "9000"
+    SELENIUM_PORT = 4455
+    VMMASTER_AGENT_PORT = 9000
