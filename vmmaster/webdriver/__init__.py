@@ -86,7 +86,7 @@ def create_session():
     req = request.proxy.request
     proxy = request.proxy
     desired_caps = commands.get_desired_capabilities(req)
-    session = helpers.get_session(req, desired_caps, username=auth.username)
+    session = helpers.get_session(req, desired_caps)
     proxy.session_id = session.id
     session.vmmaster_log_step = helpers.write_vmmaster_log(
         proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))

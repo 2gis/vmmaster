@@ -204,7 +204,7 @@ def check_to_exist_ip(vm, tries=10, timeout=5):
             sleep(timeout)
 
 
-def get_session(request, desired_caps, username=None):
+def get_session(request, desired_caps):
     Platforms.check_platform(desired_caps.platform)
 
     delayed_vm = q.enqueue(desired_caps)
@@ -216,6 +216,6 @@ def get_session(request, desired_caps, username=None):
         raise ConnectionError('Session was closed during creating selenium session')
 
     vm = delayed_vm.vm
-    session = current_app.sessions.start_session(desired_caps.name, desired_caps.platform, vm, username)
+    session = current_app.sessions.start_session(desired_caps.name, desired_caps.platform, vm, desired_caps.user)
     session.set_desired_capabilities(desired_caps)
     return session
