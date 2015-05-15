@@ -48,7 +48,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(length=30), unique=True, nullable=False)
     password = Column(String(128))
-    salt = Column(String(16), unique=True)
+    salt = Column(String(16), unique=True)  # TODO: remove
     allowed_machines = Column(Integer, default=1)
     group_id = Column(ForeignKey('user_groups.id', ondelete='SET DEFAULT'), nullable=True, default=1)
     is_active = Column(Boolean, default=True)

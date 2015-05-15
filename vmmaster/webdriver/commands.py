@@ -10,14 +10,17 @@ from ..core.logger import log
 from ..core.exceptions import CreationException
 from ..core.sessions import RequestHelper
 from ..core.utils.graphite import graphite, send_metrics
+from ..core.auth.custom_auth import anonymous
 
 
 class DesiredCapabilities(object):
-    def __init__(self, name, platform, takeScreenshot, runScript):
+    def __init__(self, name, platform, takeScreenshot, runScript, user=None, token=None):
         self.name = name
         self.platform = platform
         self.takeScreenshot = bool(takeScreenshot)
         self.runScript = dict(runScript)
+        self.user = user
+        self.token = token
 
     def to_json(self):
         return {
@@ -25,6 +28,8 @@ class DesiredCapabilities(object):
             "platform": self.platform,
             "takeScreenshot": self.takeScreenshot,
             "runScript": self.runScript,
+            "user": self.user,
+            "token": self.token
         }
 
     def __repr__(self):
@@ -161,7 +166,9 @@ def get_desired_capabilities(request):
         body['desiredCapabilities'].get('name', None),
         body['desiredCapabilities'].get('platform', None),
         body['desiredCapabilities'].get('takeScreenshot', None),
-        body['desiredCapabilities'].get('runScript', dict())
+        body['desiredCapabilities'].get('runScript', dict()),
+        body['desiredCapabilities'].get('user', anonymous.username),
+        body['desiredCapabilities'].get('token', anonymous.password)
     )
     return dc
 

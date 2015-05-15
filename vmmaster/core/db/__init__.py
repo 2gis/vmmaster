@@ -6,7 +6,7 @@ from time import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from .models import Session, VmmasterLogStep, SessionLogStep
+from .models import Session, VmmasterLogStep, SessionLogStep, User
 
 from ..utils.utils import to_thread
 
@@ -57,8 +57,12 @@ class Database(object):
         migrations.run(connection_string)
 
     @transaction
-    def create_session(self, status="running", name=None, time=time(), session=None):
-        _session = Session(status=status, time=time)
+    def create_session(self, status="running", name=None, time=time(), username=None, session=None):
+        try:
+            user_id = session.query(User).filter_by(username=username).first().id
+        except AttributeError:
+            user_id = None
+        _session = Session(status=status, time=time, user_id=user_id)
         session.add(_session)
         session.commit()
         if name is None:
@@ -107,6 +111,10 @@ class Database(object):
     @transaction
     def get_session_log_step(self, log_step_id, session=None):
         return session.query(SessionLogStep).get(log_step_id)
+
+    @transaction
+    def get_user(self, username, session=None):
+        return session.query(User).filter_by(username=username).first()
 
     @transaction
     def update(self, obj, session=None):

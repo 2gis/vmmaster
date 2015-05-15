@@ -1,6 +1,4 @@
 # coding: utf-8
-
-import time
 from traceback import format_exc
 
 from flask import Blueprint, current_app, request, jsonify
@@ -8,10 +6,10 @@ from flask import Blueprint, current_app, request, jsonify
 from . import commands
 import helpers
 
-
 from ..core.db import database
 from ..core.logger import log
 from ..core.exceptions import SessionException, ConnectionError
+from ..core.auth.custom_auth import auth, anonymous
 
 webdriver = Blueprint('webdriver', __name__)
 
@@ -59,6 +57,19 @@ def log_response(response):
     return response
 
 
+@auth.get_password
+def get_token(username):
+    if username == anonymous.username:
+        return anonymous.password
+    else:
+        return database.get_user(username=username).token
+
+
+@auth.verify_password
+def verify_token(username, client_token):
+    return client_token == get_token(username)
+
+
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
 @helpers.threaded
 def delete_session(session_id):
@@ -69,6 +80,7 @@ def delete_session(session_id):
 
 
 @webdriver.route('/session', methods=['POST'])
+@auth.login_required
 @helpers.threaded
 def create_session():
     req = request.proxy.request
@@ -107,5 +119,4 @@ def proxy_request(url):
         if screenshot:
             session.vmmaster_log_step.screenshot = screenshot
             database.update(session.vmmaster_log_step)
-
     return send_response(proxy.response)

@@ -38,7 +38,10 @@ class RequestHelper(object):
         self.body = body
 
     def __repr__(self):
-        return "method:%s url:%s headers:%s body:%s" % (self.method, self.url, self.headers, self.body)
+        return "method:%s url:%s headers:%s body:%s" % (self.method,
+                                                        self.url,
+                                                        self.headers,
+                                                        self.body)
 
 
 class ShutdownTimer(object):
@@ -89,18 +92,25 @@ class Session(object):
 
     vmmaster_log_step = None
 
-    def __init__(self, sessions, name, platform, vm):
+    def __init__(self, sessions, name, platform, vm, username=None):
         self.sessions = sessions
         self.name = name
         self.platform = platform
         self.virtual_machine = vm
         self._start = time.time()
         log.info("starting new session on %s." % self.virtual_machine)
-        db_session = database.create_session(status="running", name=self.name, time=time.time())
-        self.id = str(db_session.id)
+        self.db_session = database.create_session(status="running",
+                                                  name=self.name,
+                                                  time=time.time(),
+                                                  username=username)
+        self.id = str(self.db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
         log.info("session %s started on %s." % (self.id, self.virtual_machine))
+
+    @property
+    def user_id(self):
+        return self.db_session.user_id
 
     @property
     def duration(self):
@@ -112,7 +122,8 @@ class Session(object):
     def delete(self):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
-            if self.virtual_machine.name is not None and 'preloaded' in self.virtual_machine.name:
+            if self.virtual_machine.name is not None\
+                    and 'preloaded' in self.virtual_machine.name:
                 self.virtual_machine.rebuild()
             else:
                 self.virtual_machine.delete()
@@ -166,7 +177,10 @@ class Session(object):
         q = Queue()
         url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
 
-        req = lambda: requests.request(method=request.method, url=url, headers=request.headers, data=request.body)
+        req = lambda: requests.request(method=request.method,
+                                       url=url,
+                                       headers=request.headers,
+                                       data=request.body)
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
@@ -184,7 +198,9 @@ class Session(object):
                 if isinstance(response, Exception):
                     raise response
 
-                result = (response.status_code, response.headers, response.content)
+                result = (response.status_code,
+                          response.headers,
+                          response.content)
             else:
                 t.join(0.1)
 
@@ -222,8 +238,8 @@ class Sessions(object):
             session = self.get_session(session_id)
             session.delete()
 
-    def start_session(self, session_name, platform, vm):
-        session = Session(self, session_name, platform, vm)
+    def start_session(self, session_name, platform, vm, username=None):
+        session = Session(self, session_name, platform, vm, username)
         self.map[str(session.id)] = session
         return session
 
