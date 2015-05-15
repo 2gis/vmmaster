@@ -38,7 +38,10 @@ class RequestHelper(object):
         self.body = body
 
     def __repr__(self):
-        return "method:%s url:%s headers:%s body:%s" % (self.method, self.url, self.headers, self.body)
+        return "method:%s url:%s headers:%s body:%s" % (self.method,
+                                                        self.url,
+                                                        self.headers,
+                                                        self.body)
 
 
 class ShutdownTimer(object):
@@ -96,7 +99,10 @@ class Session(object):
         self.virtual_machine = vm
         self._start = time.time()
         log.info("starting new session on %s." % self.virtual_machine)
-        self.db_session = database.create_session(status="running", name=self.name, time=time.time(), username=username)
+        self.db_session = database.create_session(status="running",
+                                                  name=self.name,
+                                                  time=time.time(),
+                                                  username=username)
         self.id = str(self.db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
@@ -116,7 +122,8 @@ class Session(object):
     def delete(self):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
-            if self.virtual_machine.name is not None and 'preloaded' in self.virtual_machine.name:
+            if self.virtual_machine.name is not None\
+                    and 'preloaded' in self.virtual_machine.name:
                 self.virtual_machine.rebuild()
             else:
                 self.virtual_machine.delete()
@@ -170,7 +177,10 @@ class Session(object):
         q = Queue()
         url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
 
-        req = lambda: requests.request(method=request.method, url=url, headers=request.headers, data=request.body)
+        req = lambda: requests.request(method=request.method,
+                                       url=url,
+                                       headers=request.headers,
+                                       data=request.body)
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
@@ -188,7 +198,9 @@ class Session(object):
                 if isinstance(response, Exception):
                     raise response
 
-                result = (response.status_code, response.headers, response.content)
+                result = (response.status_code,
+                          response.headers,
+                          response.content)
             else:
                 t.join(0.1)
 

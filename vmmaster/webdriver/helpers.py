@@ -112,7 +112,9 @@ def write_vmmaster_log(session_id, control_line, body):
 
 def handle_exception(self, request, tb):
     log.error(tb)
-    resp = self.form_response(code=500, headers={"Content-Length": len(tb)}, body=tb)
+    resp = self.form_response(code=500,
+                              headers={"Content-Length": len(tb)},
+                              body=tb)
     try:
         session = self.sessions.get_session(request.session_id)
     except SessionException:
@@ -130,7 +132,8 @@ def take_screenshot(proxy):
     screenshot = commands.take_screenshot(session, 9000)
 
     if screenshot:
-        path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + "/" + str(session.vmmaster_log_step.id) + ".png"
+        path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + \
+            "/" + str(session.vmmaster_log_step.id) + ".png"
         write_file(path, base64.b64decode(screenshot))
         return path
 
@@ -216,6 +219,9 @@ def get_session(request, desired_caps):
         raise ConnectionError('Session was closed during creating selenium session')
 
     vm = delayed_vm.vm
-    session = current_app.sessions.start_session(desired_caps.name, desired_caps.platform, vm, desired_caps.user)
+    session = current_app.sessions.start_session(desired_caps.name,
+                                                 desired_caps.platform,
+                                                 vm,
+                                                 desired_caps.user)
     session.set_desired_capabilities(desired_caps)
     return session
