@@ -1,10 +1,12 @@
 # coding: utf-8
+
 from flask import current_app
 
 from ..core.platforms import Platforms
 from ..core.exceptions import SessionException
 from ..core.session_queue import q
 from ..core.virtual_machine.virtual_machines_pool import pool
+from ..core.db import database
 
 
 def get_session(session_id):
@@ -32,3 +34,14 @@ def get_queue():
 
 def get_pool():
     return pool.info
+
+
+def get_user(user_id):
+    return database.get_user(user_id=user_id)
+
+
+def regenerate_user_token(user_id):
+    user = get_user(user_id)
+    if user:
+        return user.regenerate_token()
+    return None
