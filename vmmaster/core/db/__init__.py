@@ -113,8 +113,12 @@ class Database(object):
         return session.query(SessionLogStep).get(log_step_id)
 
     @transaction
-    def get_user(self, username, session=None):
-        return session.query(User).filter_by(username=username).first()
+    def get_user(self, username=None, user_id=None, session=None):
+        if user_id:
+            return session.query(User).get(user_id)
+        elif username:
+            return session.query(User).filter_by(username=username).first()
+        return None
 
     @transaction
     def update(self, obj, session=None):
