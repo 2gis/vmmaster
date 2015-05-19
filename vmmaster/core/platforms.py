@@ -134,8 +134,7 @@ class OpenstackPlatforms(PlatformsInterface):
             log.info('I can\'t produce new virtual machine with platform %s because not enough CPU resources' % platform)
         elif flavor_params.get('ram', 0) >= limits.get('maxTotalRAMSize', 0) - limits.get('totalRAMUsed', 0):
             log.info('I can\'t produce new virtual machine with platform %s because not enough RAM resources' % platform)
-        elif limits.get('totalInstancesUsed', 0) >= limits.get('maxTotalInstances', 0) \
-                and OpenstackPlatforms.max_count() - pool.count() >= 0:
+        elif limits.get('totalInstancesUsed', 0) >= limits.get('maxTotalInstances', 0) or pool.count() >= OpenstackPlatforms.max_count():
             log.info('I can\'t produce new virtual machine with platform %s because not enough Instances resources' % platform)
         else:
             log.info('I can produce new virtual machine with platform %s' % platform)

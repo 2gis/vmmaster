@@ -5,7 +5,7 @@ from threading import Thread
 from multiprocessing.pool import ThreadPool
 import socket
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock, MagicMock
 from nose.twistedtools import reactor
 
 import time
@@ -30,6 +30,10 @@ KVMClone.clone_origin = Mock()
 KVMClone.define_clone = Mock()
 KVMClone.start_virtual_machine = Mock()
 KVMClone.drive_path = Mock()
+
+from vmmaster.core.virtual_machine.clone import OpenstackClone
+from vmmaster.core.utils import openstack_utils
+
 from vmmaster.webdriver import commands
 commands.ping_vm = Mock(__name__="check_vm_online")
 commands.selenium_status = Mock(__name__="selenium_status",
@@ -329,3 +333,57 @@ class TestServerShutdown(unittest.TestCase):
 
         del self.server
         self.assertEqual(0, len(sessions))
+
+
+# mocking for Openstack
+mocked_image = Mock(id=1, status='active', get=Mock(return_value='snapshot'), min_disk=20,
+                    min_ram=2, instance_type_flavorid=1)
+type(mocked_image).name = PropertyMock(return_value='test_origin_1')
+openstack_utils.nova_client = Mock()
+openstack_utils.neutron_client = Mock()
+openstack_utils.glance_client = Mock()
+openstack_utils.glance_client().images.list = Mock(return_value=[mocked_image])
+openstack_utils.nova_client().flavors.find().to_dict = Mock(return_value={'vcpus': 1, 'ram': 2})
+openstack_utils.nova_client().servers.find = \
+    Mock(return_value=Mock(addresses=MagicMock(spec=dict, return_value={
+        MagicMock(spec=dict, return_value={'Local-Net': {
+        'addr': '127.0.0.1', 'OS-EXT-IPS-MAC:mac_addr': 'mac'}})})))
+openstack_utils.nova_client().limits.get().to_dict = Mock(return_value={
+    'absolute': {'maxTotalCores': 10, 'maxTotalInstances': 10, 'maxTotalRAMSize': 100,
+                 'totalCoresUsed': 0, 'totalInstancesUsed': 0, 'totalRAMUsed': 0}})
+OpenstackClone.get_network_id = Mock(return_value=1)
+OpenstackClone.get_network_name = Mock(return_value='Local-Net')
+
+
+class TestServerWithPreloadedVM(unittest.TestCase):
+    def setUp(self):
+        setup_config('data/config_with_preloaded.py')
+        self.address = ("localhost", 9000)
+        self.server = VMMasterServer(reactor, self.address[1])
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': 'origin_1'
+            }
+        }
+        server_is_up(self.address)
+
+    def tearDown(self):
+        del self.server
+        server_is_down(self.address)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_is_ready', new=Mock(__name__='vm_is_ready', return_value='True'))
+    def test_max_count_with_run_new_request_during_preloaded_vm_is_ready(self):
+        while True:
+            if VirtualMachinesPool.pool[0].ready == True:
+                break
+        response = new_session_request(self.address, self.desired_caps)
+        vm_count = len(VirtualMachinesPool.pool + VirtualMachinesPool.using)
+        self.assertEqual(200, response.status)
+        self.assertEqual(1, vm_count)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_is_ready', new=Mock(__name__='vm_is_ready', return_value='False'))
+    def test_max_count_with_run_new_request_during_preloaded_vm_is_not_ready(self):
+        response = new_session_request(self.address, self.desired_caps)
+        vm_count = len(VirtualMachinesPool.pool + VirtualMachinesPool.using)
+        self.assertEqual(200, response.status)
+        self.assertEqual(1, vm_count)
