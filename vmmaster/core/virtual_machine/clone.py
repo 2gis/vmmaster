@@ -223,6 +223,7 @@ class OpenstackClone(Clone):
         self.network_client = openstack_utils.neutron_client()
         self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
+        self.server = None
 
     def create(self):
         log.info("creating openstack clone of {} with image={}, flavor={}".format(self.name,
@@ -246,9 +247,7 @@ class OpenstackClone(Clone):
 
         def get_ip():
             if self.check_vm_exist(self.name):
-                server = self.nova_client.servers.find(name=self.name)
-                addresses = server.addresses.get(self.network_name, None)
-
+                addresses = self.server.addresses.get(self.network_name, None)
                 if addresses is not None:
                     ip = addresses[0].get('addr', None)
                     self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
@@ -260,7 +259,8 @@ class OpenstackClone(Clone):
         self._wait_for_activated_service(get_ip)
 
     @threaded_wait
-    def _wait_for_activated_service(self, method=None, tries=10, timeout=5):
+    def _wait_for_activated_service(self, method=None):
+        tries, timeout = config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_TIMEOUT
         from time import sleep
         i = 0
         while True:
@@ -269,15 +269,18 @@ class OpenstackClone(Clone):
                     method()
                 self.ready = True
                 break
-            else:
+            elif str(self.server.status).lower() == 'build':
+                log.info("Virtual Machine %s is spawning..." % self.name)
                 if i > tries:
-                    log.info("VM %s has not been created." % self.name)
-                    self.delete()
-                    pool.remove_vm(self)
+                    log.info("Virtual Machine %s creates more than %s seconds, check this VM" % (self.name, tries*timeout))
 
                 i += 1
-                log.info('Status for %s is not active, wait for %ss. before next try...' % (self.name, timeout))
                 sleep(timeout)
+            else:
+                log.info("VM %s has not been created." % self.name)
+                self.delete()
+                pool.remove_vm(self)
+                break
 
     @property
     def image(self):
@@ -321,12 +324,12 @@ class OpenstackClone(Clone):
 
     def vm_is_ready(self):
         try:
-            server = self.nova_client.servers.find(name=self.name)
+            self.server = self.nova_client.servers.find(name=self.name)
         except Exception as e:
             log.info("VM %s not found in openstack. Error message: %s" % (self.name, e.message))
-            server = None
-        return True if server is not None and str(server.status).lower() == 'active' \
-                       and getattr(server, 'addresses', None) is not None else False
+            self.server = None
+        return True if self.server is not None and str(self.server.status).lower() == 'active' \
+                       and getattr(self.server, 'addresses', None) is not None else False
 
     def check_vm_exist(self, server_name):
         try:
@@ -336,11 +339,10 @@ class OpenstackClone(Clone):
 
     def delete(self):
         if self.check_vm_exist(self.name):
-            log.info("deleting openstack clone: {clone}".format(clone=self.name))
             pool.remove_vm(self)
 
             try:
-                self.nova_client.servers.find(name=self.name).delete()
+                self.server.delete()
             except Exception as e:
                 log.info("Delete vm %s was FAILED. %s" % (self.name, e.message))
 
@@ -356,7 +358,7 @@ class OpenstackClone(Clone):
 
         self.ready = False
         try:
-            self.nova_client.servers.find(name=self.name).rebuild(self.image)
+            self.server.rebuild(self.image)
         except Exception as e:
             log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()

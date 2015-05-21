@@ -53,6 +53,8 @@ class Config(object):
 
     VM_CHECK = {{vmmaster_vm_check}}
     VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}
+    VM_CREATE_CHECK_TIMEOUT = {{vm_create_check_timeout}}
+    VM_CREATE_CHECK_ATTEMPTS = {{vm_create_check_attempts}}
     PRELOADER_FREQUENCY = {{preloader_frequency}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
