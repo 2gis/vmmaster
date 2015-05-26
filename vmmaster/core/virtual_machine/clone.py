@@ -2,6 +2,7 @@ from functools import wraps
 from threading import Thread
 import time
 
+from functools import partial
 from xml.dom import minidom
 from uuid import uuid4
 from novaclient.exceptions import NotFound
@@ -61,20 +62,23 @@ class Clone(VirtualMachine):
     def rebuild(self):
         raise NotImplementedError
 
-    def vm_is_ready(self):
-        port = config.SELENIUM_PORT
+    def ping_vm(self):
+        ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
         timeout = config.PING_TIMEOUT
         start = time.time()
-        log.info("Starting ping: {ip}:{port}".format(ip=self.ip, port=port))
+        log.info("Starting ping: {ip}:{port}".format(ip=self.ip, port=ports))
+        _ping = partial(network_utils.ping, self.ip)
         while time.time() - start < timeout:
-            if network_utils.ping(self.ip, port):
-                log.info("Check is successful for {clone} with {ip}:{port}".format(clone=self.name, ip=self.ip, port=port))
+            result = map(_ping, ports)
+            if all(result):
+                log.info("Successful ping for {clone} with {ip}:{ports}".format(clone=self.name, ip=self.ip, ports=ports))
                 break
-
             time.sleep(0.1)
 
-        if not network_utils.ping(self.ip, port):
-            log.info("Check is failed for {clone} with {ip}:{port}".format(clone=self.name, ip=self.ip, port=port))
+        result = map(_ping, ports)
+        if not all(result):
+            fails = [port for port, res in zip(ports, result) if res is False]
+            log.info("Failed ping for {clone} with {ip}:{ports}".format(clone=self.name, ip=self.ip, ports=str(fails)))
             return False
 
         return True
@@ -122,9 +126,6 @@ class KVMClone(Clone):
 
         log.info("created kvm {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
         return self
-
-    def vm_is_ready(self):
-        return super(KVMClone, self).vm_is_ready()
 
     def rebuild(self):
         log.info("rebuilding kvm clone of {platform}".format(platform=self.platform))
@@ -264,11 +265,12 @@ class OpenstackClone(Clone):
         from time import sleep
         i = 0
         while True:
-            if self.vm_is_ready():
+            if self.vm_has_created():
                 if method is not None:
                     method()
-                self.ready = True
-                break
+                    if self.ping_vm():
+                        self.ready = True
+                        break
             elif str(self.server.status).lower() == 'build':
                 log.info("Virtual Machine %s is spawning..." % self.name)
                 if i > tries:
@@ -322,7 +324,7 @@ class OpenstackClone(Clone):
             # fixme
             # create new network
 
-    def vm_is_ready(self):
+    def vm_has_created(self):
         try:
             self.server = self.nova_client.servers.find(name=self.name)
         except Exception as e:

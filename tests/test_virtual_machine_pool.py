@@ -9,7 +9,7 @@ from vmmaster.core.platforms import Platforms
 from vmmaster.core.exceptions import CreationException
 from mock import Mock
 from vmmaster.core.virtual_machine.clone import Clone
-Clone.vm_is_ready = Mock(__name__="vm_is_ready")
+Clone.ping_vm = Mock(__name__="ping_vm")
 from vmmaster.core.network import network
 network.Network = Mock(name='Network')
 
