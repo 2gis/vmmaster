@@ -22,7 +22,10 @@ class StreamToLogger(object):
             self.logger.log(self.log_level, line.rstrip())
 
 
-def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=logging.DEBUG):
+def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=None):
+    if loglevel is None:
+        loglevel = logging.getLevelName(config.LOG_LEVEL.upper())
+
     logdir = os.path.abspath(logdir)
 
     if not os.path.exists(logdir):

@@ -13,3 +13,5 @@ class Config(object):
 
     SCREENSHOTS_DIR = BASE_DIR + "/screenshots"
     SCREENSHOTS_DAYS = 7
+
+    LOG_LEVEL = "INFO"
