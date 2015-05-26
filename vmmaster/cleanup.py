@@ -55,11 +55,11 @@ def old_sessions(db_session=None):
     return db_session.query(Session).filter(Session.time < old()).all()
 
 
-def delete_files(sessions=None):
+def delete_files(session=None):
     from shutil import rmtree
     from errno import ENOENT
 
-    for session in sessions:
+    if session:
         session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
         try:
             rmtree(session_dir)
@@ -87,9 +87,9 @@ def delete_session_data(sessions=None, db_session=None):
                 percentage = str(round((num + 1)/float(sessions_count) * 100, 1))
                 log.info("Done: %s%% (%d / %d)" % (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
+            delete_files(session)
             db_session.delete(session)
-        db_session.commit()
-        delete_files(sessions)
+            db_session.commit()
         log.info("Total: %s sessions (%d:%d) have been deleted.\n" % (
             str(sessions_count), first_id, last_id))
     else:
