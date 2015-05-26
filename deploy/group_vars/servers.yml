@@ -65,6 +65,8 @@ openstack_platform_name_prefix: "origin-"
 
 vmmaster_vm_check: "False"
 vmmaster_vm_check_frequency: 1800
+vm_create_check_timeout: 5
+vm_create_check_attempts: 1000
 preloader_frequency: 3
 vmmaster_session_timeout: 360
 vmmaster_ping_timeout: 180

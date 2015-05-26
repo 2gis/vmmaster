@@ -336,6 +336,9 @@ class TestServerShutdown(unittest.TestCase):
 
 
 # mocking for Openstack
+def custom_wait(self, method):
+    self.ready = True
+
 mocked_image = Mock(id=1, status='active', get=Mock(return_value='snapshot'), min_disk=20,
                     min_ram=2, instance_type_flavorid=1)
 type(mocked_image).name = PropertyMock(return_value='test_origin_1')
@@ -344,10 +347,7 @@ openstack_utils.neutron_client = Mock()
 openstack_utils.glance_client = Mock()
 openstack_utils.glance_client().images.list = Mock(return_value=[mocked_image])
 openstack_utils.nova_client().flavors.find().to_dict = Mock(return_value={'vcpus': 1, 'ram': 2})
-openstack_utils.nova_client().servers.find = \
-    Mock(return_value=Mock(addresses=MagicMock(spec=dict, return_value={
-        MagicMock(spec=dict, return_value={'Local-Net': {
-        'addr': '127.0.0.1', 'OS-EXT-IPS-MAC:mac_addr': 'mac'}})})))
+OpenstackClone._wait_for_activated_service = custom_wait
 openstack_utils.nova_client().limits.get().to_dict = Mock(return_value={
     'absolute': {'maxTotalCores': 10, 'maxTotalInstances': 10, 'maxTotalRAMSize': 100,
                  'totalCoresUsed': 0, 'totalInstancesUsed': 0, 'totalRAMUsed': 0}})
