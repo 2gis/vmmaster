@@ -371,7 +371,8 @@ class TestServerWithPreloadedVM(unittest.TestCase):
         del self.server
         server_is_down(self.address)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_is_ready', new=Mock(__name__='vm_is_ready', return_value='True'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(__name__='vm_has_created', return_value='True'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm', new=Mock(__name__='ping_vm', return_value='True'))
     def test_max_count_with_run_new_request_during_preloaded_vm_is_ready(self):
         while True:
             if VirtualMachinesPool.pool[0].ready == True:
@@ -381,7 +382,8 @@ class TestServerWithPreloadedVM(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_is_ready', new=Mock(__name__='vm_is_ready', return_value='False'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(__name__='vm_has_created', return_value='False'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm', new=Mock(__name__='ping_vm', return_value='False'))
     def test_max_count_with_run_new_request_during_preloaded_vm_is_not_ready(self):
         response = new_session_request(self.address, self.desired_caps)
         vm_count = len(VirtualMachinesPool.pool + VirtualMachinesPool.using)

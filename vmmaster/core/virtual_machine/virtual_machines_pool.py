@@ -66,10 +66,10 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def get(cls, platform):
-        for vm in sorted(cls.pool, key=lambda v: v.creation_time):
+        for vm in sorted(cls.pool, key=lambda v: v.creation_time, reverse=True):
             log.info("Getting VM %s has ready property is %s and checking property is %s" % (vm.name, vm.ready, vm.checking))
             if vm.platform == platform and vm.ready and not vm.checking:
-                if vm.vm_is_ready():
+                if vm.ping_vm():
                     cls.pool.remove(vm)
                     cls.using.append(vm)
                     return vm
@@ -138,7 +138,7 @@ class VirtualMachinesPool(object):
         from flask import current_app
 
         def print_view(lst):
-            return [{"name": l.name, "ip": l.ip, "ready": l.ready, "checking": l.checking} for l in lst]
+            return [{"name": l.name, "ip": l.ip, "ready": l.ready, "checking": l.checking, "creation_time": l.creation_time} for l in lst]
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
@@ -209,7 +209,7 @@ class VirtualMachineChecker(Thread):
             vm.checking = True
             log.info("Check for {clone} with {ip}:{port}".format(clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
-                if not vm.vm_is_ready():
+                if not vm.ping_vm():
                     try:
                         vm.rebuild()
                     except Exception as e:
