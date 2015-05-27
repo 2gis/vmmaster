@@ -62,3 +62,5 @@ class Config(object):
     # selenium
     SELENIUM_PORT = 4455
     VMMASTER_AGENT_PORT = 9000
+
+    LOG_LEVEL = "INFO"

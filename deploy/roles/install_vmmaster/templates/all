@@ -68,3 +68,5 @@ class Config(object):
     # selenium
     SELENIUM_PORT = {{vmmaster_selenium_port}}
     VMMASTER_AGENT_PORT = {{vmmaster_agent_port}}
+
+    LOG_LEVEL = "{{log_level}}"

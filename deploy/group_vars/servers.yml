@@ -81,3 +81,5 @@ vmmaster_graphite: ('graphite', 2003)
 # selenium
 vmmaster_selenium_port: 4455
 vmmaster_agent_port: 9000
+
+log_level: "INFO"
