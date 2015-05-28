@@ -271,7 +271,7 @@ class OpenstackClone(Clone):
                     if self.ping_vm():
                         self.ready = True
                         break
-            elif str(self.server.status).lower() == 'build':
+            elif str(self.server.status).lower() in ('build', 'rebuild'):
                 log.info("Virtual Machine %s is spawning..." % self.name)
                 if i > tries:
                     log.info("Virtual Machine %s creates more than %s seconds, check this VM" % (self.name, tries*timeout))
