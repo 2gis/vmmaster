@@ -1,4 +1,5 @@
 import time
+import json
 from Queue import Queue
 from threading import Timer, Thread
 from traceback import format_exc
@@ -80,6 +81,13 @@ def write_session_log(vmmaster_log_step_id, control_line, body):
         body=body,
         time=time.time()
     )
+
+
+class SimpleResponse:
+    def __init__(self, status_code=None, headers=None, content=None):
+        self.status_code = status_code
+        self.headers = headers
+        self.content = content
 
 
 class Session(object):
@@ -185,32 +193,53 @@ class Session(object):
         t.daemon = True
         t.start()
 
-        result = None
-        while not result:
+        response = None
+        while not response:
             if self.timeouted:
-                result = (500, {}, '{"status": 1, "value": "Session timeouted"}')
+                response = SimpleResponse(
+                    status_code=500,
+                    headers={},
+                    content='{"status": 1, "value": "Session timeouted"}'
+                )
             elif self.closed:
-                result = (500, {}, '{"status": 1, "value": "Session closed"}')
+                response = SimpleResponse(
+                    status_code=500,
+                    headers={},
+                    content='{"status": 1, "value": "Session closed"}'
+                )
             elif not t.isAlive():
                 response = q.get()
                 del q
                 del t
                 if isinstance(response, Exception):
                     raise response
-
-                result = (response.status_code,
-                          response.headers,
-                          response.content)
+                response = SimpleResponse(
+                    status_code=response.status_code,
+                    headers=response.headers,
+                    content=response.content
+                )
             else:
                 t.join(0.1)
+
+        try:
+            content_json = json.loads(response.content)
+        except ValueError:
+            content_json = {}
+            log.info("Couldn't parse response content <%s>" %
+                     repr(response.content))
+
+        if "screenshot" in content_json.keys():
+            content_to_log = ""
+        else:
+            content_to_log = response.content
 
         if self.vmmaster_log_step:
             write_session_log(
                 self.vmmaster_log_step.id,
-                "%s" % result[0],
-                result[2])
+                "%s" % response.headers,
+                content_to_log)
 
-        return result
+        return response.status_code, response.headers, response.content
 
     @property
     def info(self):
