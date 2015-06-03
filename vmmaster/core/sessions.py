@@ -236,7 +236,7 @@ class Session(object):
         if self.vmmaster_log_step:
             write_session_log(
                 self.vmmaster_log_step.id,
-                "%s" % response.headers,
+                "%s" % response.status_code,
                 content_to_log)
 
         return response.status_code, response.headers, response.content
