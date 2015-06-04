@@ -1,0 +1,22 @@
+---
+- include: install.yml
+  tags: [nginx, nginx-install]
+
+- include: sites.yml
+  tags: [nginx, nginx-sites]
+  when: nginx_sites != []
+
+- include: upstreams.yml
+  tags: [nginx, nginx-upstreams]
+  when: nginx_upstreams != []
+
+- name: fetch nginx version info
+  shell: "nginx -V"
+  register: nginx_version
+  always_run: yes
+  changed_when: no
+
+- name: setup lua
+  when: nginx_version.stderr.find('lua') > -1
+  include: lua.yml
+  tags: [nginx, nginx-configuration, nginx-lua]

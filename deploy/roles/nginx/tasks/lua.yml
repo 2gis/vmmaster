@@ -1,0 +1,15 @@
+---
+
+  - name: setup lua locate paths
+    template: >
+      src=lua_path.conf.j2
+      dest=/etc/nginx/conf.d/lua_path.conf
+    notify:
+      - reload nginx
+
+  - name: ensure nginx lua directory exists
+    file: >
+      path=/etc/nginx/lua
+      state=directory
+      owner=root
+      group=root

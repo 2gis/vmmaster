@@ -325,14 +325,14 @@ class TestServerShutdown(unittest.TestCase):
     def test_server_shutdown(self):
         del self.server
 
-    def test_server_shutdown_delete_sessions(self):
+    def test_session_is_not_deleted_after_server_shutdown(self):
         new_session_request(self.address, self.desired_caps)
 
         sessions = self.server.app.sessions.map
         self.assertEqual(1, len(sessions))
 
         del self.server
-        self.assertEqual(0, len(sessions))
+        self.assertEqual(1, len(sessions))
 
 
 # mocking for Openstack

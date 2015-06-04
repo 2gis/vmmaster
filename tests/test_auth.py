@@ -37,6 +37,7 @@ class TestWDAuthPositive(unittest.TestCase):
     def setUpClass(cls):
         from flask import Flask
         cls.app = Flask(__name__)
+        cls.app.running = True
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')
         from vmmaster.core.platforms import Platforms

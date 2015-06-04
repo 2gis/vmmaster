@@ -4,4 +4,5 @@
   sudo: yes
   roles:
     - {role: install_dependencies, when: not update}
+    - {role: nginx, sudo: yes, tags: [nginx], when: not update}
     - {role: install_vmmaster}

@@ -6,7 +6,8 @@ from flask.json import JSONEncoder as FlaskJSONEncoder
 
 # run in twisted wsgi
 from twisted.web.wsgi import WSGIResource
-from twisted.web.server import Site
+from twisted.web.server import Site, NOT_DONE_YET
+from twisted.internet import defer
 
 from .core.platforms import Platforms
 from .core.sessions import Sessions
@@ -27,6 +28,7 @@ class JSONEncoder(FlaskJSONEncoder):
 class vmmaster(Flask):
     def __init__(self, *args, **kwargs):
         super(vmmaster, self).__init__(*args, **kwargs)
+        self.running = True
 
         self.network = Network()
         sessions = Sessions()
@@ -49,7 +51,6 @@ class vmmaster(Flask):
         self.worker.stop()
         self.preloader.stop()
         self.vmchecker.stop()
-        self.sessions.delete()
         pool.free()
         self.network.delete()
         log.info("Server gracefully shut down.")
@@ -95,17 +96,38 @@ def _block_on(d, timeout=None):
         return ret
 
 
+class VmmasterResource(WSGIResource):
+    isLeaf = True
+    waiting_requests = []
+
+    def notify_no_more_waiting(self):
+        if not self.waiting_requests:
+            return defer.succeed(None)
+        deffered_list = defer.gatherResults(self.waiting_requests, consumeErrors=True)
+        log.info("Waiting for end %s request[s]." % len(deffered_list._deferredList))
+        return deffered_list.addBoth(lambda ign: None)
+
+    def render(self, request):
+        super(VmmasterResource, self).render(request)
+        d = request.notifyFinish()
+        self.waiting_requests.append(d)
+        d.addBoth(lambda ign: self.waiting_requests.remove(d))
+
+        return NOT_DONE_YET
+
+
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        resource = WSGIResource(self.reactor, self.reactor.getThreadPool(), self.app)
-        site = Site(resource)
+        self.resource = VmmasterResource(self.reactor, self.reactor.getThreadPool(), self.app)
+        site = Site(self.resource)
 
         self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
 
     def run(self):
+        self.reactor.addSystemEventTrigger('before', 'shutdown', self.before_shutdown)
         self.reactor.run()
         del self
 
@@ -113,3 +135,23 @@ class VMMasterServer(object):
         d = self.bind.stopListening()
         _block_on(d, 20)
         self.app.cleanup()
+
+    def wait_for_writers(self):
+        d = defer.Deferred()
+
+        def check_writers(self):
+            if len(self.reactor.getWriters()) > 0:
+                self.reactor.callLater(0.1, check_writers, self)
+            else:
+                d.callback(None)
+
+        check_writers(self)
+
+        return d
+
+    @defer.inlineCallbacks
+    def before_shutdown(self):
+        self.app.running = False
+        yield self.resource.notify_no_more_waiting()
+        yield self.wait_for_writers()
+        log.info("All active requests has been completed.")
