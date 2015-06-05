@@ -22,7 +22,7 @@ class StreamToLogger(object):
             self.logger.log(self.log_level, line.rstrip())
 
 
-def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=None):
+def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog=True, loglevel=None):
     if loglevel is None:
         loglevel = logging.getLevelName(config.LOG_LEVEL.upper())
 
@@ -43,7 +43,7 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=None):
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(logdir, "vmmaster.log"), maxBytes=config.LOG_SIZE, backupCount=5
+            os.path.join(logdir, logfile_name), maxBytes=config.LOG_SIZE, backupCount=5
         )
         txt_handler.setFormatter(log_formatter)
         log.addHandler(txt_handler)
@@ -55,9 +55,10 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=None):
         console_handler.setFormatter(log_formatter)
         log.addHandler(console_handler)
 
-    stdout_logger = logging.getLogger('STDOUT')
-    slout = StreamToLogger(stdout_logger, logging.INFO)
-    sys.stdout = slout
+    if config.LOG_LEVEL.lower():
+        stdout_logger = logging.getLogger('STDOUT')
+        slout = StreamToLogger(stdout_logger, logging.INFO)
+        sys.stdout = slout
 
     stderr_logger = logging.getLogger('STDERR')
     slerr = StreamToLogger(stderr_logger, logging.ERROR)
@@ -67,3 +68,4 @@ def setup_logging(logdir=None, scrnlog=True, txtlog=True, loglevel=None):
 
 
 log = logging.getLogger('LOG')
+log_cleanup = logging.getLogger('cleanup')

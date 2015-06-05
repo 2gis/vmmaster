@@ -29,6 +29,17 @@ ansible-playbook -i hosts/servers deploy.yml --extra-vars "use_postgres=true"
 ansible-playbook -i hosts/servers deploy.yml --extra-vars "deploy_user=username"
 ```
 
+Пример деплоя с установкой nginx и добавлением конфигов:
+```
+# может потребоваться переопределить переменные nginx_sites и nginx_upstreams
+ansible-playbook -i hosts/servers deploy.yml --extra-vars "nginx=true"
+```
+
+Если нужно только установить nginx и настроить его:
+```
+# может потребоваться переопределить переменные nginx_sites и nginx_upstreams
+ansible-playbook -i hosts/servers deploy.yml --extra-vars "only_nginx=true"
+```
 
 
 Обновление существующего vmmaster

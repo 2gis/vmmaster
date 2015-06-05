@@ -4,9 +4,7 @@ python:
 install:
   - sudo apt-get update
   - sudo apt-get install -qq python-libvirt
-  - cp /usr/lib/python2.7/dist-packages/libvirt* ~/virtualenv/python2.7/lib/python2.7/site-packages/
-  - pip install mock
-  - pip install human_curl
-  - pip install git+https://github.com/2gis/lode_runner
-  - pip install -e .
-script: PYTHONPATH=`pwd` lode_runner -v tests/
+  - pip install tox
+  - tox -e travisdeps
+  - cp /usr/lib/python2.7/dist-packages/libvirt* ~/build/2gis/vmmaster/.tox/lib/python2.7/site-packages/
+script: PYTHONPATH=`pwd` tox -e travisci

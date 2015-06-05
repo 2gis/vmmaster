@@ -1,5 +1,11 @@
-log/
+logs/
 .idea
 *.pyc
 .env
+.tox
 .coverage
+config.py
+vmmaster/screenshots/*
+vmmaster/origins/*
+vmmaster/session/*
+vmmaster/clones/*
