@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import time
 import json
 from Queue import Queue
@@ -109,20 +111,27 @@ class Session(object):
 
     vmmaster_log_step = None
 
-    def __init__(self, sessions, name, platform, vm, username=None):
+    def __init__(self, sessions, dc, vm):
         self.sessions = sessions
-        self.name = name
-        self.platform = platform
+
+        self.desired_capabilities = dc
+        self.name = dc.name
+        self.platform = dc.platform
+        self.username = dc.user
         self.virtual_machine = vm
         self._start = time.time()
+
         log.info("starting new session on %s." % self.virtual_machine)
         self.db_session = database.create_session(status="running",
                                                   name=self.name,
                                                   time=time.time(),
-                                                  username=username)
+                                                  username=self.username,
+                                                  vm=vm)
         self.id = str(self.db_session.id)
         self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
         self.timer.start()
+
+        sessions.map[str(self.id)] = self
         log.info("session %s started on %s." % (self.id, self.virtual_machine))
 
     @property
@@ -140,7 +149,7 @@ class Session(object):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
             if self.virtual_machine.name is not None\
-                    and 'preloaded' in self.virtual_machine.name:
+                    and 'preloaded' in str(self.virtual_machine.name):
                 self.virtual_machine.rebuild()
             else:
                 self.virtual_machine.delete()
@@ -216,19 +225,21 @@ class Session(object):
                     headers={},
                     content='{"status": 1, "value": "Session closed"}'
                 )
-            elif not t.isAlive():
-                response = q.get()
-                del q
-                del t
-                if isinstance(response, Exception):
-                    raise response
-                response = SimpleResponse(
-                    status_code=response.status_code,
-                    headers=response.headers,
-                    content=response.content
-                )
             else:
-                t.join(0.1)
+                if not t.isAlive():
+                    response = q.get()
+                    del q
+                    del t
+                    if isinstance(response, Exception):
+                        raise response
+                    response = SimpleResponse(
+                        status_code=response.status_code,
+                        headers=response.headers,
+                        content=response.content
+                    )
+                    t = None
+                elif t is not None:
+                    t.join(0.1)
 
         try:
             content_json = json.loads(response.content)
@@ -276,16 +287,16 @@ class Sessions(object):
             session = self.get_session(session_id)
             session.delete()
 
-    def start_session(self, session_name, platform, vm, username=None):
-        session = Session(self, session_name, platform, vm, username)
-        self.map[str(session.id)] = session
+    def start_session(self, dc, vm):
+        session = Session(self, dc, vm)
         return session
 
     def get_session(self, session_id):
         try:
             return self.map[str(session_id)]
         except KeyError:
-            raise SessionException("There is no active session %s" % session_id)
+            raise SessionException("There is no active session %s" %
+                                   session_id)
 
     def delete_session(self, session_id):
         del self.map[str(session_id)]

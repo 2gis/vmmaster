@@ -1,73 +1,43 @@
-import unittest
-import time
-import json
-from uuid import uuid4
+# coding: utf-8
 
-from mock import Mock
+import unittest
+import json
+from mock import Mock, patch
+
 
 # Mocking
-from vmmaster.core import db
 def session_id(*args, **kwargs):
+    from uuid import uuid4
+
     class Session(object):
         id = uuid4()
     return Session()
 
-db.database = Mock(create_session=Mock(side_effect=session_id))
-from vmmaster.core import connection
-connection.Virsh.__new__ = Mock()
-from vmmaster.core.network import network
-network.Network.__new__ = Mock()
-
-from vmmaster.server import create_app
-
-from vmmaster.core.config import setup_config, config
-from vmmaster.core.utils.network_utils import get_socket
 from vmmaster.core.virtual_machine import VirtualMachine
 
 
-def request(host, method, url, headers=None, body=None):
-    if headers is None:
-        headers = dict()
-    import httplib
-    conn = httplib.HTTPConnection(host)
-    conn.request(method=method, url=url, headers=headers, body=body)
-    response = conn.getresponse()
-    class Response(object): pass
-    r = Response()
-    r.status = response.status
-    r.headers = response.getheaders()
-    r.content = response.read()
-    conn.close()
-    return r
-
-
-def api_sessions_request(address):
-    return request("%s:%s" % address, "GET", "/api/sessions")
-
-
-def api_stop_session_request(address, session_id):
-    return request("%s:%s" % address, "POST", "/api/session/%s/stop" % session_id)
-
-
-def api_platforms_request(address):
-    return request("%s:%s" % address, "GET", "/api/platforms")
-
-
-def server_is_up(address):
-    s = get_socket(address[0], address[1])
-    time_start = time.time()
-    timeout = 5
-    while not s:
-        s = get_socket(address[0], address[1])
-        time.sleep(0.1)
-        if time.time() - time_start > timeout:
-            raise RuntimeError("server is not running on %s:%s" % address)
-
-
 class TestApi(unittest.TestCase):
+    def shortDescription(self):
+        return None  # TODO: move to parent
+
     def setUp(self):
+        from vmmaster.core.config import setup_config
         setup_config('data/config.py')
-        self.app = create_app()
+
+        import vmmaster.core.network.network
+        import vmmaster.core.connection
+        import vmmaster.core.db
+
+        with patch.object(vmmaster.core.network.network, 'Network',
+                          new=Mock(name='Network')), \
+                patch.object(vmmaster.core.connection, 'Virsh',
+                             new=Mock(name='Virsh')), \
+                patch.object(vmmaster.core.db, 'database',
+                             new=Mock(create_session=Mock(
+                                      side_effect=session_id))):
+            from vmmaster.server import create_app
+            self.app = create_app()
+
         self.client = self.app.test_client()
         self.platforms = self.app.platforms.platforms
         self.platform = self.platforms.keys()[0]
@@ -78,11 +48,24 @@ class TestApi(unittest.TestCase):
         }
 
     def tearDown(self):
-        self.app.cleanup()
+        with patch('vmmaster.core.db.database', Mock()) as db:
+            db.update = Mock()
+            self.app.cleanup()
+            del self.app
 
+    @patch('vmmaster.core.db.database', Mock())
     def test_api_sessions(self):
-        self.app.sessions.start_session("session1", self.platform, VirtualMachine())
-        self.app.sessions.start_session("session2", self.platform, VirtualMachine())
+        from vmmaster.webdriver.commands import DesiredCapabilities
+        dc1 = DesiredCapabilities(name="session1",
+                                  platform='test_origin_1',
+                                  runScript="")
+        s1 = self.app.sessions.start_session(
+            dc1, VirtualMachine("session1"))
+        dc2 = DesiredCapabilities(name="session2",
+                                  platform='test_origin_1',
+                                  runScript="")
+        s2 = self.app.sessions.start_session(
+            dc2, VirtualMachine("session2"))
         response = self.client.get('/api/sessions')
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
@@ -91,6 +74,8 @@ class TestApi(unittest.TestCase):
         for session in sessions:
             self.assertEqual(self.platform, session['platform'])
         self.assertEqual(200, body['metacode'])
+        s1.close()
+        s2.close()
 
     def test_api_platforms(self):
         response = self.client.get('/api/platforms')
@@ -102,8 +87,14 @@ class TestApi(unittest.TestCase):
         self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])
 
+    @patch('vmmaster.core.db.database', Mock())
     def test_api_stop_session(self):
-        session = self.app.sessions.start_session("session1", self.platform, VirtualMachine())
+        from vmmaster.webdriver.commands import DesiredCapabilities
+        dc = DesiredCapabilities(name="session1",
+                                 platform='test_origin_1',
+                                 runScript="")
+        session = self.app.sessions.start_session(
+            dc, VirtualMachine("session1"))
         response = self.client.post("/api/session/%s/stop" % session.id)
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])

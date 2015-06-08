@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import time
 import netifaces
 import SubnetTree
@@ -38,19 +40,15 @@ def threaded_wait(func):
 
 class Clone(VirtualMachine):
     def __init__(self, origin, prefix):
-        super(Clone, self).__init__()
+        name = "{}-clone-{}".format(origin.name, prefix)
+        super(Clone, self).__init__(name)
         self.prefix = prefix
         self.origin = origin
         self.platform = origin.name
-        self.ready = False
-        self.checking = False
+        self.save()
 
     def __str__(self):
         return "{name}({ip})".format(name=self.name, ip=self.ip)
-
-    @property
-    def name(self):
-        return "{}-clone-{}".format(self.origin.name, self.prefix)
 
     def delete(self):
         raise NotImplementedError
@@ -65,19 +63,24 @@ class Clone(VirtualMachine):
         ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
         timeout = config.PING_TIMEOUT
         start = time.time()
-        log.info("Starting ping vm {clone}: {ip}:{port}".format(clone=self.name, ip=self.ip, port=ports))
+        log.info("Starting ping vm {clone}: {ip}:{port}".format(
+            clone=self.name, ip=self.ip, port=ports))
         _ping = partial(network_utils.ping, self.ip)
         while time.time() - start < timeout:
             result = map(_ping, ports)
             if all(result):
-                log.info("Successful ping for {clone} with {ip}:{ports}".format(clone=self.name, ip=self.ip, ports=ports))
+                log.info(
+                    "Successful ping for {clone} with {ip}:{ports}".format(
+                        clone=self.name, ip=self.ip, ports=ports))
                 break
             time.sleep(0.1)
 
         result = map(_ping, ports)
         if not all(result):
             fails = [port for port, res in zip(ports, result) if res is False]
-            log.info("Failed ping for {clone} with {ip}:{ports}".format(clone=self.name, ip=self.ip, ports=str(fails)))
+            log.info("Failed ping for {clone} with {ip}:{ports}".format(
+                clone=self.name, ip=self.ip, ports=str(fails))
+            )
             return False
 
         return True
@@ -95,6 +98,9 @@ class KVMClone(Clone):
 
     def delete(self):
         log.info("deleting kvm clone: {}".format(self.name))
+        self.ready = False
+        self.save()
+
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
         try:
@@ -114,21 +120,26 @@ class KVMClone(Clone):
         VirtualMachine.delete(self)
 
     def create(self):
-        log.info("creating kvm clone of {platform}".format(platform=self.platform))
+        log.info("creating kvm clone of {platform}".format(
+            platform=self.platform)
+        )
         origin = self.platform
         self.dumpxml_file = self.clone_origin(origin)
-
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
+        self.deleted = False
         self.ready = True
-
-        log.info("created kvm {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+        self.save()
+        log.info("created kvm {clone} on ip: {ip} with mac: {mac}".format(
+            clone=self.name, ip=self.ip, mac=self.mac)
+        )
         return self
 
     def rebuild(self):
-        log.info("rebuilding kvm clone of {platform}".format(platform=self.platform))
-
+        log.info("rebuilding kvm clone of {platform}".format(
+            platform=self.platform)
+        )
         pool.remove_vm(self)
 
         if self.checking:
@@ -136,14 +147,15 @@ class KVMClone(Clone):
             self.create()
 
         pool.add_vm(self)
-        log.info("rebuilded kvm {clone} on ip: {ip} with mac: {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+        log.info("rebuilded kvm {clone} on ip: {ip} with mac: {mac}".format(
+            clone=self.name, ip=self.ip, mac=self.mac)
+        )
 
     def clone_origin(self, origin_name):
         self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
-
         origin_dumpxml = minidom.parseString(self.origin.settings)
-        dumpxml = self.create_dumpxml(origin_dumpxml)
-        clone_dumpxml_file = utils.write_clone_dumpxml(self.name, dumpxml)
+        _dumpxml = self.create_dumpxml(origin_dumpxml)
+        clone_dumpxml_file = utils.write_clone_dumpxml(self.name, _dumpxml)
 
         return clone_dumpxml_file
 
@@ -215,7 +227,6 @@ class KVMClone(Clone):
 
 
 class OpenstackClone(Clone):
-
     def __init__(self, origin, prefix):
         super(OpenstackClone, self).__init__(origin, prefix)
         self.platform = origin.short_name
@@ -225,9 +236,8 @@ class OpenstackClone(Clone):
         self.network_name = self.get_network_name(self.network_id)
 
     def create(self):
-        log.info("Creating openstack clone of {} with image={}, flavor={}".format(self.name,
-                                                                                  self.image,
-                                                                                  self.flavor))
+        log.info("Creating openstack clone of {} with image={}, "
+                 "flavor={}".format(self.name, self.image, self.flavor))
 
         kwargs = {
             'name': self.name,
@@ -238,7 +248,8 @@ class OpenstackClone(Clone):
         }
 
         if bool(config.OPENSTACK_ZONE_FOR_VM_CREATE):
-            kwargs.update({'availability_zone': config.OPENSTACK_ZONE_FOR_VM_CREATE})
+            kwargs.update({'availability_zone':
+                           config.OPENSTACK_ZONE_FOR_VM_CREATE})
 
         self.nova_client.servers.create(**kwargs)
         self._wait_for_activated_service(self.get_ip)
@@ -246,36 +257,53 @@ class OpenstackClone(Clone):
     def get_ip(self):
         if self.ip is None:
             try:
-                addresses = self.nova_client.servers.find(name=self.name).addresses.get(self.network_name, None)
+                addresses = self.nova_client.servers.find(
+                    name=self.name).addresses.get(self.network_name, None)
                 if addresses is not None:
                     ip = addresses[0].get('addr', None)
-                    self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr', None)
+                    self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr',
+                                                None)
 
                     if ip is not None:
                         self.ip = ip
-                    log.info("Created openstack {clone} with ip {ip} and mac {mac}".format(clone=self.name, ip=self.ip, mac=self.mac))
+
+                    self.save()
+                    log.info("Created openstack {clone} with ip {ip}"
+                             " and mac {mac}".format(clone=self.name,
+                                                     ip=self.ip,
+                                                     mac=self.mac))
             except Exception as e:
-                log.info("Vm %s does not have address block. Error: %s" % (self.name, e.message))
+                log.info("Vm %s does not have address block. Error: %s" %
+                         (self.name, e.message))
 
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
         from time import sleep
-        config_create_check_retry_count, config_create_check_pause = config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
-        config_ping_retry_count, config_ping_timeout = config.OPENSTACK_PING_RETRY_COUNT, config.PING_TIMEOUT
+        config_create_check_retry_count, config_create_check_pause = \
+            config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
+        config_ping_retry_count, config_ping_timeout = \
+            config.OPENSTACK_PING_RETRY_COUNT, config.PING_TIMEOUT
 
         create_check_retry = 1
         ping_retry = 1
+
         while True:
             try:
                 server = self.nova_client.servers.find(name=self.name)
             except Exception as e:
-                log.info("Can't find vm %s in openstack. Error: %s" % (self.name, e.message))
+                log.info("Can't find vm %s in openstack. Error: %s" %
+                         (self.name, e.message))
                 server = None
 
-            if server is not None and server.status.lower() in ('build', 'rebuild'):
+            if server is not None and server.status.lower() in \
+                    ('build', 'rebuild'):
                 log.info("Virtual Machine %s is spawning..." % self.name)
+
                 if create_check_retry > config_create_check_retry_count:
-                    log.info("VM %s creates more than %s seconds, check this VM" % (self.name, config_create_check_retry_count*config_create_check_pause))
+                    p = config_create_check_retry_count * \
+                        config_create_check_pause
+                    log.info("VM %s creates more than %s seconds, "
+                             "check this VM" % (self.name, p))
 
                 create_check_retry += 1
                 sleep(config_create_check_pause)
@@ -285,9 +313,12 @@ class OpenstackClone(Clone):
                     method()
                 if self.ping_vm():
                     self.ready = True
+                    self.save()
                     break
                 if ping_retry > config_ping_retry_count:
-                    log.info("VM %s pings more than %s seconds, rebuilding VM..." % (self.name, config_ping_retry_count*config_ping_timeout))
+                    p = config_ping_retry_count * config_ping_timeout
+                    log.info("VM %s pings more than %s seconds, "
+                             "rebuilding VM..." % (self.name, p))
                     self.rebuild()
                     break
 
@@ -311,21 +342,24 @@ class OpenstackClone(Clone):
                 if net['id'] == network_id:
                     return net['name']
         else:
-            raise CreationException('Can\'t return network name because network_id was %s' % str(network_id))
+            raise CreationException('Can\'t return network name because '
+                                    'network_id was %s' % str(network_id))
 
     def get_network_id(self):
         try:
-            self_ip = netifaces.ifaddresses('eth0').get(netifaces.AF_INET, [{'addr': None}])[0]['addr']
+            self_ip = netifaces.ifaddresses('eth0').get(
+                netifaces.AF_INET, [{'addr': None}])[0]['addr']
         except ValueError:
             self_ip = None
 
         if self_ip:
             stree = SubnetTree.SubnetTree()
-            for subnet in self.network_client.list_subnets().get('subnets', []):
+            for subnet in self.network_client.list_subnets().get(
+                    'subnets', []):
                 if subnet['tenant_id'] == config.OPENSTACK_TENANT_ID:
                     stree[str(subnet['cidr'])] = str(subnet['network_id'])
-                    log.info("Associate vm with network id %s and subnet id %s" % (str(subnet['network_id']),
-                                                                                   str(subnet['id'])))
+                    log.info("Associate vm with network id %s and subnet id %s"
+                             % (str(subnet['network_id']), str(subnet['id'])))
 
             try:
                 net_id = stree[self_ip]
@@ -344,7 +378,8 @@ class OpenstackClone(Clone):
         try:
             server = self.nova_client.servers.find(name=self.name)
         except Exception as e:
-            log.info("An error occurred during addition ip for vm %s: %s" % (self.name, e.message))
+            log.info("An error occurred during addition ip for vm %s: %s" %
+                     (self.name, e.message))
             server = None
 
         if server is not None:
@@ -363,16 +398,22 @@ class OpenstackClone(Clone):
             return False
 
     def delete(self):
+        self.ready = False
+        self.save()
         pool.remove_vm(self)
         if self.check_vm_exist(self.name):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
             except Exception as e:
-                log.info("Delete vm %s was FAILED. %s" % (self.name, e.message))
-
-            log.info("Deleted openstack clone: {clone}".format(clone=self.name))
+                log.info("Delete vm %s was FAILED. %s" %
+                         (self.name, e.message))
+            log.info("Deleted openstack clone: {clone}".format(
+                clone=self.name))
         else:
-            log.info("VM {clone} can not be removed because it does not exist".format(clone=self.name))
+            log.info("VM {clone} can not be removed because "
+                     "it does not exist".format(clone=self.name))
+        self.deleted = True
+        self.save()
 
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))
@@ -384,7 +425,8 @@ class OpenstackClone(Clone):
         self.ready = False
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
-            self._wait_for_activated_service(lambda: log.info("Rebuilded openstack {clone}".format(clone=self.name)))
+            self._wait_for_activated_service(lambda: log.info(
+                "Rebuilded openstack {clone}".format(clone=self.name)))
         except Exception as e:
             log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()

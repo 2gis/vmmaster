@@ -1,6 +1,9 @@
 # coding: utf-8
 
-from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, ForeignKey, DateTime, Boolean
+import time
+
+from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, \
+    ForeignKey, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -46,6 +49,8 @@ class Session(Base):
     user_id = Column(ForeignKey('users.id', ondelete='SET DEFAULT'),
                      nullable=True,
                      default=1)
+    vm_id = Column(ForeignKey('virtual_machines.id', ondelete='SET NULL'),
+                   nullable=True, default=None)
     status = Column('status', Enum('unknown',
                                    'running',
                                    'succeed',
@@ -66,9 +71,10 @@ class User(Base):
         return str(uuid4())
 
     def regenerate_token(self):
-        from ..db import database
+        from vmmaster.core import db
         self.token = self.generate_token()
-        return database.update(self)
+        db.database.update(self)  # TODO: replace with SAVE()
+        return self
 
     @property
     def info(self):
@@ -87,7 +93,7 @@ class User(Base):
     date_joined = Column(DateTime, default=datetime.now)
     last_login = Column(DateTime)
     token = Column(String(50), nullable=True, default=generate_token)
-    
+
     sessions = relationship(Session, backref="user", passive_deletes=True)
 
 
@@ -98,3 +104,34 @@ class UserGroup(Base):
     name = Column(String(length=20), unique=True, nullable=False)
 
     users = relationship(User, backref="group", passive_deletes=True)
+
+
+class VirtualMachine(Base):
+    __tablename__ = 'virtual_machines'
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String, default=None)
+    ip = Column(String, default=None)
+    mac = Column(String, default=None)
+    platform = Column(String, default=None)
+
+    ready = Column(Boolean, default=False)
+    checking = Column(Boolean, default=False)
+    deleted = Column(Boolean, default=False)
+
+    created = Column(Float, default=None)
+
+    session = relationship(Session,  uselist=False, backref="vm",
+                           enable_typechecks=False)
+
+    def __init__(self, name):
+        self.name = name
+        self.created = time.time()
+        from vmmaster.core.db import database
+        database.add(self)
+
+    def save(self):
+        """Save object to DB"""
+        from vmmaster.core.db import database
+        database.update(self)

@@ -12,14 +12,12 @@ from Queue import Queue
 from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
 
-from ..core.exceptions import SessionException, ConnectionError, CreationException
+from ..core.exceptions import SessionException, ConnectionError, \
+    CreationException
 from ..core.sessions import RequestHelper
 from ..core.config import config
 from ..core.logger import log
 from ..core.utils.utils import write_file
-from ..core.db import database
-from ..core.session_queue import q
-from ..core.platforms import Platforms
 
 
 class BucketThread(Thread):
@@ -102,6 +100,7 @@ class SessionProxy(object):
 
 
 def write_vmmaster_log(session_id, control_line, body):
+    from vmmaster.core.db import database
     return database.create_vmmaster_log_step(
         session_id=session_id,
         control_line=control_line,
@@ -184,15 +183,6 @@ def internal_exec(command, proxy):
     return form_response(code, headers, body)
 
 
-def get_vm():
-    desired_caps = commands.get_desired_capabilities(req)
-    Platforms.check_platform(desired_caps.platform)
-
-    delayed_vm = q.enqueue(desired_caps)
-    while delayed_vm.vm is None:
-        time.sleep(0.1)
-
-
 def check_to_exist_ip(vm, tries=10, timeout=5):
     from time import sleep
     i = 0
@@ -201,30 +191,33 @@ def check_to_exist_ip(vm, tries=10, timeout=5):
             return vm.ip
         else:
             if i > tries:
-                raise CreationException('Error: VM %s have not ip address' % vm.name)
+                raise CreationException('Error: VM %s have not ip address' %
+                                        vm.name)
             i += 1
-            log.info('IP is %s for VM %s, wait for %ss. before next try...' % (vm.ip, vm.name, timeout))
+            log.info('IP is %s for VM %s, wait for %ss. before next try...' %
+                     (vm.ip, vm.name, timeout))
             sleep(timeout)
 
 
-def get_session(request, desired_caps):
-    Platforms.check_platform(desired_caps.platform)
+def get_session(req, dc):
+    platform = dc.platform
+    log.info("Enqueue: %s" % str(platform))
 
-    delayed_vm = q.enqueue(desired_caps)
-    while delayed_vm.vm is None:
-        time.sleep(0.1)
+    from vmmaster.core.virtual_machine.virtual_machines_pool import pool
+    vm = None
+    while not req.closed:
+        if pool.has(platform):
+            vm = pool.get(platform)
+            break
+        elif pool.can_produce(platform):
+            vm = pool.add(platform)
+            break
 
-    while not delayed_vm.vm.ready:
-        time.sleep(0.1)
+    if req.closed:
+        if vm:
+            vm.delete()
+        raise ConnectionError(
+            'Session was closed during creating selenium session')
 
-    if request.closed:
-        delayed_vm.vm.delete()
-        raise ConnectionError('Session was closed during creating selenium session')
-
-    vm = delayed_vm.vm
-    session = current_app.sessions.start_session(desired_caps.name,
-                                                 desired_caps.platform,
-                                                 vm,
-                                                 desired_caps.user)
-    session.set_desired_capabilities(desired_caps)
+    session = current_app.sessions.start_session(dc, vm)
     return session

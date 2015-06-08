@@ -1,12 +1,12 @@
 # coding: utf-8
 
-
 from time import time
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from .models import Session, VmmasterLogStep, SessionLogStep, User
+from .models import Session, VmmasterLogStep, SessionLogStep, User, \
+    VirtualMachine
 
 from ..utils.utils import to_thread
 
@@ -52,17 +52,24 @@ class Database(object):
 
     def __init__(self, connection_string):
         self.engine = create_engine(connection_string)
-        self.Session = scoped_session(sessionmaker(bind=self.engine))
+        self.Session = scoped_session(sessionmaker(bind=self.engine,
+                                                   expire_on_commit=False))
         from vmmaster import migrations
         migrations.run(connection_string)
 
     @transaction
-    def create_session(self, status="running", name=None, time=time(), username=None, session=None):
+    def create_session(self, status="running", name=None, time=time(),
+                       username=None, session=None, vm=None):
         try:
-            user_id = session.query(User).filter_by(username=username).first().id
+            user_id = session.query(User).filter_by(
+                username=username).first().id
         except AttributeError:
             user_id = None
-        _session = Session(status=status, time=time, user_id=user_id)
+        vm_id = None
+        if vm:
+            vm_id = vm.id
+        _session = Session(status=status, time=time, user_id=user_id,
+                           vm_id=vm_id)
         session.add(_session)
         session.commit()
         if name is None:
@@ -80,7 +87,8 @@ class Database(object):
         return session.query(Session).get(session_id)
 
     @transaction
-    def create_vmmaster_log_step(self, session_id, control_line, body, screenshot="", time=time(), session=None):
+    def create_vmmaster_log_step(self, session_id, control_line, body,
+                                 screenshot="", time=time(), session=None):
         _log_step = VmmasterLogStep(session_id=session_id,
                                     control_line=control_line,
                                     body=body,
@@ -88,7 +96,8 @@ class Database(object):
                                     time=time)
         session.add(_log_step)
         session.commit()
-        created_log_step = self.get_vmmaster_log_step(_log_step.id, session=session)
+        created_log_step = self.get_vmmaster_log_step(_log_step.id,
+                                                      session=session)
         session.flush()
         return created_log_step
 
@@ -97,14 +106,16 @@ class Database(object):
         return session.query(VmmasterLogStep).get(log_step_id)
 
     @transaction
-    def create_session_log_step(self, vmmaster_log_step_id, control_line, body, time=time(), session=None):
+    def create_session_log_step(self, vmmaster_log_step_id, control_line, body,
+                                time=time(), session=None):
         _log_step = SessionLogStep(vmmaster_log_step_id=vmmaster_log_step_id,
                                    control_line=control_line,
                                    body=body,
                                    time=time)
         session.add(_log_step)
         session.commit()
-        created_log_step = self.get_session_log_step(_log_step.id, session=session)
+        created_log_step = self.get_session_log_step(_log_step.id,
+                                                     session=session)
         session.flush()
         return created_log_step
 
@@ -121,11 +132,39 @@ class Database(object):
         return None
 
     @transaction
+    def queue(self, session=None):
+        return session.query(VirtualMachine).all()
+
+    @transaction
+    def vm_waiting(self, session=None):
+        return session.query(VirtualMachine).filter_by(ready=False,
+                                                       deleted=False).all()
+
+    @transaction
+    def queue_pop(self, session=None):
+        return session.query(VirtualMachine).order_by(
+            VirtualMachine.id.desc()).first()
+
+    @transaction
+    def add(self, obj, session=None):
+        session.add(obj)
+        session.commit()
+        return obj
+
+    @transaction
     def update(self, obj, session=None):
         session.merge(obj)
         session.commit()
         updated_obj = session.query(type(obj)).get(obj.id)
         session.flush()
         return updated_obj
+
+    @transaction
+    def delete(self, obj, session=None):
+        obj_to_delete = session.query(type(obj)).get(obj.id)
+        session.delete(obj_to_delete)
+        session.commit()
+        return obj_to_delete
+
 
 database = None

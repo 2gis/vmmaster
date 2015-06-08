@@ -29,7 +29,7 @@ def get_platforms():
 
 
 def get_queue():
-    return [job.dc for job in q]
+    return str(q)
 
 
 def get_pool():

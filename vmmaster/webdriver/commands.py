@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import json
 import httplib
 import time
@@ -10,13 +12,20 @@ from ..webdriver.helpers import check_to_exist_ip
 from ..core.config import config
 from ..core.logger import log
 from ..core.exceptions import CreationException
-from ..core.sessions import RequestHelper, write_session_log, update_data_in_obj
+from ..core.sessions import RequestHelper, write_session_log, \
+    update_data_in_obj
 from ..core.utils.graphite import graphite, send_metrics
 from ..core.auth.custom_auth import anonymous
 
 
 class DesiredCapabilities(object):
-    def __init__(self, name, platform, takeScreenshot, runScript, user=None, token=None):
+    def __init__(self,
+                 name=None,
+                 platform=None,
+                 takeScreenshot=None,
+                 runScript=None,
+                 user=None,
+                 token=None):
         self.name = name
         self.platform = platform
         self.takeScreenshot = bool(takeScreenshot)
@@ -35,7 +44,8 @@ class DesiredCapabilities(object):
         }
 
     def __repr__(self):
-        return "<DesiredCapabilities name=%s platform=%s>" % (self.name, self.platform)
+        return "<DesiredCapabilities name=%s platform=%s>" % (self.name,
+                                                              self.platform)
 
 
 def start_session(request, session):
@@ -43,24 +53,29 @@ def start_session(request, session):
     _start = time.time()
 
     graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
-    graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(request, session, config.SELENIUM_PORT)
+    graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(
+        request, session, config.SELENIUM_PORT)
 
     if session.desired_capabilities.runScript:
         startup_script(session)
 
-    status, headers, body = graphite("%s.%s" % (notdot_platform, "start_selenium_session"))(start_selenium_session)(request, session, config.SELENIUM_PORT)
+    status, headers, body = graphite("%s.%s" % (
+        notdot_platform, "start_selenium_session"))(
+            start_selenium_session)(request, session, config.SELENIUM_PORT)
 
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
 
-    send_metrics("%s.%s" % (notdot_platform, "creation_total"), time.time() - _start)
+    send_metrics("%s.%s" % (notdot_platform, "creation_total"),
+                 time.time() - _start)
     return status, headers, body
 
 
 def startup_script(session):
-    r = RequestHelper(method="POST", body=json.dumps(session.desired_capabilities.runScript))
+    r = RequestHelper(method="POST", body=json.dumps(
+        session.desired_capabilities.runScript))
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)
@@ -103,20 +118,30 @@ def start_selenium_session(request, session, port):
 
     for attempt_start in range(3):
         if session.closed:
-            raise CreationException("Session was closed while during starting selenium")
+            raise CreationException(
+                "Session was closed while during starting selenium")
 
-        log.info("Attempt %s. Starting selenium-server-standalone session for %s" % (attempt_start, session.id))
-        log.info("with %s %s %s %s" % (request.method, request.path, request.headers, request.body))
+        log.info(
+            "Attempt %s. Starting selenium-server-standalone session for %s" %
+            (attempt_start, session.id))
+        log.info("with %s %s %s %s" % (request.method, request.path,
+                                       request.headers, request.body))
 
-        status, headers, body = session.make_request(port, RequestHelper(request.method, request.path, request.headers, request.body))
+        status, headers, body = session.make_request(
+            port,
+            RequestHelper(request.method, request.path,
+                          request.headers, request.body))
         if status == httplib.OK:
-            log.info("SUCCESS start selenium-server-standalone status for %s" % session.id)
+            log.info("SUCCESS start selenium-server-standalone status for %s" %
+                     session.id)
             break
         else:
-            log.info("Attempt %s to start selenium session was FAILED. Trying again..." % attempt_start)
+            log.info("Attempt %s to start selenium session was FAILED. "
+                     "Trying again..." % attempt_start)
 
     if status != httplib.OK:
-        log.info("FAILED start selenium-server-standalone status for %s - %s : %s" % (session.id, status, body))
+        log.info("FAILED start selenium-server-standalone status "
+                 "for %s - %s : %s" % (session.id, status, body))
         raise CreationException("Failed to start selenium session: %s" % body)
     return status, headers, body
 
@@ -129,21 +154,27 @@ def selenium_status(request, session, port):
 
     for attempt in range(3):
         if session.closed:
-            raise CreationException("Session was closed while before getting selenium status")
+            raise CreationException(
+                "Session was closed while before getting selenium status")
 
-        log.info("Attempt %s. Getting selenium-server-standalone status for %s" % (attempt, session.id))
+        log.info("Attempt %s. Getting selenium-server-standalone status "
+                 "for %s" % (attempt, session.id))
 
-        status, headers, body = session.make_request(port, RequestHelper("GET", status_cmd))
+        status, headers, body = session.make_request(
+            port, RequestHelper("GET", status_cmd))
         selenium_status_code = json.loads(body).get("status", None)
 
         if selenium_status_code == 0:
-            log.info("SUCCESS get selenium-server-standalone status for %s" % session.id)
+            log.info("SUCCESS get selenium-server-standalone status for %s" %
+                     session.id)
             break
         else:
-            log.info("Attempt %s to get selenium status was FAILED. Trying again..." % attempt)
+            log.info("Attempt %s to get selenium status was FAILED. "
+                     "Trying again..." % attempt)
 
     if selenium_status_code != 0:
-        log.info("FAIL get selenium-server-standalone status for %s" % session.id)
+        log.info("FAIL get selenium-server-standalone status for %s" %
+                 session.id)
         raise CreationException("Failed to get selenium status: %s" % body)
     return status, headers, body
 
@@ -207,7 +238,8 @@ def set_path_session_id(path, session_id):
 
 def take_screenshot(session, port):
     status, headers, body = session.make_request(
-        port, RequestHelper(method="GET", url="/takeScreenshot", headers={}, body=""))
+        port, RequestHelper(method="GET", url="/takeScreenshot", headers={},
+                            body=""))
     if status == httplib.OK and body:
         json_response = json.loads(body)
         return json_response["screenshot"]
@@ -220,12 +252,14 @@ def run_script_through_websocket(request, session, host):
     full_msg = json.dumps({"status": 0, "output": ''})
 
     if session.vmmaster_log_step:
-        log_step = write_session_log(session.vmmaster_log_step.id, status_code, full_msg)
+        log_step = write_session_log(
+            session.vmmaster_log_step.id, status_code, full_msg)
 
     def on_open(ws):
         def run(*args):
             ws.send(request.body)
-            log.info('RunScript: Open websocket and send message %s to vmmaster-agent on vm %s' % (request.body, host))
+            log.info('RunScript: Open websocket and send message %s '
+                     'to vmmaster-agent on vm %s' % (request.body, host))
         thread.start_new_thread(run, ())
 
     def on_message(ws, message):
@@ -241,7 +275,7 @@ def run_script_through_websocket(request, session, host):
             update_data_in_obj(log_step, message=full_msg)
 
     def on_error(ws, message):
-        status_code = 500
+        # status_code = 500
         ws.output = message
         log.debug("RunScript error: %s" % message)
 
@@ -257,25 +291,24 @@ def run_script_through_websocket(request, session, host):
 
 
 def run_script(request, session):
-    host = "ws://%s:%s/runScript" % (session.virtual_machine.ip, config.VMMASTER_AGENT_PORT)
+    host = "ws://%s:%s/runScript" % (session.virtual_machine.ip,
+                                     config.VMMASTER_AGENT_PORT)
 
     if session.vmmaster_log_step:
-        write_session_log(session.vmmaster_log_step.id, "%s %s" % (request.method, '/runScript'), request.body)
+        write_session_log(session.vmmaster_log_step.id, "%s %s" %
+                          (request.method, '/runScript'), request.body)
 
     return run_script_through_websocket(request, session, host)
 
 
 def vmmaster_label(request, session):
     json_body = json.loads(request.body)
-    return 200, {}, json.dumps({"sessionId": session.id, "status": 0, "value": json_body["label"]})
+    return 200, {}, json.dumps({"sessionId": session.id, "status": 0,
+                                "value": json_body["label"]})
 
 
 def reserve_session():
     pass
-
-
-# def start_session():
-#     pass
 
 
 AgentCommands = {

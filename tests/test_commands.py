@@ -97,6 +97,9 @@ class CommonCommandsTestCase(unittest.TestCase):
     vmmaster_agent = None
     host = 'localhost'
 
+    def shortDescription(self):
+        return None  # TODO: move to parent
+
     @classmethod
     def setUpClass(cls):
         setup_config("data/config.py")
@@ -141,11 +144,17 @@ class CommonCommandsTestCase(unittest.TestCase):
         cls.webdriver_server.stop()
         cls.vmmaster_agent.stop()
 
+    @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
     def setUp(self):
-        vm = VirtualMachine()
+        vm = VirtualMachine("nothing")
         vm.ip = self.host
-        self.session = self.sessions.start_session("test", "test_origin_1", vm)
+        from vmmaster.webdriver.commands import DesiredCapabilities
+        dc = DesiredCapabilities(name="session1",
+                                 platform='test_origin_1',
+                                 runScript="")
+        self.session = self.sessions.start_session(dc, vm)
 
+    @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
     def tearDown(self):
         self.session.delete()
 
@@ -170,7 +179,8 @@ class TestStartSessionCommands(CommonCommandsTestCase):
                               return_value=(200, {}, json.dumps({'status': 1}))
                           )):
                 request = copy.copy(self.request)
-                self.assertRaises(CreationException, commands.start_session, request, self.session)
+                self.assertRaises(CreationException, commands.start_session,
+                                  request, self.session)
 
     def test_start_session_when_session_was_timeouted(self):
         with patch.object(requests, "request",
@@ -180,7 +190,8 @@ class TestStartSessionCommands(CommonCommandsTestCase):
                           )):
                 self.session.timeouted = True
                 request = copy.copy(self.request)
-                self.assertRaises(CreationException, commands.start_session, request, self.session)
+                self.assertRaises(CreationException, commands.start_session,
+                                  request, self.session)
 
     def test_start_session_when_session_was_closed(self):
         with patch.object(requests, "request",
@@ -190,7 +201,8 @@ class TestStartSessionCommands(CommonCommandsTestCase):
                           )):
                 self.session.closed = True
                 request = copy.copy(self.request)
-                self.assertRaises(CreationException, commands.start_session, request, self.session)
+                self.assertRaises(CreationException, commands.start_session,
+                                  request, self.session)
 
 
 class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
@@ -201,7 +213,8 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
             request, self.session, self.webdriver_server.port)
         self.assertEqual(status, 200)
 
-        request_headers = dict((key.lower(), value) for key, value in request.headers.iteritems())
+        request_headers = dict((key.lower(), value) for key, value in
+                               request.headers.iteritems())
         for key, value in headers.iteritems():
             if key == 'server' or key == 'date':
                 continue
@@ -253,7 +266,8 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
     def test_check_vm_online_ok(self):
         def do_GET(handler):
-            handler.send_reply(200, self.response_headers, body=self.response_body)
+            handler.send_reply(200, self.response_headers,
+                               body=self.response_body)
         Handler.do_GET = do_GET
         result = commands.ping_vm(self.session)
         self.assertTrue(result)
@@ -269,7 +283,8 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
     def test_check_vm_online_status_failed(self):
         def do_GET(handler):
-            handler.send_reply(500, self.response_headers, body=self.response_body)
+            handler.send_reply(500, self.response_headers,
+                               body=self.response_body)
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
         self.assertRaises(CreationException, commands.selenium_status,
@@ -279,7 +294,8 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         self.session.closed = True
 
         def do_GET(handler):
-            handler.send_reply(200, self.response_headers, body=self.response_body)
+            handler.send_reply(200, self.response_headers,
+                               body=self.response_body)
 
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
@@ -289,6 +305,9 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
 
 class TestGetDesiredCapabilities(unittest.TestCase):
+    def shortDescription(self):
+        return None  # TODO: move to parent
+
     def setUp(self):
         self.body = {
             "sessionId": None,
@@ -319,7 +338,8 @@ class TestGetDesiredCapabilities(unittest.TestCase):
         self.request.body = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertIsInstance(dc.platform, unicode)
-        self.assertEqual(self.body["desiredCapabilities"]["platform"], dc.platform)
+        self.assertEqual(self.body["desiredCapabilities"]["platform"],
+                         dc.platform)
 
     def test_name(self):
         self.body['desiredCapabilities'].update({
@@ -393,7 +413,8 @@ class TestRunScript(CommonCommandsTestCase):
         def run_script_through_websocket_mock(*args, **kwargs):
             return 200, {}, 'some_body'
 
-        commands.run_script_through_websocket = run_script_through_websocket_mock
+        commands.run_script_through_websocket = \
+            run_script_through_websocket_mock
         response = commands.run_script(self.request, self.session)
 
         self.assertEqual(200, response[0])
@@ -409,4 +430,3 @@ class TestLabelCommands(CommonCommandsTestCase):
         self.assertEqual(status, 200)
         json_body = json.loads(body)
         self.assertEqual(json_body["value"], label)
-
