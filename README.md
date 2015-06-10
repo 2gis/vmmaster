@@ -35,3 +35,16 @@ sudo virt-install --connect=qemu:///system --name ubuntu-13.04-x64-origin --netw
 ### generate settings.xml
 TODO
 
+## development
+
+### environment
++ pip install -r requirements-dev.txt
++ ./install-hooks.sh
+
+### linting
++ flake8 vmmaster/ tests/
+
+### unittests with coverage
++ coverage run --source=vmmaster run_unittests.py
++ coverage html
++ look for coverage/index.html
