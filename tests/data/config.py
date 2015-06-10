@@ -45,6 +45,7 @@ class Config(object):
     PRELOADER_FREQUENCY = 3
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
+    PING_ATTEMPTS = 1
 
     GRAPHITE = ('graphite', 2003)
 

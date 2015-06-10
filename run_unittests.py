@@ -1,2 +1,2 @@
-import nose
-nose.run(defaultTest="tests")
+import lode_runner
+lode_runner.run(defaultTest="tests")

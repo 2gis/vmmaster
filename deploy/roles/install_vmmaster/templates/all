@@ -58,9 +58,10 @@ class Config(object):
     PRELOADER_FREQUENCY = {{preloader_frequency}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
+    PING_ATTEMPTS = {{vmmaster_ping_attempts}}
 
     # additional logging
-    # GRAYLOG = {{vmmaster_graylog}}
+    GRAYLOG = {{vmmaster_graylog}}
 
     # graphite
     GRAPHITE = {{vmmaster_graphite}}

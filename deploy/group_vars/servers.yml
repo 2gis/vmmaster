@@ -70,6 +70,7 @@ vm_create_check_attempts: 1000
 preloader_frequency: 3
 vmmaster_session_timeout: 360
 vmmaster_ping_timeout: 180
+vmmaster_ping_attempts: 3
 
 # additional logging
 # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)

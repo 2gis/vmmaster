@@ -51,6 +51,7 @@ class Config(object):
     PRELOADER_FREQUENCY = 3
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
+    PING_ATTEMPTS = 3
 
     # additional logging
     # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)

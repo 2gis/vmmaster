@@ -214,6 +214,9 @@ def get_session(request, desired_caps):
     while delayed_vm.vm is None:
         time.sleep(0.1)
 
+    while not delayed_vm.vm.ready:
+        time.sleep(0.1)
+
     if request.closed:
         delayed_vm.vm.delete()
         raise ConnectionError('Session was closed during creating selenium session')

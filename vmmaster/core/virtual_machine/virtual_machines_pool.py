@@ -107,14 +107,18 @@ class VirtualMachinesPool(object):
             prefix = "ondemand-{}".format(uuid4())
 
         origin = Platforms.get(origin_name)
-        clone = origin.make_clone(origin, prefix)
+        try:
+            clone = origin.make_clone(origin, prefix)
+        except Exception as e:
+            log.info('Exception during initializing vm object: %s' % e.message)
+            return
 
         cls.add_vm(clone, to)
 
         try:
             clone.create()
         except Exception as e:
-            log.error(e)
+            log.error("Error creating vm: %s" % e.message)
             clone.delete()
             try:
                 to.remove(clone)

@@ -2,3 +2,4 @@ log/
 .idea
 *.pyc
 .env
+.coverage
