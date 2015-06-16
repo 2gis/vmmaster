@@ -5,7 +5,6 @@ import time
 from functools import partial
 from xml.dom import minidom
 from uuid import uuid4
-from novaclient.exceptions import NotFound
 import netifaces
 import SubnetTree
 
@@ -23,7 +22,7 @@ from ..config import config
 
 from ...core.utils import network_utils
 import sys
-from Queue import Queue
+import Queue
 
 
 class BucketThread(Thread):
@@ -34,7 +33,7 @@ class BucketThread(Thread):
     def run(self):
         try:
             super(BucketThread, self).run()
-        except:
+        except Exception:
             self.bucket.put(sys.exc_info())
 
 
@@ -44,17 +43,10 @@ def threaded_wait(func):
         def thread_target():
             return func(self, *args, **kwargs)
 
-        error_bucket = Queue()
+        error_bucket = Queue.Queue()
         tr = BucketThread(target=thread_target, bucket=error_bucket)
         tr.daemon = True
         tr.start()
-
-        while tr.isAlive():
-            tr.join(0.1)
-
-        if not error_bucket.empty():
-            error = error_bucket.get()
-            raise error[0], error[1], error[2]
 
     return wrapper
 
@@ -371,8 +363,12 @@ class OpenstackClone(Clone):
             log.info("An error occurred during addition ip for vm %s: %s" % (self.name, e.message))
             server = None
 
-        return True if server is not None and str(server.status).lower() == 'active' \
-                       and getattr(server, 'addresses', None) is not None else False
+        if server is not None:
+            if server.status.lower() == 'active':
+                if getattr(server, 'addresses', None) is not None:
+                    return True
+
+        return False
 
     def check_vm_exist(self, server_name):
         try:
@@ -404,7 +400,8 @@ class OpenstackClone(Clone):
         self.ready = False
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
-            self._wait_for_activated_service(lambda: log.info("Rebuilded openstack {clone}".format(clone=self.name)))
         except Exception as e:
             log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()
+
+        self._wait_for_activated_service(lambda: log.info("Rebuilded openstack {clone}".format(clone=self.name)))

@@ -6,6 +6,7 @@ from vmmaster.core.config import setup_config
 from vmmaster.core.utils import openstack_utils
 from mock import Mock, patch, PropertyMock
 from copy import copy
+from helpers import wait_for
 
 # mocking for Openstack
 def custom_wait(self, method): self.ready = True
@@ -23,8 +24,7 @@ openstack_utils.glance_client().images.list = Mock(return_value=[mocked_image])
        new=Mock(return_value=True))
 @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_network_name',
        new=Mock(return_value='Local-Net'))
-@patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_network_id',
-       new=Mock(return_value=1))
+@patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_network_id', new=Mock(return_value=1))
 class TestOpenstackClone(unittest.TestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -34,8 +34,7 @@ class TestOpenstackClone(unittest.TestCase):
     def tearDown(self):
         pool.free()
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
-           new=custom_wait)
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service', new=custom_wait)
     def test_creation_vm(self):
         """
         test_creation_vm
@@ -48,8 +47,7 @@ class TestOpenstackClone(unittest.TestCase):
         self.assertTrue(pool.using[0].ready)
         self.assertEqual(len(pool.using), 1)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
-           new=custom_wait)
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service', new=custom_wait)
     def test_exception_during_creation_vm(self):
         """
         test_exception_during_creation_vm
@@ -63,18 +61,36 @@ class TestOpenstackClone(unittest.TestCase):
                 servers=Mock(create=Mock(side_effect=Exception('Exception in create'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=False))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(return_value=False))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist', new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.rebuild', new=Mock(return_value=True))
     def test_exception_in_wait_for_activated_service_and_vm_has_not_been_created(self):
         """
         test_exception_in_wait_for_activated_service_and_vm_has_not_been_created
         - call OpenstackClone.create()
         - exception in _wait_for_activated_service
         - vm_has_created is False
+
+        Expected: vm has been rebuilded
+        """
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+            nova.return_value = Mock(servers=Mock(
+                find=Mock(side_effect=Exception('Exception in _wait_for_activated_service'))))
+
+            pool.add(self.platform)
+            self.assertEqual(pool.count(), 1)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(return_value=False))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist', new=Mock(return_value=True))
+    def test_exception_in_wait_for_activated_service_and_rebuild_failed(self):
+        """
+        test_exception_in_wait_for_activated_service_and_rebuild_failed
+        - call OpenstackClone.create()
+        - exception in _wait_for_activated_service
+        - vm_has_created is False
+        - call rebuild() and raise Exception in rebuild()
 
         Expected: vm has been deleted
         """
@@ -83,16 +99,15 @@ class TestOpenstackClone(unittest.TestCase):
                 find=Mock(side_effect=Exception('Exception in _wait_for_activated_service'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            wait_for(lambda: pool.count() == 0)
+            self.assertEqual(pool.count(), 0)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock())
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm', new=Mock(return_value=True))
     def test_exception_in_wait_for_activated_service_and_ping_success(self):
         """
-        test_exception_in_wait_for_activated_service_and_vm_has_created
+        test_exception_in_wait_for_activated_service_and_ping_success
         - call OpenstackClone.create()
         - exception in _wait_for_activated_service
         - vm_has_created is True
@@ -105,30 +120,31 @@ class TestOpenstackClone(unittest.TestCase):
                 find=Mock(side_effect=Exception('Exception in _wait_for_activated_service'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 1)
+            wait_for(lambda: pool.using[0].ready is True)
+            self.assertEqual(pool.count(), 1)
             self.assertTrue(pool.using[0].ready)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=False))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created', new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock())
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.rebuild', new=Mock(return_value=True))
     def test_exception_in_wait_for_activated_service_and_ping_failed(self):
         """
-        test_exception_in_wait_for_activated_service_and_vm_has_created
+        test_exception_in_wait_for_activated_service_and_ping_failed
         - call OpenstackClone.create()
         - exception in _wait_for_activated_service
         - vm_has_created is True
         - ping failed
 
-        Expected: vm has been deleted
+        Expected: vm has been rebuilded
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova, \
+             patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm') as ping_mock:
             nova.return_value = Mock(servers=Mock(
                 find=Mock(side_effect=Exception('Exception in _wait_for_activated_service'))))
+            ping_mock.return_value = False
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 1)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
@@ -146,7 +162,7 @@ class TestOpenstackClone(unittest.TestCase):
                                          find=Mock(side_effect=Exception('Exception in image'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
@@ -165,10 +181,10 @@ class TestOpenstackClone(unittest.TestCase):
                                          find=Mock(side_effect=Exception('Exception in flavor'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
     def test_delete_vm(self):
@@ -185,10 +201,10 @@ class TestOpenstackClone(unittest.TestCase):
 
             pool.add(self.platform)
             pool.using[0].delete()
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=False))
+           new=Mock(return_value=False))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
     def test_delete_vm_if_vm_does_not_exist(self):
@@ -206,19 +222,15 @@ class TestOpenstackClone(unittest.TestCase):
 
             pool.add(self.platform)
             pool.using[0].delete()
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
-    @dataprovider([
-        ('ondemand', pool.add),
-        ('preloaded', pool.preload)
-    ])
-    def test_rebuild_vm(self, prefix, method):
+    def test_rebuild_preload_vm(self):
         """
-        test_rebuild_vm
+        test_rebuild_preload_vm
         - call OpenstackClone.create()
         - call OpenstackClone.rebuild()
 
@@ -228,43 +240,86 @@ class TestOpenstackClone(unittest.TestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(delete=Mock(),
                                                                               rebuild=Mock()))))
 
-            method(self.platform, prefix=prefix)
-            vms = pool.pool
-            vms.extend(pool.using)
-            vms[0].rebuild()
-            self.assertEqual(len(vms), 1)
-            self.assertTrue(vms[0].ready)
-
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=True))
-    @dataprovider([
-        ('ondemand', pool.add),
-        ('preloaded', pool.preload)
-    ])
-    def test_rebuild_vm_with_wait_activate_service(self, prefix, method):
-        """
-        test_rebuild_vm
-        - call OpenstackClone.create()
-        - call OpenstackClone.rebuild()
-
-        Expected: vm has been rebuilded and added in pool
-        """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
-            nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(delete=Mock(),
-                                                                              rebuild=Mock()))))
-
-            method(self.platform, prefix=prefix)
-            vms = pool.pool
-            vms.extend(pool.using)
-            vms[0].rebuild()
-            self.assertEqual(len(vms), 1)
-            self.assertTrue(vms[0].ready)
+            pool.preload(self.platform, prefix='preloaded')
+            wait_for(lambda: pool.pool[0].ready is True)
+            pool.pool[0].rebuild()
+            wait_for(lambda: pool.pool[0].ready is True)
+            self.assertEqual(pool.count(), 1)
+            self.assertTrue(pool.pool[0].ready)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=False))
+           new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
+           new=custom_wait)
+    def test_rebuild_ondemand_vm(self):
+        """
+        test_rebuild_ondemand_vm
+        - call OpenstackClone.create()
+        - call OpenstackClone.rebuild()
+
+        Expected: vm has been rebuilded and added in pool
+        """
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+            nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(delete=Mock(),
+                                                                              rebuild=Mock()))))
+
+            pool.add(self.platform, prefix='ondemand')
+            wait_for(lambda: pool.using[0].ready is True)
+            pool.using[0].rebuild()
+            wait_for(lambda: pool.using[0].ready is True)
+            self.assertEqual(pool.count(), 1)
+            self.assertTrue(pool.using[0].ready)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
+           new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
+           new=Mock(return_value=True))
+    def test_rebuild_ondemand_vm_with_wait_activate_service(self):
+        """
+        test_rebuild_ondemand_vm_with_wait_activate_service
+        - call OpenstackClone.create()
+        - call OpenstackClone.rebuild()
+
+        Expected: vm has been rebuilded and added in pool
+        """
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+            nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(delete=Mock(),
+                                                                              rebuild=Mock()))))
+
+            pool.add(self.platform, prefix='ondemand')
+            wait_for(lambda: pool.using[0].ready is True)
+            pool.using[0].rebuild()
+            wait_for(lambda: pool.using[0].ready is True)
+            self.assertEqual(pool.count(), 1)
+            self.assertTrue(pool.using[0].ready)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
+           new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
+           new=Mock(return_value=True))
+    def test_rebuild_preload_vm_with_wait_activate_service(self):
+        """
+        test_rebuild_preload_vm_with_wait_activate_service
+        - call OpenstackClone.create()
+        - call OpenstackClone.rebuild()
+
+        Expected: vm has been rebuilded and added in pool
+        """
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+            nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(delete=Mock(),
+                                                                              rebuild=Mock()))))
+
+            pool.preload(self.platform, prefix='preloaded')
+            wait_for(lambda: pool.pool[0].ready is True)
+            pool.pool[0].rebuild()
+            wait_for(lambda: pool.pool[0].ready is True)
+            self.assertEqual(pool.count(), 1)
+            self.assertTrue(pool.pool[0].ready)
+
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
+           new=Mock(return_value=False))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
     def test_rebuild_vm_if_vm_does_not_exist(self):
@@ -283,11 +338,12 @@ class TestOpenstackClone(unittest.TestCase):
                                                                                       'Rebuild error'))))))
 
             pool.add(self.platform)
+            wait_for(lambda: pool.using[0].ready is True)
             pool.using[0].rebuild()
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone._wait_for_activated_service',
            new=custom_wait)
     def test_exception_in_rebuild_vm_if_vm_exist(self):
@@ -306,38 +362,38 @@ class TestOpenstackClone(unittest.TestCase):
                                                                                       'Rebuild error'))))))
 
             pool.add(self.platform)
+            wait_for(lambda: pool.using[0].ready is True)
             pool.using[0].rebuild()
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist', new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock())
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.rebuild', new=Mock(return_value=True))
+    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm', new=Mock(return_value=True))
     def test_exception_in_vm_has_created(self):
         """
-        test_exception_in_rebuild_vm_if_vm_exist
+        test_exception_in_vm_has_created
         - call OpenstackClone.create()
         - check_vm_exist is True
         - ping successful
         - exception in vm_has_created()
 
-        Expected: vm has been deleted
+        Expected: vm has been rebuilded
         """
         with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(
                 servers=Mock(find=Mock(side_effect=Exception('Exception in vm_has_created'))))
 
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 1)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
+           new=Mock(return_value=True))
     def test_vm_in_build_status(self):
         """
         test_vm_in_build_status
@@ -353,15 +409,13 @@ class TestOpenstackClone(unittest.TestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(status=Mock(lower=Mock(side_effect=['build', 'active']))))))
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 1)
+            self.assertEqual(pool.count(), 1)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=False))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
-    def test_exception_in_get_ip(self):
+           new=Mock(return_value=True))
+    def test_exception_in_get_ip(self, ):
         """
         test_exception_in_get_ip
         - call OpenstackClone.create()
@@ -371,19 +425,22 @@ class TestOpenstackClone(unittest.TestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova, \
+             patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm') as ping_mock:
             nova.return_value = Mock(servers=Mock(find=Mock(return_value=Mock(
                 addresses=Mock(get=Mock(side_effect=Exception('Error get addresses'))),
                 rebuild=Mock(side_effect=Exception('Rebuild exception'))))))
+            ping_mock.side_effect = False
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            wait_for(lambda: pool.count() > 0)
+            self.assertEqual(pool.count(), 1)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-           new=Mock(__name__='check_vm_exist', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-           new=Mock(__name__='ping_vm', return_value=True))
+           new=Mock(return_value=True))
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-           new=Mock(__name__='vm_has_created', return_value=True))
+           new=Mock(return_value=True))
     def test_create_vm_with_get_ip(self):
         """
         test_create_vm_with_get_ip
@@ -400,17 +457,18 @@ class TestOpenstackClone(unittest.TestCase):
                 get=Mock(return_value=[
                     {'addr': '127.0.0.1', 'OS-EXT-IPS-MAC:mac_addr': 'test_mac'}]))))))
             pool.add(self.platform)
+            wait_for(lambda: pool.using[0].ready is True)
             self.assertEqual(pool.using[0].ip, '127.0.0.1')
             self.assertEqual(pool.using[0].mac, 'test_mac')
-            self.assertEqual(len(pool.pool + pool.using), 1)
+            self.assertEqual(pool.count(), 1)
 
 
 @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.check_vm_exist',
-       new=Mock(__name__='check_vm_exist', return_value=False))
+       new=Mock(return_value=False))
 @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
-       new=Mock(__name__='ping_vm', return_value=True))
+       new=Mock(return_value=True))
 @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
-       new=Mock(__name__='vm_has_created', return_value=True))
+       new=Mock(return_value=True))
 @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_ip', new=Mock(__name__='get_ip'))
 @patch('vmmaster.core.virtual_machine.virtual_machines_pool.VirtualMachinesPool.can_produce',
        new=Mock(return_value=True))
@@ -442,7 +500,7 @@ class TestNetworkGetting(unittest.TestCase):
                                      list_networks=Mock(return_value=Mock(
                                          get=Mock(return_value=[{'id': 1, 'name': 'Local-Net'}]))))
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 1)
+            self.assertEqual(pool.count(), 1)
 
     def test_exception_in_get_network_id(self):
         """
@@ -459,7 +517,7 @@ class TestNetworkGetting(unittest.TestCase):
             nova.return_value = Mock(list_subnets=Mock(
                 return_value=Mock(get=Mock(side_effect=Exception('Exception in get_network_id')))))
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     def test_exception_in_get_network_name(self):
         """
@@ -478,7 +536,7 @@ class TestNetworkGetting(unittest.TestCase):
                                      list_networks=Mock(
                                          side_effect=Exception('Exception in get_network_name')))
             pool.add(self.platform)
-            self.assertEqual(len(pool.pool + pool.using), 0)
+            self.assertEqual(pool.count(), 0)
 
     @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.get_network_id',
            new=Mock(return_value=None))
@@ -495,4 +553,4 @@ class TestNetworkGetting(unittest.TestCase):
         Expected: vm has not been created
         """
         pool.add(self.platform)
-        self.assertEqual(len(pool.pool + pool.using), 0)
+        self.assertEqual(pool.count(), 0)
