@@ -50,15 +50,15 @@ class Config(object):
     OPENSTACK_TENANT_ID = "{{openstack_tenant_id}}"
     OPENSTACK_ZONE_FOR_VM_CREATE = "{{openstack_zone_for_vm_create}}"
     OPENSTACK_PLATFORM_NAME_PREFIX = "{{openstack_platform_name_prefix}}"
+    OPENSTACK_PING_RETRY_COUNT = {{vmmaster_ping_retry_count}}
 
     VM_CHECK = {{vmmaster_vm_check}}
     VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}
-    VM_CREATE_CHECK_TIMEOUT = {{vm_create_check_timeout}}
+    VM_CREATE_CHECK_PAUSE = {{vm_create_check_pause}}
     VM_CREATE_CHECK_ATTEMPTS = {{vm_create_check_attempts}}
     PRELOADER_FREQUENCY = {{preloader_frequency}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
-    PING_ATTEMPTS = {{vmmaster_ping_attempts}}
 
     # additional logging
     GRAYLOG = {{vmmaster_graylog}}

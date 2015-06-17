@@ -1,12 +1,12 @@
-from functools import wraps
-from threading import Thread
 import time
+import netifaces
+import SubnetTree
 
+from functools import wraps
 from functools import partial
 from xml.dom import minidom
 from uuid import uuid4
-import netifaces
-import SubnetTree
+from threading import Thread
 
 from . import VirtualMachine
 from .virtual_machines_pool import pool
@@ -21,20 +21,6 @@ from ..exceptions import libvirtError, CreationException
 from ..config import config
 
 from ...core.utils import network_utils
-import sys
-import Queue
-
-
-class BucketThread(Thread):
-    def __init__(self, bucket, *args, **kwargs):
-        Thread.__init__(self, *args, **kwargs)
-        self.bucket = bucket
-
-    def run(self):
-        try:
-            super(BucketThread, self).run()
-        except Exception:
-            self.bucket.put(sys.exc_info())
 
 
 def threaded_wait(func):
@@ -43,8 +29,7 @@ def threaded_wait(func):
         def thread_target():
             return func(self, *args, **kwargs)
 
-        error_bucket = Queue.Queue()
-        tr = BucketThread(target=thread_target, bucket=error_bucket)
+        tr = Thread(target=thread_target)
         tr.daemon = True
         tr.start()
 
@@ -274,11 +259,11 @@ class OpenstackClone(Clone):
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
         from time import sleep
-        config_wait_tries, config_wait_timeout = config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_TIMEOUT
-        config_ping_tries, config_ping_timeout = config.PING_ATTEMPTS, config.PING_TIMEOUT
+        config_create_check_retry_count, config_create_check_pause = config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
+        config_ping_retry_count, config_ping_timeout = config.OPENSTACK_PING_RETRY_COUNT, config.PING_TIMEOUT
 
-        wait_tries = 1
-        ping_tries = 1
+        create_check_retry = 1
+        ping_retry = 1
         while True:
             try:
                 server = self.nova_client.servers.find(name=self.name)
@@ -288,11 +273,11 @@ class OpenstackClone(Clone):
 
             if server is not None and server.status.lower() in ('build', 'rebuild'):
                 log.info("Virtual Machine %s is spawning..." % self.name)
-                if wait_tries > config_wait_tries:
-                    log.info("VM %s creates more than %s seconds, check this VM" % (self.name, config_wait_tries*config_wait_timeout))
+                if create_check_retry > config_create_check_retry_count:
+                    log.info("VM %s creates more than %s seconds, check this VM" % (self.name, config_create_check_retry_count*config_create_check_pause))
 
-                wait_tries += 1
-                sleep(config_wait_timeout)
+                create_check_retry += 1
+                sleep(config_create_check_pause)
 
             elif self.vm_has_created():
                 if method is not None:
@@ -300,14 +285,12 @@ class OpenstackClone(Clone):
                 if self.ping_vm():
                     self.ready = True
                     break
-                if ping_tries > config_ping_tries:
-                    log.info("VM %s pings more than %s seconds, deleting VM" % (self.name, config_ping_tries*config_ping_timeout))
+                if ping_retry > config_ping_retry_count:
+                    log.info("VM %s pings more than %s seconds, rebuilding VM..." % (self.name, config_ping_retry_count*config_ping_timeout))
                     self.rebuild()
                     break
 
-                ping_tries += 1
-                sleep(config_ping_timeout)
-
+                ping_retry += 1
             else:
                 log.info("VM %s has not been created." % self.name)
                 self.rebuild()

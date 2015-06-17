@@ -43,15 +43,15 @@ class Config(object):
     OPENSTACK_TENANT_ID = ""
     OPENSTACK_ZONE_FOR_VM_CREATE = ""
     OPENSTACK_PLATFORM_NAME_PREFIX = "origin-"
+    OPENSTACK_PING_RETRY_COUNT = 3
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800
-    VM_CREATE_CHECK_TIMEOUT = 5
+    VM_CREATE_CHECK_PAUSE = 5
     VM_CREATE_CHECK_ATTEMPTS = 1000
     PRELOADER_FREQUENCY = 3
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
-    PING_ATTEMPTS = 3
 
     # additional logging
     # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
