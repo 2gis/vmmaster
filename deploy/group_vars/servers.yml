@@ -62,10 +62,11 @@ openstack_tenant_name: "test"
 openstack_tenant_id: "id"
 openstack_zone_for_vm_create: ""
 openstack_platform_name_prefix: "origin-"
+vmmaster_ping_retry_count: 3
 
 vmmaster_vm_check: "False"
 vmmaster_vm_check_frequency: 1800
-vm_create_check_timeout: 5
+vm_create_check_pause: 5
 vm_create_check_attempts: 1000
 preloader_frequency: 3
 vmmaster_session_timeout: 360
