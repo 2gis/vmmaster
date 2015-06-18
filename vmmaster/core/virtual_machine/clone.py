@@ -383,8 +383,7 @@ class OpenstackClone(Clone):
         self.ready = False
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
+            self._wait_for_activated_service(lambda: log.info("Rebuilded openstack {clone}".format(clone=self.name)))
         except Exception as e:
             log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()
-
-        self._wait_for_activated_service(lambda: log.info("Rebuilded openstack {clone}".format(clone=self.name)))
