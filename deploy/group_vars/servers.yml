@@ -84,3 +84,28 @@ vmmaster_selenium_port: 4455
 vmmaster_agent_port: 9000
 
 log_level: "INFO"
+
+
+# nginx settings
+nginx: false
+only_nginx: false
+nginx_sites:
+  - {
+    name: vmmaster_backend.conf,
+    listen: 9000,
+    locations: [
+      {
+        name: '/',
+        proxy_pass: 'http://backends',
+        proxy_set_header: ['Host $host', 'X-Real-IP $remote_addr'],
+        proxy_next_upstream: "error timeout http_500 http_502 http_503 http_504"
+      },
+    ]
+  }
+
+# added upstreams config to /etc/nginx/conf.d/
+nginx_upstreams:
+  - {
+    name: "backends",
+    server1: "server 127.0.0.1:{{vmmaster_port}} max_fails=1 fail_timeout=300",
+  }
