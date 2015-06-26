@@ -43,7 +43,8 @@ setup(
         'python-neutronclient==2.3.11',
         'python-novaclient==2.22.0',
         'pysubnettree==0.23',
-        'Flask-HTTPAuth==2.4.0'
+        'Flask-HTTPAuth==2.4.0',
+        'oslo.i18n==1.7.0'
     ],
     scripts=[
         'bin/vmmaster',
