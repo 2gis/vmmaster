@@ -23,7 +23,7 @@ class TestWDAuthPositive(unittest.TestCase):
         cls.app.running = True
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')
-        from vmmaster.core.platforms import Platforms
+        from vmpool.platforms import Platforms
         cls.platform = Platforms().platforms.keys()[0]
 
     def setUp(self):
@@ -109,7 +109,7 @@ class TestAPIAuthPositive(unittest.TestCase):
         cls.app = Flask(__name__)
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')
-        from vmmaster.core.platforms import Platforms
+        from vmpool.platforms import Platforms
         cls.platform = Platforms().platforms.keys()[0]
 
         cls.method = "GET"

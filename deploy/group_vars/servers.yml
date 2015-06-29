@@ -1,9 +1,9 @@
+###############################################################################
+###############################################################################
+###############################################################################
+# common
 # user for deploy on remote host
 deploy_user: ansible
-
-# home fir for vmmaster
-app_path: "/var/www/{{app_name}}"
-app_name: "vmmaster{{http_port}}"
 
 # vmmaster version as commit or branch name
 vmmaster_version: master
@@ -14,11 +14,37 @@ use_postgres: true
 # only update vmmaster from repo
 update: false
 
+# common config for backend
 # postgres params
 postgres_user: vmmaster
 postgres_password: vmmaster
 postgres_db: vmmaster_db
 postgres_host: localhost
+
+# additional logging
+# sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
+vmmaster_graylog: ('logserver', 12201)
+
+# graphite
+vmmaster_graphite: ('graphite', 2003)
+
+# selenium
+vmmaster_selenium_port: 4455
+vmmaster_agent_port: 9000
+
+# logging
+vmmaster_log_dir: "/logs"
+vmmaster_log_size: 5242880
+log_level: "INFO"
+
+###############################################################################
+###############################################################################
+###############################################################################
+# vmmaster parameters
+
+# home dir for vmmaster
+app_path: "/var/www/{{app_name}}"
+app_name: "vmmaster{{vmmaster_port}}"
 
 # config name from install_vmmaster/templates/
 change_vmmaster_config: true
@@ -26,19 +52,32 @@ vmmaster_config_name: all
 
 # config params from install_vmmaster/templates/
 vmmaster_basedir: os.path.dirname(os.path.realpath(__file__))
-vmmaster_port: "{{http_port}}"
+vmmaster_port: 9001
 
-vmmaster_clones_dir: "{{vmmaster_basedir}}/vmmaster/clones"
-vmmaster_origins_dir: "{{vmmaster_basedir}}/vmmaster/origins"
-vmmaster_session_dir: "{{vmmaster_basedir}}/vmmaster/session"
+vmmaster_session_dir: "/vmmaster/session"
 
 # screenshots
 vmmaster_screenshots_dir: "/vmmaster/screenshots"
 vmmaster_screenshots_days: 7
 
-# logging
-vmmaster_log_dir: "/logs"
-vmmaster_log_size: 5242880
+vmmaster_session_timeout: 360
+vmmaster_ping_timeout: 180
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#vm pool
+vmpool_path: "/var/www/{{vmpool_name}}"
+vmpool_name: "vmpool{{vmpool_port}}"
+get_vm_timeout: 180
+vmpool_port: 9999
+vmpool_host: "localhost"
+change_vmpool_config: true
+vmpool_config_name: all
+
+vmmaster_clones_dir: "/vmmaster/clones"
+vmmaster_origins_dir: "/vmmaster/origins"
 
 # kvm
 use_kvm: "True"
@@ -72,25 +111,11 @@ vmmaster_vm_check_frequency: 1800
 vm_create_check_pause: 5
 vm_create_check_attempts: 1000
 preloader_frequency: 3
-vmmaster_session_timeout: 360
-vmmaster_ping_timeout: 180
 
-# additional logging
-# sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
-vmmaster_graylog: ('logserver', 12201)
-
-# graphite
-vmmaster_graphite: ('graphite', 2003)
-
-# selenium
-vmmaster_selenium_port: 4455
-vmmaster_agent_port: 9000
-
-log_level: "INFO"
-
+###############################################################################
+###############################################################################
+###############################################################################
 # nginx settings
-nginx: false
-only_nginx: false
 nginx_sites:
   - {
     name: vmmaster_backend.conf,
@@ -109,5 +134,5 @@ nginx_sites:
 nginx_upstreams:
   - {
     name: "backends",
-    server1: "server 127.0.0.1:{{http_port}} max_fails=1 fail_timeout=300",
+    server1: "server 127.0.0.1:{{vmmaster_port}} max_fails=1 fail_timeout=300",
   }

@@ -14,7 +14,7 @@ def session_id(*args, **kwargs):
         id = uuid4()
     return Session()
 
-from vmmaster.core.virtual_machine import VirtualMachine
+from vmpool import VirtualMachine
 
 
 class TestApi(unittest.TestCase):
@@ -41,10 +41,13 @@ class TestApi(unittest.TestCase):
                 patch('vmmaster.core.logger.setup_logging',
                       new=Mock(return_value=Mock())):
             from vmmaster.server import create_app
+            from vmpool.app import app
             self.app = create_app()
+            self.vmpool = app()
 
-        self.client = self.app.test_client()
-        self.platforms = self.app.platforms.platforms
+        self.vmmaster_client = self.app.test_client()
+        self.vmpool_client = self.vmpool.test_client()
+        self.platforms = self.vmpool.platforms.platforms
         self.platform = sorted(self.platforms.keys())[0]
         self.desired_caps = {
             'desiredCapabilities': {
@@ -56,9 +59,12 @@ class TestApi(unittest.TestCase):
         with patch('vmmaster.core.db.database', Mock()) as db:
             db.update = Mock()
             self.app.cleanup()
+            self.vmpool.shutdown()
             del self.app
+            del self.vmpool
 
-    @patch('vmmaster.core.db.database', Mock())
+    @patch('vmmaster.core.utils.utils.del_endpoint', new=Mock())
+    @patch('vmmaster.core.db.database', new=Mock())
     def test_api_sessions(self):
         from vmmaster.webdriver.commands import DesiredCapabilities
         dc1 = DesiredCapabilities(name="session1",
@@ -66,24 +72,17 @@ class TestApi(unittest.TestCase):
                                   runScript="")
         s1 = self.app.sessions.start_session(
             dc1, VirtualMachine("session1"))
-        dc2 = DesiredCapabilities(name="session2",
-                                  platform='test_origin_1',
-                                  runScript="")
-        s2 = self.app.sessions.start_session(
-            dc2, VirtualMachine("session2"))
-        response = self.client.get('/api/sessions')
+        response = self.vmmaster_client.get('/api/sessions')
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
         sessions = body['result']['sessions']
-        self.assertEqual(2, len(sessions))
-        for session in sessions:
-            self.assertEqual(self.platform, session['platform'])
+        self.assertEqual(1, len(sessions))
+        self.assertEqual(self.platform, sessions[0]['platform'])
         self.assertEqual(200, body['metacode'])
         s1.close()
-        s2.close()
 
     def test_api_platforms(self):
-        response = self.client.get('/api/platforms')
+        response = self.vmpool_client.get('/api/platforms')
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
         platforms = body['result']['platforms']
@@ -92,6 +91,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])
 
+    @patch('vmmaster.core.utils.utils.del_endpoint', new=Mock())
     @patch('vmmaster.core.db.database', Mock())
     def test_api_stop_session(self):
         from vmmaster.webdriver.commands import DesiredCapabilities
@@ -100,7 +100,8 @@ class TestApi(unittest.TestCase):
                                  runScript="")
         session = self.app.sessions.start_session(
             dc, VirtualMachine("session1"))
-        response = self.client.post("/api/session/%s/stop" % session.id)
+        response = self.vmmaster_client.post("/api/session/%s/stop"
+                                             % session.id)
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
         self.assertEqual(0, len(self.app.sessions.map))

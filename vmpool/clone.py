@@ -11,18 +11,18 @@ from uuid import uuid4
 from threading import Thread
 
 from . import VirtualMachine
-from .virtual_machines_pool import pool
+from virtual_machines_pool import pool
 
-from ..dumpxml import dumpxml
-from ..network.network import Network
-from ..connection import Virsh
-from ..logger import log
-from ..utils import utils
-from ..utils import openstack_utils
-from ..exceptions import libvirtError, CreationException
-from ..config import config
+from vmmaster.core.dumpxml import dumpxml
+from vmmaster.core.network.network import Network
+from vmmaster.core.connection import Virsh
+from vmmaster.core.logger import log
+from vmmaster.core.utils import utils
+from vmmaster.core.utils import openstack_utils
+from vmmaster.core.exceptions import libvirtError, CreationException
+from vmmaster.core.config import config
 
-from ...core.utils import network_utils
+from vmmaster.core.utils import network_utils
 
 
 def threaded_wait(func):
@@ -40,9 +40,10 @@ def threaded_wait(func):
 
 class Clone(VirtualMachine):
     def __init__(self, origin, prefix):
-        name = "{}-clone-{}".format(origin.name, prefix)
+        self.uuid = '%s' % uuid4()
+        self.prefix = '%s-%s' % (prefix, self.uuid)
+        name = "{}-clone-{}".format(origin.name, self.prefix)
         super(Clone, self).__init__(name)
-        self.prefix = prefix
         self.origin = origin
         self.platform = origin.name
         self.save()

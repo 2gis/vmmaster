@@ -4,8 +4,8 @@ import unittest
 from mock import Mock, patch
 from vmmaster.core.exceptions import CreationException
 from vmmaster.core.config import config, setup_config
-from vmmaster.core.virtual_machine import VirtualMachine
-from vmmaster.core.virtual_machine.virtual_machines_pool import pool
+from vmpool import VirtualMachine
+from vmpool.virtual_machines_pool import pool
 from vmmaster.core.utils import utils
 utils.delete_file = Mock()
 
@@ -23,17 +23,17 @@ class TestVirtualMachinePool(unittest.TestCase):
 
         with patch.object(connection, 'Virsh', Mock(name='Virsh')), \
                 patch.object(network, 'Network', Mock(name='Network')):
-            from vmmaster.core.platforms import Platforms
+            from vmpool.platforms import Platforms
             from vmmaster.core.network.network import Network
             Platforms()
             self.network = Network()
 
         self.platform = "test_origin_1"
 
-        from vmmaster.core.virtual_machine.clone import Clone
+        from vmpool.clone import Clone
         Clone.ping_vm = Mock(__name__="ping_vm")
 
-        from vmmaster.core.virtual_machine.clone import KVMClone
+        from vmpool.clone import KVMClone
         KVMClone.clone_origin = Mock()
         KVMClone.define_clone = Mock()
         KVMClone.start_virtual_machine = Mock()

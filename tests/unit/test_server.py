@@ -4,6 +4,7 @@ import json
 import time
 import unittest
 from mock import Mock, patch, PropertyMock
+from nose.plugins.attrib import attr
 
 from uuid import uuid4
 from vmmaster.core.config import setup_config
@@ -28,7 +29,7 @@ def empty_decorator(f):
     return_value=(200, {}, json.dumps({'sessionId': "1"})))
 )
 @patch('vmmaster.webdriver.commands.ping_vm', new=Mock(
-    __name__="check_vm_online")
+    __name__="check_vm_online", return_value=True)
 )
 @patch('vmmaster.webdriver.commands.selenium_status', new=Mock(
     __name__="selenium_status",
@@ -41,6 +42,7 @@ class TestServer(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
+        self.vmpool_address = ("localhost", 9999)
         self.desired_caps = {
             'desiredCapabilities': {
                 'platform': 'test_origin_1'
@@ -58,40 +60,44 @@ class TestServer(unittest.TestCase):
             patch.object(vmmaster.core.db, 'database',
                          new=Mock(name='Database', create_session=Mock(
                                   name='create_session_mock',
-                                  side_effect=session_id))
+                                  side_effect=session_id)),
                          ):
             from vmmaster.core.auth import custom_auth
             custom_auth.user_exists = empty_decorator
             custom_auth.auth.login_required = empty_decorator
 
-            from vmmaster.core.virtual_machine.virtual_machines_pool \
-                import VirtualMachinesPool
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.VirtualMachinesPool = VirtualMachinesPool
 
             with patch('vmmaster.core.utils.init.home_dir',
                        new=Mock(return_value=fake_home_dir())), \
                     patch('vmmaster.core.logger.setup_logging',
                           new=Mock(return_value=Mock())):
-
                 from vmmaster.server import VMMasterServer
+                from vmpool.server import VMPool
                 from nose.twistedtools import reactor
-                self.server = VMMasterServer(reactor, self.address[1])
+                self.vmmaster = VMMasterServer(reactor, self.address[1])
+                self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         server_is_up(self.address)
+        server_is_up(self.vmpool_address)
 
         from vmmaster.core.utils import utils
         utils.delete_file = Mock()
-        from vmmaster.core.virtual_machine.clone import KVMClone
+        from vmpool.clone import KVMClone
         KVMClone.clone_origin = Mock()
         KVMClone.define_clone = Mock()
         KVMClone.start_virtual_machine = Mock()
         KVMClone.drive_path = Mock()
+        KVMClone.id = 1
 
     def tearDown(self):
         with patch('vmmaster.core.db.database',
                    new=Mock(add=Mock(), update=Mock())):
-            del self.server
+            del self.vmmaster
+            del self.vmpool
             server_is_down(self.address)
+            server_is_down(self.vmpool_address)
 
     @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
     def test_server_create_new_session(self):
@@ -236,8 +242,9 @@ class TestServer(unittest.TestCase):
         }
         response = new_session_request(self.address, desired_caps)
         error = json.loads(response.content).get('value')
-        self.assertTrue('PlatformException("no such platform")' in error,
-                        error)
+
+        self.assertTrue('PlatformException: No such endpoint for your '
+                        'platform no_platform' in error, error)
 
 
 @patch('vmmaster.webdriver.commands.start_selenium_session', new=Mock(
@@ -245,7 +252,7 @@ class TestServer(unittest.TestCase):
     return_value=(200, {}, json.dumps({'sessionId': "1"})))
 )
 @patch('vmmaster.webdriver.commands.ping_vm', new=Mock(
-    __name__="check_vm_online")
+    __name__="check_vm_online", return_value=True)
 )
 @patch('vmmaster.webdriver.commands.selenium_status', new=Mock(
     __name__="selenium_status",
@@ -258,6 +265,7 @@ class TestTimeoutSession(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
+        self.vmpool_address = ("localhost", 9999)
 
         import vmmaster.core.network.network
         import vmmaster.core.connection as connection
@@ -275,40 +283,44 @@ class TestTimeoutSession(unittest.TestCase):
             custom_auth.user_exists = empty_decorator
             custom_auth.auth.login_required = empty_decorator
 
-            from vmmaster.core.virtual_machine.virtual_machines_pool \
-                import VirtualMachinesPool
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.VirtualMachinesPool = VirtualMachinesPool
 
             with patch('vmmaster.core.utils.init.home_dir',
                        new=Mock(return_value=fake_home_dir())), \
                     patch('vmmaster.core.logger.setup_logging',
                           new=Mock(return_value=Mock())):
-
                 from vmmaster.server import VMMasterServer
+                from vmpool.server import VMPool
                 from nose.twistedtools import reactor
                 self.server = VMMasterServer(reactor, self.address[1])
+                self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.app.platforms.platforms.keys()[0]
+                'platform': self.vmpool.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
+        server_is_up(self.vmpool_address)
 
         from vmmaster.core.utils import utils
         utils.delete_file = Mock()
-        from vmmaster.core.virtual_machine.clone import KVMClone
+        from vmpool.clone import KVMClone
         KVMClone.clone_origin = Mock()
         KVMClone.define_clone = Mock()
         KVMClone.start_virtual_machine = Mock()
         KVMClone.drive_path = Mock()
+        KVMClone.id = 1
 
     def tearDown(self):
         with patch('vmmaster.core.db.database', new=Mock()):
             del self.server
+            del self.vmpool
             server_is_down(self.address)
+            server_is_down(self.vmpool_address)
 
-    @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
+    @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
     def test_server_delete_timeouted_session(self):
         """
         - create timeouted session
@@ -363,7 +375,7 @@ class TestTimeoutSession(unittest.TestCase):
 
         self.assertEqual(0, self.VirtualMachinesPool.count())
 
-        import vmmaster.core.virtual_machine.virtual_machines_pool as vmp
+        import vmpool.virtual_machines_pool as vmp
         with patch.object(vmp, 'pool', Mock()) as p:
             p.has = Mock(side_effect=pool_fake_return)
             request_with_drop(self.address, self.desired_caps, None)
@@ -377,7 +389,7 @@ class TestTimeoutSession(unittest.TestCase):
         - close the connection when the request is queued
         Expected: session deleted, vm deleted
         """
-        import vmmaster.core.virtual_machine.virtual_machines_pool as vmp
+        import vmpool.virtual_machines_pool as vmp
         with patch.object(vmp, 'pool', Mock()) as p:
             p.has = Mock(return_value=False)
             p.can_produce = Mock(return_value=False)
@@ -394,6 +406,7 @@ class TestServerShutdown(unittest.TestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
+        self.vmpool_address = ("localhost", 9999)
 
         import vmmaster.core.network.network as network
         import vmmaster.core.connection as connection
@@ -409,17 +422,19 @@ class TestServerShutdown(unittest.TestCase):
                        new=Mock(return_value=fake_home_dir())), \
                     patch('vmmaster.core.logger.setup_logging',
                           new=Mock(return_value=Mock())):
-
                 from vmmaster.server import VMMasterServer
+                from vmpool.server import VMPool
                 from nose.twistedtools import reactor
                 self.server = VMMasterServer(reactor, self.address[1])
+                self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.app.platforms.platforms.keys()[0]
+                'platform': self.vmpool.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
+        server_is_up(self.vmpool_address)
 
     def test_server_shutdown(self):
         """
@@ -428,8 +443,10 @@ class TestServerShutdown(unittest.TestCase):
         """
         with patch('vmmaster.core.db.database', new=Mock()):
             del self.server
+            del self.vmpool
             with self.assertRaises(RuntimeError):
                 server_is_up(self.address, wait=1)
+                server_is_up(self.vmpool_address, wait=1)
 
     def test_session_is_not_deleted_after_server_shutdown(self):
         """
@@ -446,9 +463,11 @@ class TestServerShutdown(unittest.TestCase):
         self.assertEqual(1, len(sessions))
 
         del self.server
+        del self.vmpool
         self.assertEqual(1, len(sessions))
         s.close()
         server_is_down(self.address)
+        server_is_down(self.vmpool_address)
 
 
 # mocking for Openstack
@@ -482,8 +501,9 @@ class TestServerWithPreloadedVM(unittest.TestCase):
     def setUp(self):
         setup_config('data/config_with_preloaded.py')
         self.address = ("localhost", 9001)
+        self.vmpool_address = ("localhost", 9999)
 
-        from vmmaster.core.virtual_machine.clone import OpenstackClone
+        from vmpool.clone import OpenstackClone
         from vmmaster.core.utils import openstack_utils
 
         openstack_utils.nova_client = Mock()
@@ -520,18 +540,18 @@ class TestServerWithPreloadedVM(unittest.TestCase):
             custom_auth.user_exists = empty_decorator
             custom_auth.auth.login_required = empty_decorator
 
-            from vmmaster.core.virtual_machine.virtual_machines_pool \
-                import VirtualMachinesPool
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.VirtualMachinesPool = VirtualMachinesPool
 
             with patch('vmmaster.core.utils.init.home_dir',
                        new=Mock(return_value=fake_home_dir())), \
                     patch('vmmaster.core.logger.setup_logging',
                           new=Mock(return_value=Mock())):
-
                 from vmmaster.server import VMMasterServer
+                from vmpool.server import VMPool
                 from nose.twistedtools import reactor
                 self.server = VMMasterServer(reactor, self.address[1])
+                self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -539,16 +559,19 @@ class TestServerWithPreloadedVM(unittest.TestCase):
             }
         }
         server_is_up(self.address)
+        server_is_up(self.vmpool_address)
 
     def tearDown(self):
         with patch('vmmaster.core.db.database',
                    new=Mock(add=Mock(), update=Mock())):
             del self.server
+            del self.vmpool
             server_is_down(self.address)
+            server_is_down(self.vmpool_address)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
+    @patch('vmpool.clone.OpenstackClone.vm_has_created',
            new=Mock(__name__='vm_has_created', return_value='True'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
+    @patch('vmpool.clone.OpenstackClone.ping_vm',
            new=Mock(__name__='ping_vm', return_value='True'))
     @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
     def test_max_count_with_run_new_request_during_prevm_is_ready(self):
@@ -566,9 +589,9 @@ class TestServerWithPreloadedVM(unittest.TestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.vm_has_created',
+    @patch('vmpool.clone.OpenstackClone.vm_has_created',
            new=Mock(__name__='vm_has_created', return_value='False'))
-    @patch('vmmaster.core.virtual_machine.clone.OpenstackClone.ping_vm',
+    @patch('vmpool.clone.OpenstackClone.ping_vm',
            new=Mock(__name__='ping_vm', return_value='False'))
     @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
     def test_max_count_with_run_new_request_during_prevm_is_not_ready(self):

@@ -1,9 +1,7 @@
 """virtual_machine
-
 Revision ID: 37f924a78337
 Revises: 1e090f33bab
 Create Date: 2015-06-24 17:26:36.552058
-
 """
 
 # revision identifiers, used by Alembic.

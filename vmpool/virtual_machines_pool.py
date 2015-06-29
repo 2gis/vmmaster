@@ -4,11 +4,10 @@ import time
 
 from threading import Thread
 from collections import defaultdict
-from uuid import uuid4
 
-from ..exceptions import CreationException
-from ..config import config
-from ..logger import log
+from vmmaster.core.exceptions import CreationException
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
 
 
 class VirtualMachinesPool(object):
@@ -54,8 +53,7 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls, platform):
-        from ..platforms import Platforms
-        Platforms.check_platform(platform)
+        from platforms import Platforms
         return Platforms.can_produce(platform)
 
     @classmethod
@@ -67,19 +65,24 @@ class VirtualMachinesPool(object):
         return False
 
     @classmethod
-    def get(cls, platform):
-        for vm in sorted(cls.pool, key=lambda v: v.created,
-                         reverse=True):
-            log.info("Getting VM %s has ready property is %s and checking "
-                     "property is %s" % (vm.name, vm.ready, vm.checking))
-            if vm.platform == platform and vm.ready and not vm.checking:
-                if vm.ping_vm():
-                    cls.pool.remove(vm)
-                    cls.using.append(vm)
+    def get(cls, platform=None, _id=None):
+        if _id:
+            log.info('Getting vm with ID: %s' % _id)
+            for vm in cls.pool + cls.using:
+                if vm.ready and isinstance(vm.id, int) and vm.id == int(_id):
                     return vm
-                else:
-                    cls.pool.remove(vm)
-                    vm.delete()
+        if platform:
+            for vm in sorted(cls.pool, key=lambda v: v.created, reverse=True):
+                log.info("Getting VM %s has ready property is %s and checking "
+                         "property is %s" % (vm.name, vm.ready, vm.checking))
+                if vm.platform == platform and vm.ready and not vm.checking:
+                    if vm.ping_vm():
+                        cls.pool.remove(vm)
+                        cls.using.append(vm)
+                        return vm
+                    else:
+                        cls.pool.remove(vm)
+                        vm.delete()
 
     @classmethod
     def count_virtual_machines(cls, it):
@@ -99,7 +102,7 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def add(cls, platform, prefix=None, to=None):
-        from vmmaster.core.platforms import Platforms
+        from platforms import Platforms
 
         if not cls.can_produce(platform):
             raise CreationException(
@@ -109,7 +112,7 @@ class VirtualMachinesPool(object):
             to = cls.using
 
         if prefix is None:
-            prefix = "ondemand-{}".format(uuid4())
+            prefix = "ondemand"
 
         origin = Platforms.get(platform)
         try:
@@ -147,9 +150,9 @@ class VirtualMachinesPool(object):
         from flask import current_app
 
         def print_view(lst):
-            return [{"name": l.name, "ip": l.ip, "ready": l.ready,
-                     "checking": l.checking,
-                     "creation_time": l.created} for l in lst]
+            return [{"name": l.name, "ip": l.ip, "id": l.id,
+                     "ready": l.ready, "checking": l.checking,
+                     "created": l.created} for l in lst]
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
@@ -179,7 +182,7 @@ class VirtualMachinesPoolPreloader(Thread):
                 if self.pool.can_produce(platform):
                     log.info("VM for preloaded was found. Preloading vm for "
                              "platform %s " % platform)
-                    self.pool.preload(platform, "preloaded-{}".format(uuid4()))
+                    self.pool.preload(platform, "preloaded")
 
             time.sleep(config.PRELOADER_FREQUENCY)
 
@@ -204,7 +207,7 @@ class VirtualMachinesPoolPreloader(Thread):
 
     def stop(self):
         self.running = False
-        self.join()
+        self.join(1)
         log.info("Preloader stopped")
 
 

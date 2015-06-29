@@ -8,14 +8,26 @@
 ## install
 ### manual
 
+#### run vmmaster
 ```bash
-user@machine: ./install-dependencies.sh
+user@machine: chmod +x install_dependencies.sh
+user@machine: ./install_dependencies.sh
 user@machine: sudo pip install tox
 user@machine: tox
 user@machine: mv ./config_template.py config.py
 user@machine: sudo .tox/bin/python manage.py init
 user@machine: .tox/bin/python manage.py migrations
 user@machine: .tox/bin/python manage.py runserver
+```
+
+#### run virtual machine pool
+```bash
+user@machine: chmod +x install_dependencies.sh
+user@machine: ./install_dependencies.sh
+user@machine: sudo pip install tox
+user@machine: tox
+user@machine: mv ./config_template.py config.py
+user@machine: .tox/bin/python manage.py vmpool
 ```
 
 ### ansible
@@ -44,9 +56,9 @@ pip install -r requirements-dev.txt
 ./install-hooks.sh
 
 ### linting
-.tox/bin/flake8 vmmaster/ tests/
++ .tox/bin/flake8 vmmaster/ tests/
 
 ### unittests with coverage
-.tox/bin/coverage run --source=vmmaster run_unittests.py
-.tox/bin/coverage html
-look for coverage/index.html
++ .tox/bin/coverage run --source=vmmaster run_unittests.py
++ .tox/bin/coverage html
++ look for coverage/index.html

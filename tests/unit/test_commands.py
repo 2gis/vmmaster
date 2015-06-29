@@ -1,95 +1,18 @@
 # coding: utf-8
 
 import unittest
-import threading
-import BaseHTTPServer
 import copy
 import json
-import socket
 import requests
+from helpers import Handler
+from helpers import ServerMock, get_free_port
 
 from mock import Mock, patch
 
 # Mocking db
 from vmmaster.core import db
-# with patch.object(db, 'database', Mock(name='Database')):
-#     from vmmaster.webdriver import commands
-#     from vmmaster.core.sessions import Sessions, Session
-#     from vmmaster.core.virtual_machine import VirtualMachine
-from vmmaster.core.config import setup_config, config
 from vmmaster.core.exceptions import CreationException
-
-
-def get_free_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('', 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
-
-class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
-    @property
-    def body(self):
-        """get request body."""
-        data = copy.copy(self.rfile)
-
-        if self.headers.getheader('Content-Length') is None:
-            body = None
-        else:
-            content_length = int(self.headers.getheader('Content-Length'))
-            body = data.read(content_length)
-
-        return body
-
-    def send_reply(self, code, headers, body):
-        """ Send reply to client. """
-        # reply code
-        self.send_response(code)
-
-        # reply headers
-        for keyword, value in headers.iteritems():
-            self.send_header(keyword, value)
-        self.end_headers()
-
-        # reply body
-        self.wfile.write(body)
-
-    def do_POST(self):
-        reply = self.headers.getheader("reply")
-        code = int(reply)
-        self.send_reply(code, self.headers.dict, body=self.body)
-
-    def do_GET(self):
-        raise NotImplemented
-
-    def log_error(self, format, *args):
-        pass
-
-    def log_message(self, format, *args):
-        pass
-
-    def log_request(self, code='-', size='-'):
-        pass
-
-
-class ServerMock(object):
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self._server = BaseHTTPServer.HTTPServer((host, port), Handler)
-        self._server.timeout = 1
-        self._server.allow_reuse_address = True
-        self._thread = threading.Thread(target=self._server.serve_forever)
-
-    def start(self):
-        self._thread.start()
-
-    def stop(self):
-        self._server.shutdown()
-        self._server.server_close()
-        self._thread.join()
+from vmmaster.core.config import setup_config, config
 
 
 class CommonCommandsTestCase(unittest.TestCase):
@@ -142,17 +65,13 @@ class CommonCommandsTestCase(unittest.TestCase):
             Session.virtual_machine = Mock(ip=cls.host)
             cls.sessions = Sessions()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.webdriver_server.stop()
-        cls.vmmaster_agent.stop()
-
     @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
     def setUp(self):
         with patch('vmmaster.core.db.database',
                    new=Mock(add=Mock(), update=Mock())):
             from vmmaster.webdriver.commands import DesiredCapabilities
-            from vmmaster.core.virtual_machine import VirtualMachine
+            from vmpool import VirtualMachine
+
             vm = VirtualMachine("nothing")
             vm.ip = self.host
             dc = DesiredCapabilities(name="session1",
@@ -160,9 +79,16 @@ class CommonCommandsTestCase(unittest.TestCase):
                                      runScript="")
             self.session = self.sessions.start_session(dc, vm)
 
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.webdriver_server.stop()
+        cls.vmmaster_agent.stop()
+
     def tearDown(self):
         with patch('vmmaster.core.db.database',
-                   new=Mock(add=Mock(), update=Mock())):
+                   new=Mock(add=Mock(), update=Mock())), \
+                patch('vmmaster.core.utils.utils.del_endpoint', new=Mock()):
             self.session.delete()
 
 
