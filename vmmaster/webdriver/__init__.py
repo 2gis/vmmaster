@@ -1,7 +1,7 @@
 # coding: utf-8
 from traceback import format_exc
 
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, abort
 
 from . import commands
 import helpers
@@ -34,14 +34,20 @@ def handle_errors(error):
 
 @webdriver.before_request
 def log_request():
-    log.info(request)
-    request.proxy = helpers.SessionProxy()
-    proxy = request.proxy
-    req = request.proxy.request
-    if proxy.session_id:
-        session = current_app.sessions.get_session(proxy.session_id)
-        session.vmmaster_log_step = helpers.write_vmmaster_log(
-            proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
+    log.debug('Request: %s' % request)
+
+    if current_app.running is False:
+        log.info("This request is aborted")
+        abort(502)
+    else:
+        request.proxy = helpers.SessionProxy()
+        proxy = request.proxy
+        req = request.proxy.request
+
+        if proxy.session_id:
+            session = current_app.sessions.get_session(proxy.session_id)
+            session.vmmaster_log_step = helpers.write_vmmaster_log(
+                proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
 
 
 def send_response(response):
@@ -52,8 +58,13 @@ def send_response(response):
 
 @webdriver.after_request
 def log_response(response):
-    proxy = request.proxy
-    helpers.write_vmmaster_log(proxy.session_id, response.status_code, response.data)
+    if current_app.running is False:
+        response.status_code = 502
+    else:
+        proxy = request.proxy
+        helpers.write_vmmaster_log(proxy.session_id, response.status_code, response.data)
+
+    log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
 

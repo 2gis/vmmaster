@@ -1,0 +1,54 @@
+---
+# Тип и версия nginx
+# Примеры: nginx, nginx-extras, nginx-dev-steroidz, nginx=1.6.2-4+precise0
+nginx_name: nginx
+
+nginx_conn_proc_method: 'epoll' # ex. 'epoll'
+nginx_worker_rlimit_nofile: no
+nginx_tcp_nodelay: 'on'
+nginx_gzip: 'on'
+nginx_variables_hash_max_size: 1024
+nginx_types_hash_max_size: 2048
+nginx_directio: ''
+nginx_map_hash_bucket_size: no
+nginx_limit_req_zone: no
+nginx_reset_timedout_connection: no
+nginx_limit_conn_zone: no
+nginx_push_stream_shared_memory_size: no
+nginx_gzip_types: 'text/html'
+nginx_set_real_ip_from: no
+nginx_ssl_session_cache: no
+nginx_ssl_session_timeout: no
+
+nginx_upstreams: []
+# For example:
+#nginx_upstreams:
+#  - {
+#    name: "unicorn",
+#    server: "unix:{{ deploy_directory }}/shared/sockets/unicorn.sock fail_timeout=0",
+#    keepalive: 32
+#  }
+
+
+# Удалять файл с дефолтными хостами?
+nginx_delete_default_vhost: true
+
+# Self-check virtualhost
+nginx_status_vhost: true
+
+nginx_deny_by_ip: true
+
+# Пользователь nginx
+nginx_user: www-data
+
+# pid
+nginx_pid: /var/run/nginx.pid
+
+# Кол-то "воркеров", на виртуалках лажает, так что лучше выставлять руками
+nginx_worker_processes: "{{ ansible_processor_vcpus|default(ansible_processor_count) }}"
+nginx_worker_connections: 768
+
+# Выключает версию и прочую отладку на боевой конфигурации
+nginx_production: true
+
+nginx_sites: []

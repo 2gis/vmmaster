@@ -1,0 +1,24 @@
+server {
+{% for param_name, param_value in item.iteritems() if param_name != 'locations' and param_name != 'name' %}
+  {{ param_name }} {{ param_value }};
+{% endfor %}
+
+{% if item.locations is defined %}
+  {% for location in item.locations -%}
+  location {{ location.name }} {
+    {% for param_name, param_value in location.iteritems() if param_name != 'name' -%}
+    {% if param_name == 'if' -%}
+    {{ param_name }} {{ param_value }}
+    {% elif param_value is not string and param_value is not number -%}
+    {% for param in param_value -%}
+    {{ param_name }} {{ param }};
+    {% endfor -%}
+    {% else -%}
+    {{ param_name }} {{ param_value }};
+    {% endif -%}
+    {% endfor -%}
+  }
+
+  {% endfor %}
+{% endif %}
+}

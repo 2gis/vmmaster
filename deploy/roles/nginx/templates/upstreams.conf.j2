@@ -1,0 +1,8 @@
+{% for param_name, param_value in item.iteritems() %}
+{% if param_name == 'name' -%}
+  upstream {{ param_value }} {
+{% else %}
+  {{ param_name }} {{ param_value }};
+{% endif %}
+{% endfor %}
+}

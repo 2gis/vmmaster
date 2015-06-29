@@ -1,0 +1,15 @@
+---
+# meta file for nginx
+galaxy_info:
+  author: Alexey Ashurok
+  company: 2Gis
+  description: Set up nginx in Ubuntu systems
+  license: MIT
+  min_ansible_version: 1.4
+  platforms:
+  - name: Ubuntu
+    versions:
+    - all
+  categories:
+  - servers
+dependencies: []
