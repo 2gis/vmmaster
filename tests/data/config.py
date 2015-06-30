@@ -38,6 +38,9 @@ class Config(object):
     OPENSTACK_TENANT_NAME = "test"
     OPENSTACK_TENANT_ID = "id"
     OPENSTACK_PING_RETRY_COUNT = 1
+    OPENASTACK_VM_META_DATA = {
+        'admin_pass': 'testPassw0rd.'
+    }
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800

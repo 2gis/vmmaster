@@ -233,7 +233,8 @@ class OpenstackClone(Clone):
             'name': self.name,
             'image': self.image,
             'flavor': self.flavor,
-            'nics': [{'net-id': self.network_id}]
+            'nics': [{'net-id': self.network_id}],
+            'meta': config.OPENASTACK_VM_META_DATA
         }
 
         if bool(config.OPENSTACK_ZONE_FOR_VM_CREATE):
