@@ -83,6 +83,15 @@ def write_session_log(vmmaster_log_step_id, control_line, body):
     )
 
 
+def update_data_in_obj(log_step, message=None, control_line=None):
+    if message:
+        log_step.body = message
+    if control_line:
+        log_step.control_line = control_line
+
+    return database.update(obj=log_step)
+
+
 class SimpleResponse:
     def __init__(self, status_code=None, headers=None, content=None):
         self.status_code = status_code

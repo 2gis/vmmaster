@@ -47,3 +47,30 @@ class TestParallelSessions1(TestCase):
 class TestParallelSessions2(TestCase):
     def test(self):
         parallel_tests_body(self)
+
+
+def run_scripts_parallel_body(self):
+    self.vmmaster.run_script("sudo pip install tox==1.9.0 && tox --version > ~/ver_file")
+    output = self.vmmaster.run_script("cat ~/ver_file").get("output")
+    self.assertEqual(u"1.9.0 imported from /usr/local/lib/python2.7/dist-packages/tox/__init__.pyc\n", output)
+
+
+class TestParallelSlowRunScriptOnSession1(TestCase):
+    def test(self):
+        run_scripts_parallel_body(self)
+
+
+class TestParallelSlowRunScriptOnSession2(TestCase):
+    def test(self):
+        run_scripts_parallel_body(self)
+
+
+class TestRunScriptWithInstallPackageOnSessionCreation(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.desired_capabilities["runScript"] = {"command": "/bin/bash", "script": "sudo pip install tox==1.9.0 && tox --version > ~/ver_file"}
+        super(TestRunScriptWithInstallPackageOnSessionCreation, cls).setUpClass()
+
+    def test_run_script_on_session_creation(self):
+        output = self.vmmaster.run_script("cat ~/ver_file").get("output")
+        self.assertEqual(u"1.9.0 imported from /usr/local/lib/python2.7/dist-packages/tox/__init__.pyc\n", output)

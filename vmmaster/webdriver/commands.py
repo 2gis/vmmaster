@@ -2,13 +2,15 @@ import json
 import httplib
 import time
 from functools import partial
+import websocket
+import thread
 
 from ..core.utils import network_utils
 from ..webdriver.helpers import check_to_exist_ip
 from ..core.config import config
 from ..core.logger import log
 from ..core.exceptions import CreationException
-from ..core.sessions import RequestHelper
+from ..core.sessions import RequestHelper, write_session_log, update_data_in_obj
 from ..core.utils.graphite import graphite, send_metrics
 from ..core.auth.custom_auth import anonymous
 
@@ -213,11 +215,54 @@ def take_screenshot(session, port):
         return None
 
 
+def run_script_through_websocket(request, session, host):
+    status_code = 200
+    full_msg = json.dumps({"status": 0, "output": ''})
+
+    if session.vmmaster_log_step:
+        log_step = write_session_log(session.vmmaster_log_step.id, status_code, full_msg)
+
+    def on_open(ws):
+        def run(*args):
+            ws.send(request.body)
+            log.info('RunScript: Open websocket and send message %s to vmmaster-agent on vm %s' % (request.body, host))
+        thread.start_new_thread(run, ())
+
+    def on_message(ws, message):
+        ws.output += message
+        if session.vmmaster_log_step:
+            full_msg = json.dumps({"status": 0, "output": ws.output})
+            update_data_in_obj(log_step, message=full_msg)
+
+    def on_close(ws):
+        log.info("RunScript: Close websocket on vm %s" % host)
+        if session.vmmaster_log_step:
+            full_msg = json.dumps({"status": 1, "output": ws.output})
+            update_data_in_obj(log_step, message=full_msg)
+
+    def on_error(ws, message):
+        status_code = 500
+        ws.output = message
+        log.debug("RunScript error: %s" % message)
+
+    ws = websocket.WebSocketApp(host,
+                                on_message=on_message,
+                                on_close=on_close,
+                                on_open=on_open,
+                                on_error=on_error)
+    ws.output = ""
+    ws.run_forever()
+
+    return status_code, {}, full_msg
+
+
 def run_script(request, session):
-    return session.make_request(
-        config.VMMASTER_AGENT_PORT, RequestHelper(
-            method=request.method, url="/runScript",
-            headers=request.headers, body=request.body))
+    host = "ws://%s:%s/runScript" % (session.virtual_machine.ip, config.VMMASTER_AGENT_PORT)
+
+    if session.vmmaster_log_step:
+        write_session_log(session.vmmaster_log_step.id, "%s %s" % (request.method, '/runScript'), request.body)
+
+    return run_script_through_websocket(request, session, host)
 
 
 def vmmaster_label(request, session):
