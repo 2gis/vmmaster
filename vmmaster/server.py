@@ -118,10 +118,10 @@ class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        resource = WSGIResource(self.reactor,
-                                self.reactor.getThreadPool(),
-                                self.app)
-        site = Site(resource)
+        self.resource = VmmasterResource(self.reactor,
+                                         self.reactor.getThreadPool(),
+                                         self.app)
+        site = Site(self.resource)
         self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
 
