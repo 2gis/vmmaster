@@ -25,7 +25,8 @@ setup(
     name='vmmaster',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description='Python KVM-based virtual machine environment system for selenium testing',
+    description='Python KVM-based virtual machine environment '
+                'system for selenium testing',
     url='https://github.com/2gis/vmmaster',
     packages=find_packages(),
     install_requires=[
@@ -39,9 +40,9 @@ setup(
         'PyDispatcher==2.0.3',
         'requests==2.3.0',
         'python-glanceclient==0.16.1',
-        'python-keystoneclient==1.2.0',
-        'python-neutronclient==2.3.11',
-        'python-novaclient==2.22.0',
+        'python-keystoneclient==1.6.0',
+        'python-neutronclient==2.6.0',
+        'python-novaclient==2.26.0',
         'pysubnettree==0.23',
         'Flask-HTTPAuth==2.4.0',
         'oslo.i18n==1.7.0',
