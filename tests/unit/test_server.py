@@ -155,6 +155,33 @@ class TestServer(unittest.TestCase):
             response2 = delete_session_request(self.address, _session_id)
             self.assertEqual(200, response2.status)
 
+    @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
+    def test_delete_session_if_got_session_and_but_session_not_exist(self):
+        """
+        - create new session
+        - try to get id from response
+        - delete session by id
+        - mocking get_session
+        - repeat deleting session
+        Expected: session deleted
+        """
+        from vmmaster.core.sessions import Session
+
+        with patch.object(Session, 'make_request',
+                          side_effect=Mock(return_value=(200, {}, None))):
+            response = new_session_request(self.address, self.desired_caps)
+            _session_id = json.loads(response.content)["sessionId"].encode(
+                "utf-8")
+            _session = self.vmmaster.app.sessions.get_session(_session_id)
+            _session.succeed = Mock()
+
+            response2 = delete_session_request(self.address, _session_id)
+            self.assertEqual(200, response2.status)
+            with patch('vmmaster.core.sessions.Sessions.get_session',
+                       new=Mock(return_value=_session)):
+                response3 = delete_session_request(self.address, _session_id)
+                self.assertEqual(200, response3.status)
+
     @patch('vmmaster.core.db.database', new=Mock())
     def test_delete_none_existing_session(self):
         """
