@@ -1,4 +1,4 @@
-import atexit
+# coding: utf-8
 
 # make a Flask app
 from flask import Flask
@@ -14,8 +14,8 @@ from .core.sessions import Sessions
 from .core.network.network import Network
 from .core.logger import log
 
-from .core.session_queue import QueueWorker, q
-from .core.virtual_machine.virtual_machines_pool import VirtualMachinesPoolPreloader, pool, VirtualMachineChecker
+from .core.virtual_machine.virtual_machines_pool import \
+    VirtualMachinesPoolPreloader, pool, VirtualMachineChecker
 
 
 class JSONEncoder(FlaskJSONEncoder):
@@ -36,19 +36,15 @@ class vmmaster(Flask):
 
         self.json_encoder = JSONEncoder
         self.platforms = platforms
-        self.queue = q
         self.sessions = sessions
 
         self.preloader = VirtualMachinesPoolPreloader(pool)
         self.preloader.start()
         self.vmchecker = VirtualMachineChecker(pool)
         self.vmchecker.start()
-        self.worker = QueueWorker(q)
-        self.worker.start()
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.worker.stop()
         self.preloader.stop()
         self.vmchecker.stop()
         pool.free()
@@ -82,12 +78,12 @@ def _block_on(d, timeout=None):
     from twisted.internet.defer import TimeoutError
     from twisted.python.failure import Failure
     from twisted.internet.defer import Deferred
-    q = Queue()
+    _q = Queue()
     if not isinstance(d, Deferred):
         return None
-    d.addBoth(q.put)
+    d.addBoth(_q.put)
     try:
-        ret = q.get(timeout is not None, timeout)
+        ret = _q.get(timeout is not None, timeout)
     except Empty:
         raise TimeoutError
     if isinstance(ret, Failure):
@@ -103,8 +99,10 @@ class VmmasterResource(WSGIResource):
     def notify_no_more_waiting(self):
         if not self.waiting_requests:
             return defer.succeed(None)
-        deffered_list = defer.gatherResults(self.waiting_requests, consumeErrors=True)
-        log.info("Waiting for end %s request[s]." % len(deffered_list._deferredList))
+        deffered_list = defer.gatherResults(self.waiting_requests,
+                                            consumeErrors=True)
+        log.info("Waiting for end %s request[s]." %
+                 len(deffered_list._deferredList))
         return deffered_list.addBoth(lambda ign: None)
 
     def render(self, request):
@@ -120,14 +118,16 @@ class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        self.resource = VmmasterResource(self.reactor, self.reactor.getThreadPool(), self.app)
+        self.resource = VmmasterResource(self.reactor,
+                                         self.reactor.getThreadPool(),
+                                         self.app)
         site = Site(self.resource)
-
         self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
 
     def run(self):
-        self.reactor.addSystemEventTrigger('before', 'shutdown', self.before_shutdown)
+        self.reactor.addSystemEventTrigger('before', 'shutdown',
+                                           self.before_shutdown)
         self.reactor.run()
         del self
 

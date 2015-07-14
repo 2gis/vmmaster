@@ -1,29 +1,28 @@
-import unittest
+# coding: utf-8
+
 import os
-from vmmaster import cleanup
+import unittest
+from mock import Mock, patch
+
 from vmmaster.core.utils import system_utils
 from vmmaster.core.config import setup_config, config
-
-setup_config('data/config.py')
-session_factory = None
 
 
 class TestCleanup(unittest.TestCase):
     @classmethod
     def setUp(cls):
-        from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker
+        setup_config('data/config.py')
 
         from vmmaster.core.db import Database
         cls.database = Database(config.DATABASE)
-
-        engine = create_engine(config.DATABASE)
-        session_factory = sessionmaker(bind=engine)
 
     def tearDown(self):
         pass
 
     def test_file_deletion(self):
+        with patch('vmmaster.core.utils.init.home_dir',
+                   Mock(return_value=config.BASE_DIR)):
+            from vmmaster import cleanup
         session = self.database.create_session(
             status='unknown',
             name='test_file_deletion'
@@ -31,13 +30,18 @@ class TestCleanup(unittest.TestCase):
         session_id = session.id
         session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session_id))
 
+        system_utils.run_command(["mkdir", config.SCREENSHOTS_DIR])
         system_utils.run_command(["mkdir", session_dir])
-        system_utils.run_command(["touch", os.path.join(session_dir, "test_file_deletion")])
+        system_utils.run_command(["touch", os.path.join(session_dir,
+                                                        "test_file_deletion")])
 
         cleanup.delete_session_data([session])
         self.assertEqual(os.path.isdir(session_dir), 0)
 
     def test_outdated_sessions(self):
+        with patch('vmmaster.core.utils.init.home_dir',
+                   Mock(return_value=config.BASE_DIR)):
+            from vmmaster import cleanup
         from time import time
         session = self.database.create_session(
             status='unknown',

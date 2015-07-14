@@ -10,12 +10,13 @@ from alembic import command
 from alembic.script import ScriptDirectory
 import os
 
-alembic_cfg = Config("%s/alembic.ini" % os.path.dirname(os.path.abspath(__file__)))
+alembic_cfg = Config(
+    "%s/alembic.ini" % os.path.dirname(os.path.abspath(__file__)))
 script = ScriptDirectory.from_config(alembic_cfg)
 
 
 def run(connection_string):
-    revision = "bea3ba88c73"
+    revision = "37f924a78337"
 
     alembic_cfg.set_main_option("sqlalchemy.url", connection_string)
     try:
@@ -24,4 +25,5 @@ def run(connection_string):
         try:
             command.downgrade(alembic_cfg, revision)
         except alembic.util.CommandError:
-            raise Exception("Could not upgrade nor downgrade database to revision %s" % revision)
+            raise Exception("Could not upgrade nor downgrade "
+                            "database to revision %s" % revision)

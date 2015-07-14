@@ -1,6 +1,6 @@
 # coding: utf-8
-from traceback import format_exc
 
+from traceback import format_exc
 from flask import Blueprint, current_app, request, jsonify, abort
 
 from . import commands
@@ -20,7 +20,8 @@ def handle_errors(error):
     log.error(tb)
     if request.proxy.session_id:
         try:
-            session = current_app.sessions.get_session(request.proxy.session_id)
+            session = current_app.sessions.get_session(
+                request.proxy.session_id)
         except SessionException:
             pass
         else:
@@ -47,7 +48,8 @@ def log_request():
         if proxy.session_id:
             session = current_app.sessions.get_session(proxy.session_id)
             session.vmmaster_log_step = helpers.write_vmmaster_log(
-                proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
+                proxy.session_id, "%s %s %s" %
+                (req.method, req.path, req.clientproto), str(req.body))
 
 
 def send_response(response):
@@ -62,8 +64,8 @@ def log_response(response):
         response.status_code = 502
     else:
         proxy = request.proxy
-        helpers.write_vmmaster_log(proxy.session_id, response.status_code, response.data)
-
+        helpers.write_vmmaster_log(
+            proxy.session_id, response.status_code, response.data)
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
@@ -96,11 +98,14 @@ def delete_session(session_id):
 def create_session():
     req = request.proxy.request
     proxy = request.proxy
-    desired_caps = commands.get_desired_capabilities(req)
-    session = helpers.get_session(req, desired_caps)
+
+    dc = commands.get_desired_capabilities(req)
+    session = helpers.get_session(req, dc)
     proxy.session_id = session.id
+
     session.vmmaster_log_step = helpers.write_vmmaster_log(
-        proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
+        proxy.session_id,
+        "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
     status, headers, body = commands.start_session(req, session)
     proxy.response = helpers.form_response(status, headers, body)
     return send_response(proxy.response)
@@ -113,9 +118,11 @@ def proxy_request(url):
     proxy = request.proxy
     last = url.split("/")[-1]
     if last in commands.AgentCommands:
-        proxy.response = helpers.vmmaster_agent(commands.AgentCommands[last], proxy)
+        proxy.response = helpers.vmmaster_agent(
+            commands.AgentCommands[last], proxy)
     elif last in commands.InternalCommands:
-        proxy.response = helpers.internal_exec(commands.InternalCommands[last], proxy)
+        proxy.response = helpers.internal_exec(
+            commands.InternalCommands[last], proxy)
     else:
         proxy.response = helpers.transparent(proxy)
 

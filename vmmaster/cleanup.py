@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import os
 import time
 import sys
@@ -8,7 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from vmmaster.core.utils.init import home_dir
 from vmmaster.core.config import setup_config, config
 setup_config('%s/config.py' % home_dir())
-from vmmaster.core.db import Session, SessionLogStep
+
+from vmmaster.core.db.models import Session
 from vmmaster.core.utils.utils import change_user_vmmaster
 
 from logging import getLogger, Formatter, StreamHandler, DEBUG
@@ -64,8 +67,10 @@ def delete_files(session=None):
         try:
             rmtree(session_dir)
         except OSError as os_error:
-            if os_error.errno != ENOENT:  # Ignore 'No such file or directory' error
-                log.info('Unable to delete %s (%s)' % (str(session_dir), os_error.strerror))
+            # Ignore 'No such file or directory' error
+            if os_error.errno != ENOENT:
+                log.info('Unable to delete %s (%s)' %
+                         (str(session_dir), os_error.strerror))
 
 
 @transaction
@@ -83,9 +88,12 @@ def delete_session_data(sessions=None, db_session=None):
         log.info("Done: %s%% (0 / %d)" % ('0.0'.rjust(5), sessions_count))
         for num, session in enumerate(sessions):
             delta = datetime.now() - checkpoint
-            if delta > time_step or num == sessions_count - 1:  # Show deletion progress each 10 seconds
-                percentage = str(round((num + 1)/float(sessions_count) * 100, 1))
-                log.info("Done: %s%% (%d / %d)" % (percentage.rjust(5), num + 1, sessions_count))
+            # Show deletion progress each 10 seconds
+            if delta > time_step or num == sessions_count - 1:
+                percentage = str(
+                    round((num + 1)/float(sessions_count) * 100, 1))
+                log.info("Done: %s%% (%d / %d)" %
+                         (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
             delete_files(session)
             db_session.delete(session)

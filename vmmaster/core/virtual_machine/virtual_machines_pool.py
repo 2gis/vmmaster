@@ -1,5 +1,7 @@
 # coding: utf-8
+
 import time
+
 from threading import Thread
 from collections import defaultdict
 from uuid import uuid4
@@ -53,7 +55,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def can_produce(cls, platform):
         from ..platforms import Platforms
-
+        Platforms.check_platform(platform)
         return Platforms.can_produce(platform)
 
     @classmethod
@@ -66,8 +68,10 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def get(cls, platform):
-        for vm in sorted(cls.pool, key=lambda v: v.creation_time, reverse=True):
-            log.info("Getting VM %s has ready property is %s and checking property is %s" % (vm.name, vm.ready, vm.checking))
+        for vm in sorted(cls.pool, key=lambda v: v.created,
+                         reverse=True):
+            log.info("Getting VM %s has ready property is %s and checking "
+                     "property is %s" % (vm.name, vm.ready, vm.checking))
             if vm.platform == platform and vm.ready and not vm.checking:
                 if vm.ping_vm():
                     cls.pool.remove(vm)
@@ -94,11 +98,12 @@ class VirtualMachinesPool(object):
         return cls.count_virtual_machines(cls.using)
 
     @classmethod
-    def add(cls, origin_name, prefix=None, to=None):
-        from ..platforms import Platforms
+    def add(cls, platform, prefix=None, to=None):
+        from vmmaster.core.platforms import Platforms
 
-        if not cls.can_produce(origin_name):
-            raise CreationException("maximum count of virtual machines already running")
+        if not cls.can_produce(platform):
+            raise CreationException(
+                "maximum count of virtual machines already running")
 
         if to is None:
             to = cls.using
@@ -106,7 +111,7 @@ class VirtualMachinesPool(object):
         if prefix is None:
             prefix = "ondemand-{}".format(uuid4())
 
-        origin = Platforms.get(origin_name)
+        origin = Platforms.get(platform)
         try:
             clone = origin.make_clone(origin, prefix)
         except Exception as e:
@@ -142,7 +147,9 @@ class VirtualMachinesPool(object):
         from flask import current_app
 
         def print_view(lst):
-            return [{"name": l.name, "ip": l.ip, "ready": l.ready, "checking": l.checking, "creation_time": l.creation_time} for l in lst]
+            return [{"name": l.name, "ip": l.ip, "ready": l.ready,
+                     "checking": l.checking,
+                     "creation_time": l.created} for l in lst]
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
@@ -170,13 +177,18 @@ class VirtualMachinesPoolPreloader(Thread):
             platform = self.need_load()
             if platform is not None:
                 if self.pool.can_produce(platform):
-                    log.info("VM for preloaded was found. Preloading vm for platform %s " % platform)
+                    log.info("VM for preloaded was found. Preloading vm for "
+                             "platform %s " % platform)
                     self.pool.preload(platform, "preloaded-{}".format(uuid4()))
 
             time.sleep(config.PRELOADER_FREQUENCY)
 
     def need_load(self):
-        using = [vm for vm in self.pool.using if 'preloaded' in vm.prefix] if self.pool.using is not [] else []
+        if self.pool.using is not []:
+            using = [vm for vm in self.pool.using
+                     if 'preloaded' in str(vm.prefix)]
+        else:
+            using = []
         already_have = self.pool.count_virtual_machines(self.pool.pool + using)
         platforms = {}
 
@@ -211,7 +223,9 @@ class VirtualMachineChecker(Thread):
     def fix_broken_vm(self):
         for vm in self.pool.pool:
             vm.checking = True
-            log.info("Check for {clone} with {ip}:{port}".format(clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
+            vm.save()
+            log.info("Check for {clone} with {ip}:{port}".format(
+                clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
                 if not vm.ping_vm():
                     try:
@@ -221,6 +235,7 @@ class VirtualMachineChecker(Thread):
                         vm.delete()
                         self.pool.remove(vm)
             vm.checking = False
+            vm.save()
 
     def stop(self):
         self.running = False
