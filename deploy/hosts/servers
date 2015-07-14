@@ -1,2 +1,2 @@
 [servers]
-localhost
+localhost http_port=9001

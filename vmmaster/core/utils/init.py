@@ -1,9 +1,8 @@
 import subprocess
 import crypt
 import os
-from os.path import expanduser
 
-from .print_utils import cin, cout, OKGREEN, WARNING, FAIL
+from .print_utils import cout, FAIL
 
 from vmmaster import package_dir
 from .system_utils import run_command
@@ -16,14 +15,14 @@ def files(path):
             yield os.path.join(path, filename)
 
 
-def useradd(home):
+def useradd():
     password = 'vmmaster'
     encrypted_password = crypt.crypt(password, "22")
     shell = '/bin/bash'
     group = 'libvirtd'
     user_add = subprocess.Popen(
         ["sudo", "useradd",
-         "--create-home", "--home-dir=%s" % home,
+         "--create-home", "--home-dir=/home/vmmaster",
          "--groups=%s" % group,
          "--shell=%s" % shell,
          "-p", encrypted_password,
@@ -50,22 +49,4 @@ def copy_files_to_home(home):
 
 
 def home_dir():
-    user_path = "~%s" % "vmmaster"
-    home = expanduser(user_path)
-    if user_path == home:
-        return None
-    return home
-
-
-def init():
-    home = '/var/lib/vmmaster'
-    cout("Please input absolute path to home directory for 'vmmaster'\n")
-    cout("[default:%s]:" % home, color=WARNING)
-    abspath = cin()
-    abspath = abspath.strip()
-    if abspath:
-        home = abspath
-
-    useradd(home)
-    copy_files_to_home(home)
-    cout("\nvmmaster successfully inited in %s\n" % home_dir(), color=OKGREEN)
+    return os.path.abspath(os.curdir)

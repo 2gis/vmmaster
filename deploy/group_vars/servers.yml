@@ -2,7 +2,8 @@
 deploy_user: ansible
 
 # home fir for vmmaster
-vmmaster_path: /var/lib/vmmaster
+app_path: "/var/www/{{app_name}}"
+app_name: "vmmaster{{http_port}}"
 
 # vmmaster version as commit or branch name
 vmmaster_version: master
@@ -10,7 +11,7 @@ vmmaster_version: master
 # install postgres and add config database path
 use_postgres: true
 
-# only update vmamster from repo
+# only update vmmaster from repo
 update: false
 
 # postgres params
@@ -25,18 +26,18 @@ vmmaster_config_name: all
 
 # config params from install_vmmaster/templates/
 vmmaster_basedir: os.path.dirname(os.path.realpath(__file__))
-vmmaster_port: 9000
+vmmaster_port: "{{http_port}}"
 
-vmmaster_clones_dir: "clones"
-vmmaster_origins_dir: "origins"
-vmmaster_session_dir: "session"
+vmmaster_clones_dir: "/vmmaster/clones"
+vmmaster_origins_dir: "/vmmaster/origins"
+vmmaster_session_dir: "/vmmaster/session"
 
 # screenshots
-vmmaster_screenshots_dir: "screenshots"
+vmmaster_screenshots_dir: "/vmmaster/screenshots"
 vmmaster_screenshots_days: 7
 
 # logging
-vmmaster_log_dir: "log"
+vmmaster_log_dir: "/logs"
 vmmaster_log_size: 5242880
 
 # kvm
@@ -63,7 +64,7 @@ openstack_tenant_id: "id"
 openstack_zone_for_vm_create: ""
 openstack_platform_name_prefix: "origin-"
 openstack_vm_meta_data:
-  - {'admin_pass': 'testPassw0rd.'}
+  - {type: 'admin_pass', value: 'testPassw0rd.'}
 vmmaster_ping_retry_count: 3
 
 vmmaster_vm_check: "False"
@@ -87,7 +88,6 @@ vmmaster_agent_port: 9000
 
 log_level: "INFO"
 
-
 # nginx settings
 nginx: false
 only_nginx: false
@@ -109,5 +109,5 @@ nginx_sites:
 nginx_upstreams:
   - {
     name: "backends",
-    server1: "server 127.0.0.1:{{vmmaster_port}} max_fails=1 fail_timeout=300",
+    server1: "server 127.0.0.1:{{http_port}} max_fails=1 fail_timeout=300",
   }

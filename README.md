@@ -2,18 +2,20 @@
 [![Build Status](https://travis-ci.org/2gis/vmmaster.svg?branch=master)](https://travis-ci.org/2gis/vmmaster)
 
 ## dependencies:
-+ libvirt
-+ kvm
++ tox
 + postgresql
-+ libpq-dev
-+ python-psycopg2
 
 ## install
 ### manual
 
 ```bash
-pip install -U git+https://github.com/2gis/vmmaster.git#egg=vmmaster
-vmmaster init
+user@machine: ./install-dependencies.sh
+user@machine: sudo pip install tox
+user@machine: tox
+user@machine: mv ./config_template.py config.py
+user@machine: sudo .tox/bin/python manage.py init
+user@machine: .tox/bin/python manage.py migrations
+user@machine: .tox/bin/python manage.py runserver
 ```
 
 ### ansible
@@ -38,13 +40,13 @@ TODO
 ## development
 
 ### environment
-+ pip install -r requirements-dev.txt
-+ ./install-hooks.sh
+pip install -r requirements-dev.txt
+./install-hooks.sh
 
 ### linting
-+ flake8 vmmaster/ tests/
+.tox/bin/flake8 vmmaster/ tests/
 
 ### unittests with coverage
-+ coverage run --source=vmmaster run_unittests.py
-+ coverage html
-+ look for coverage/index.html
+.tox/bin/coverage run --source=vmmaster run_unittests.py
+.tox/bin/coverage html
+look for coverage/index.html

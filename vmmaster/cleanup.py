@@ -2,37 +2,22 @@
 
 import os
 import time
-import sys
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from vmmaster.core.utils.init import home_dir
-from vmmaster.core.config import setup_config, config
-setup_config('%s/config.py' % home_dir())
-
-from vmmaster.core.db.models import Session
+from vmmaster.core.config import config, setup_config
+from vmmaster.core.db import Session
 from vmmaster.core.utils.utils import change_user_vmmaster
+from vmmaster.core.utils.init import home_dir
+from vmmaster.core.logger import setup_logging, log
 
-from logging import getLogger, Formatter, StreamHandler, DEBUG
+setup_config('%s/config.py' % home_dir())
+setup_logging(logdir=config.LOG_DIR, logfile_name='vmmaster_cleanup.log')
 
 
 engine = create_engine(config.DATABASE)
 session_factory = sessionmaker(bind=engine)
-
-
-def setup_logging():
-    l = getLogger('cleanup')
-    ch = StreamHandler(sys.stdout)
-
-    formatter = Formatter('%(asctime)s - %(levelname)s :: %(message)s')
-    ch.setFormatter(formatter)
-
-    l.addHandler(ch)
-    l.setLevel(DEBUG)
-    return l
-
-log = setup_logging()
 
 
 def transaction(func):
@@ -105,10 +90,7 @@ def delete_session_data(sessions=None, db_session=None):
 
 
 def run():
+    log.info('Running cleanup...')
     change_user_vmmaster()
     outdated_sessions = old_sessions()
     delete_session_data(outdated_sessions)
-
-
-if __name__ == "__main__":
-    run()

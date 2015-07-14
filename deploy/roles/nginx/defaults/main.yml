@@ -36,7 +36,7 @@ nginx_delete_default_vhost: true
 # Self-check virtualhost
 nginx_status_vhost: true
 
-nginx_deny_by_ip: true
+nginx_deny_by_ip: false
 
 # Пользователь nginx
 nginx_user: www-data

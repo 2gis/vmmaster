@@ -9,6 +9,7 @@ from twisted.internet import threads
 
 from ..config import config
 from . import system_utils, commands
+from ..logger import log
 
 
 class UserNotFound(Exception):
@@ -132,6 +133,7 @@ def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
 
 def change_user_vmmaster():
     drop_privileges('vmmaster', 'libvirtd')
+    log.info('Changed privileges by default for application directory')
 
 
 def to_thread(f):

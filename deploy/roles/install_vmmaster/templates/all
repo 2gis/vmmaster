@@ -51,7 +51,11 @@ class Config(object):
     OPENSTACK_ZONE_FOR_VM_CREATE = "{{openstack_zone_for_vm_create}}"
     OPENSTACK_PLATFORM_NAME_PREFIX = "{{openstack_platform_name_prefix}}"
     OPENSTACK_PING_RETRY_COUNT = {{vmmaster_ping_retry_count}}
-    OPENASTACK_VM_META_DATA = {{openstack_vm_meta_data}}
+    OPENASTACK_VM_META_DATA = {
+{% for md in openstack_vm_meta_data %}
+        "{{md.type}}": {{md.value}},
+{% endfor %}
+    }
 
     VM_CHECK = {{vmmaster_vm_check}}
     VM_CHECK_FREQUENCY = {{vmmaster_vm_check_frequency}}

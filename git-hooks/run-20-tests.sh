@@ -6,7 +6,7 @@ echo "running tests with coverage!"
 echo -en "\033[0m"
 
 
-coverage run --source=vmmaster run_unittests.py -v
+tox -e tests-with-coverage
 RESULT=$?
 
 if [ $RESULT -ne 0 ]

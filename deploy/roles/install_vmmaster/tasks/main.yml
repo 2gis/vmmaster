@@ -1,34 +1,51 @@
 ---
-- name: install vmmaster | stop vmmaster
-  service: name=vmmaster state=stopped enabled=no
-  failed_when: "vmmaster_status | failed and 'service not found' not in vmmaster_status.msg"
+- name: stop vmmaster service
+  service: name={{app_name}} state=stopped enabled=no
+  failed_when: "vmmaster_status | failed and 'Unknown job' not in vmmaster_status.msg"
   register: vmmaster_status
 
 - name: install postgres
   include: ../../install_postgres/tasks/main.yml
   when: use_postgres and not update
 
-- name: install vmmaster | install vmmaster with pip
-#  pip: name='git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster' extra_args='-U'
-  shell: sudo pip install -U git+https://github.com/2gis/vmmaster.git@{{vmmaster_version}}#egg=vmmaster
+- name: create dir for instances
+  file: path={{app_path}} state=directory mode=0755 owner={{deploy_user}} group={{deploy_user}} recurse=yes
 
-- name: install vmmaster | vmmaster initialize
-  shell: "echo {{vmmaster_path}} | vmmaster init"
-  when: not update
+- name: git checkout repo
+  git: repo=https://github.com/2gis/vmmaster.git dest={{app_path}} version={{vmmaster_version}} depth=1
 
-- name: install vmmaster | apply special config.py in vmmaster directory
-  template: src={{vmmaster_config_name}} dest={{vmmaster_path}}/config.py mode=0644
+- name: install tox
+  pip: name=tox
+  sudo: yes
+
+- name: create virtualenv with deps
+  shell: "cd {{app_path}} && tox"
+
+- name: apply special config.py in vmmaster directory
+  template: src={{vmmaster_config_name}} dest={{app_path}}/config.py mode=0644
   when: vmmaster_config_name != "" and change_vmmaster_config
 
-- name:
-  file: path={{item.path}} owner=vmmaster group={{item.group}} mode={{item.mod}} state={{item.state}}
-  with_items:
-    - {path: "{{vmmaster_path}}/origins", group: libvirtd,  state: "directory", mod: "0775"}
-    - {path: "{{vmmaster_path}}/clones", group: libvirtd, state: "directory", mod: "0775"}
-    - {path: "{{vmmaster_path}}/session", group: libvirtd, state: "directory", mod: "0775"}
-    - {path: "{{vmmaster_path}}/screenshots", group: vmmaster, state: "directory", mod: "0775"}
-    - {path: "{{vmmaster_path}}/log", group: vmmaster, state: "directory", mod: "0775"}
-    - {path: "{{vmmaster_path}}/config.py", group: libvirtd, state: "file", mod: "0644"}
+- name: vmmaster initialize
+  shell: "cd {{app_path}} && .tox/bin/python manage.py init"
 
-- name: install vmmaster | vmmaster start
-  command: service vmmaster start
+- name: create log dir for instances
+  file: path={{app_path}}/logs state=directory mode=0755 owner={{deploy_user}} group={{deploy_user}} recurse=yes
+
+- name: vmmaster run migrations
+  shell: "cd {{app_path}} && .tox/bin/python manage.py migrations"
+  sudo: yes
+  when: not update
+
+- name: change permitions for files
+  file: path={{app_path}} state=directory mode=0755 owner=vmmaster group=libvirtd recurse=yes
+
+- name: install upstart script
+  template: src=upstart.conf dest=/etc/init/{{app_name}}.conf mode=0644
+
+- name: change permitions for files
+  file: path={{app_path}} state=directory mode=0755 owner=vmmaster group=libvirtd recurse=yes
+
+- name: start vmmaster service
+  service: name={{app_name}} state=started
+  failed_when: "vmmaster_status | failed and 'Unknown job' not in vmmaster_status.msg"
+  register: vmmaster_status

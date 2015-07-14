@@ -54,8 +54,6 @@ class Database(object):
         self.engine = create_engine(connection_string)
         self.Session = scoped_session(sessionmaker(bind=self.engine,
                                                    expire_on_commit=False))
-        from vmmaster import migrations
-        migrations.run(connection_string)
 
     @transaction
     def create_session(self, status="running", name=None, time=time(),

@@ -1,28 +1,28 @@
 ---
-- name: install postgres | use postgres repositories
+- name: use postgres repositories
   template: src=pgdg.list dest=/etc/apt/sources.list.d/pgdg.list
 
-- name: install postgres | add apt-key for postgres repository
+- name: add apt-key for postgres repository
   apt_key: url=https://www.postgresql.org/media/keys/ACCC4CF8.asc state=present
 
-- name: install postgres | update packages cache
+- name: update packages cache
   apt: update_cache=yes
 
-- name: install postgres | install postgresql, libpq-dev, python-psycopg2
+- name: install postgresql, libpq-dev, python-psycopg2
   apt: pkg={{item}} state=latest force=yes
   with_items:
     - postgresql
     - libpq-dev
     - python-psycopg2
 
-- name: install postgres | delete exist postgres database
+- name: delete exist postgres database
   postgresql_db: name={{postgres_db}} login_user=postgres state=absent
   sudo_user: postgres
 
-- name: install postgres | create postgres database
+- name: create postgres database
   postgresql_db: name={{postgres_db}} login_user=postgres
   sudo_user: postgres
 
-- name: install postgres | create postgres user
+- name: create postgres user
   postgresql_user: db={{postgres_db}} name={{postgres_user}} password={{postgres_password}} priv=ALL
   sudo_user: postgres
