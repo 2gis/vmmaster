@@ -1,20 +1,17 @@
 # coding: utf-8
 
-import unittest
 from mock import Mock, patch
 from vmmaster.core.exceptions import CreationException
 from vmmaster.core.config import config, setup_config
 from vmpool import VirtualMachine
 from vmpool.virtual_machines_pool import pool
 from vmmaster.core.utils import utils
+from helpers import BaseTestCase
 utils.delete_file = Mock()
 
 
 @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
-class TestVirtualMachinePool(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
 

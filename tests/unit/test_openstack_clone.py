@@ -1,12 +1,10 @@
 # coding: utf-8
 
-import unittest
-
 from mock import Mock, patch, PropertyMock
 from vmmaster.core.config import setup_config
 from vmmaster.core.utils import openstack_utils
 
-from helpers import wait_for
+from helpers import wait_for, BaseTestCase
 from vmpool.virtual_machines_pool import pool
 
 # mocking for Openstack
@@ -22,10 +20,7 @@ def custom_wait(self, method):
 @patch('vmpool.clone.OpenstackClone.get_network_id',
        new=Mock(return_value=1))
 @patch('vmmaster.core.db.database', new=Mock())
-class TestOpenstackClone(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestOpenstackClone(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
 
@@ -516,10 +511,7 @@ class TestOpenstackClone(unittest.TestCase):
 @patch('vmpool.virtual_machines_pool.VirtualMachinesPool.can_produce',
        new=Mock(return_value=True))
 @patch('vmmaster.core.db.database', Mock(add=Mock(), update=Mock()))
-class TestNetworkGetting(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestNetworkGetting(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
 

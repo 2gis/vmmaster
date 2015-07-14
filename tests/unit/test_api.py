@@ -1,9 +1,8 @@
 # coding: utf-8
 
-import unittest
 import json
 from mock import Mock, patch
-from tests.unit.helpers import fake_home_dir
+from helpers import BaseTestCase, fake_home_dir
 
 
 # Mocking
@@ -17,10 +16,7 @@ def session_id(*args, **kwargs):
 from vmpool import VirtualMachine
 
 
-class TestApi(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestApi(BaseTestCase):
     def setUp(self):
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')

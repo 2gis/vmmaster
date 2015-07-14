@@ -2,7 +2,6 @@
 
 import json
 import time
-import unittest
 from mock import Mock, patch, PropertyMock
 from nose.plugins.attrib import attr
 
@@ -10,7 +9,7 @@ from uuid import uuid4
 from vmmaster.core.config import setup_config
 from helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
-    vmmaster_label, run_script, request_with_drop, fake_home_dir
+    vmmaster_label, run_script, request_with_drop, fake_home_dir, BaseTestCase
 
 
 def session_id(*args, **kwargs):
@@ -35,10 +34,7 @@ def empty_decorator(f):
     __name__="selenium_status",
     return_value=(200, {}, json.dumps({'status': 0})))
 )
-class TestServer(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestServer(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
@@ -258,10 +254,7 @@ class TestServer(unittest.TestCase):
     __name__="selenium_status",
     return_value=(200, {}, json.dumps({'status': 0})))
 )
-class TestTimeoutSession(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestTimeoutSession(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
@@ -399,10 +392,7 @@ class TestTimeoutSession(unittest.TestCase):
         self.assertEqual(0, len(self.server.app.sessions.map))
 
 
-class TestServerShutdown(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestServerShutdown(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
@@ -494,10 +484,7 @@ type(mocked_image).name = PropertyMock(return_value='test_origin_1')
     __name__="selenium_status",
     return_value=(200, {}, json.dumps({'status': 0})))
 )
-class TestServerWithPreloadedVM(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestServerWithPreloadedVM(BaseTestCase):
     def setUp(self):
         setup_config('data/config_with_preloaded.py')
         self.address = ("localhost", 9001)
