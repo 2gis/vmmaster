@@ -91,7 +91,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_with_install_package_on_session_creation(self):
-        from tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
+        from tests.functional.tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(TestRunScriptWithInstallPackageOnSessionCreation)
         result = self.runner.run(suite)
         self.assertEqual(1, result.testsRun, result.errors)
@@ -99,7 +99,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_tests_parallel_run(self):
-        from tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
+        from tests.functional.tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSlowRunScriptOnSession1("test"))
         suite2 = unittest.TestSuite()

@@ -11,6 +11,9 @@
 - name: create dir for instances
   file: path={{app_path}} state=directory mode=0755 owner={{deploy_user}} group={{deploy_user}} recurse=yes
 
+- name: delete old directory
+  file: path={{app_path}} state=absent
+
 - name: git checkout repo
   git: repo=https://github.com/2gis/vmmaster.git dest={{app_path}} version={{vmmaster_version}} depth=1
 

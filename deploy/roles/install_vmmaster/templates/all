@@ -11,9 +11,9 @@ class Config(object):
     DATABASE = "sqlite:///app.db"
 {% endif %}
 
-    CLONES_DIR = BASEDIR + "/{{vmmaster_clones_dir}}"
-    ORIGINS_DIR = BASEDIR + "/{{vmmaster_origins_dir}}"
-    SESSION_DIR = BASEDIR + "/{{vmmaster_session_dir}}"
+    CLONES_DIR = "{{vmmaster_clones_dir}}"
+    ORIGINS_DIR = "{{vmmaster_origins_dir}}"
+    SESSION_DIR = "{{vmmaster_session_dir}}"
 
     # screenshots
     SCREENSHOTS_DIR = BASEDIR + "/{{vmmaster_screenshots_dir}}"
@@ -53,7 +53,7 @@ class Config(object):
     OPENSTACK_PING_RETRY_COUNT = {{vmmaster_ping_retry_count}}
     OPENASTACK_VM_META_DATA = {
 {% for md in openstack_vm_meta_data %}
-        "{{md.type}}": {{md.value}},
+        "{{md.type}}": "{{md.value}}",
 {% endfor %}
     }
 
