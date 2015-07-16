@@ -10,6 +10,7 @@ class Config(object):
     ORIGINS_DIR = BASE_DIR + "/vmmaster/origins"
     SESSION_DIR = BASE_DIR + "/vmmaster/session"
     LOG_DIR = BASE_DIR + "/logs"
+    LOG_SIZE = 5242880
 
     SCREENSHOTS_DIR = BASE_DIR + "/vmmaster/screenshots"
     SCREENSHOTS_DAYS = 7

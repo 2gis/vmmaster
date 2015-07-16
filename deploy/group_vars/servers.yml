@@ -28,9 +28,9 @@ vmmaster_config_name: all
 vmmaster_basedir: os.path.dirname(os.path.realpath(__file__))
 vmmaster_port: "{{http_port}}"
 
-vmmaster_clones_dir: "/vmmaster/clones"
-vmmaster_origins_dir: "/vmmaster/origins"
-vmmaster_session_dir: "/vmmaster/session"
+vmmaster_clones_dir: "{{vmmaster_basedir}}/vmmaster/clones"
+vmmaster_origins_dir: "{{vmmaster_basedir}}/vmmaster/origins"
+vmmaster_session_dir: "{{vmmaster_basedir}}/vmmaster/session"
 
 # screenshots
 vmmaster_screenshots_dir: "/vmmaster/screenshots"
