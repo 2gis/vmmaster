@@ -1,7 +1,7 @@
 ---
 - name: stop vmmaster service
   service: name={{app_name}} state=stopped enabled=no
-  failed_when: "vmmaster_status | failed and 'Unknown job' not in vmmaster_status.msg"
+  failed_when: "vmmaster_status | failed and 'service not found' not in vmmaster_status.msg"
   register: vmmaster_status
 
 - name: install postgres
@@ -50,5 +50,5 @@
 
 - name: start vmmaster service
   service: name={{app_name}} state=started
-  failed_when: "vmmaster_status | failed and 'Unknown job' not in vmmaster_status.msg"
+  failed_when: "vmmaster_status | failed and 'service not found' not in vmmaster_status.msg"
   register: vmmaster_status
