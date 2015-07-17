@@ -1,8 +1,0 @@
----
-- hosts: servers
-  remote_user: "{{deploy_user}}"
-  sudo: yes
-  roles:
-    - {role: dependencies, tags: [vmmaster, vmpool]}
-    - {role: nginx, tags: [nginx]}
-    - {role: backend}
