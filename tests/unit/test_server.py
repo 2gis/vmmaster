@@ -5,7 +5,7 @@ import time
 from mock import Mock, patch, PropertyMock
 
 from uuid import uuid4
-from vmmaster.core.config import setup_config
+from vmmaster.core.config import setup_config, config
 from helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, request_with_drop, fake_home_dir, BaseTestCase
@@ -38,6 +38,7 @@ class TestServer(BaseTestCase):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
         self.vmpool_address = ("localhost", 9999)
+
         self.desired_caps = {
             'desiredCapabilities': {
                 'platform': 'test_origin_1'

@@ -1,8 +1,8 @@
 # coding: utf-8
+
 from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
-from core.sessions import Sessions
-from core.network.network import Network
+from core.sessions import Sessions, SessionWorker
 from core.logger import log
 
 
@@ -13,20 +13,19 @@ class JSONEncoder(FlaskJSONEncoder):
         return super(JSONEncoder, self).default(obj)
 
 
-class vmmaster(Flask):
+class Vmmaster(Flask):
     def __init__(self, *args, **kwargs):
-        super(vmmaster, self).__init__(*args, **kwargs)
+        super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
 
-        self.network = Network()
-        sessions = Sessions()
-
+        self.sessions = Sessions()
+        self.session_timeout_checker = SessionWorker()
+        self.session_timeout_checker.start()
         self.json_encoder = JSONEncoder
-        self.sessions = sessions
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.network.delete()
+        self.session_timeout_checker.stop()
         log.info("Server gracefully shut down.")
 
 
@@ -46,7 +45,7 @@ def create_app():
     if database is None:
         raise Exception("Need to setup database")
 
-    app = vmmaster(__name__)
+    app = Vmmaster(__name__)
 
     register_blueprints(app)
     return app

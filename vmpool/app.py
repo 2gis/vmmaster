@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from flask import Flask
 from platforms import Platforms
 from queue import q, QueueWorker

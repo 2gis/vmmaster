@@ -1,10 +1,11 @@
 # coding: utf-8
+
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.internet import defer
 from app import create_app
 
-from .core.logger import log
+from vmmaster.core.logger import log
 
 
 def _block_on(d, timeout=None):
@@ -73,9 +74,9 @@ class VMMasterServer(object):
     def wait_for_writers(self):
         d = defer.Deferred()
 
-        def check_writers(self):
-            if len(self.reactor.getWriters()) > 0:
-                self.reactor.callLater(0.1, check_writers, self)
+        def check_writers(_self):
+            if len(_self.reactor.getWriters()) > 0:
+                _self.reactor.callLater(0.1, check_writers, _self)
             else:
                 d.callback(None)
 

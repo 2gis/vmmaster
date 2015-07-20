@@ -7,31 +7,32 @@ from functools import partial
 import websocket
 import thread
 
-from ..core.utils import network_utils
-from ..webdriver.helpers import check_to_exist_ip
-from ..core.config import config
-from ..core.logger import log
-from ..core.exceptions import CreationException
-from ..core.sessions import RequestHelper, write_session_log, \
-    update_data_in_obj
-from ..core.utils.graphite import graphite, send_metrics
-from ..core.auth.custom_auth import anonymous
+from vmmaster.core.utils import network_utils
+from vmmaster.webdriver.helpers import check_to_exist_ip
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
+from vmmaster.core.exceptions import CreationException
+from vmmaster.core.sessions import RequestHelper, update_log_step
+from vmmaster.core.utils.graphite import graphite, send_metrics
 
 
 class DesiredCapabilities(object):
-    def __init__(self,
-                 name=None,
-                 platform=None,
-                 takeScreenshot=None,
-                 runScript=None,
-                 user=None,
-                 token=None):
+    def __init__(self, name=None, platform=None, takeScreenshot=None,
+                 runScript=None, user=None, token=None):
         self.name = name
         self.platform = platform
         self.takeScreenshot = bool(takeScreenshot)
         self.runScript = dict(runScript)
-        self.user = user
-        self.token = token
+
+        from vmmaster.core.auth.custom_auth import anonymous
+        if user:
+            self.user = user
+        else:
+            self.user = anonymous.username
+        if token:
+            self.token = token
+        else:
+            self.token = anonymous.password
 
     def to_json(self):
         return {
@@ -65,6 +66,8 @@ def start_session(request, session):
 
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
+    session.save()
+    session.refresh()
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
 
@@ -94,7 +97,7 @@ def ping_vm(session):
     _ping = partial(network_utils.ping, ip)
     start = time.time()
     while time.time() - start < timeout and not session.closed:
-        session.timer.restart()
+        session.restart_timer()
         result = map(_ping, ports)
         if all(result):
             break
@@ -200,8 +203,8 @@ def get_desired_capabilities(request):
         body['desiredCapabilities'].get('platform', None),
         body['desiredCapabilities'].get('takeScreenshot', None),
         body['desiredCapabilities'].get('runScript', dict()),
-        body['desiredCapabilities'].get('user', anonymous.username),
-        body['desiredCapabilities'].get('token', anonymous.password)
+        body['desiredCapabilities'].get('user', None),
+        body['desiredCapabilities'].get('token', None)
     )
     return dc
 
@@ -251,9 +254,7 @@ def run_script_through_websocket(request, session, host):
     status_code = 200
     full_msg = json.dumps({"status": 0, "output": ''})
 
-    if session.vmmaster_log_step:
-        log_step = write_session_log(
-            session.vmmaster_log_step.id, status_code, full_msg)
+    agent_step = session.log_step.add_agent_step(status_code, full_msg)
 
     def on_open(ws):
         def run(*args):
@@ -264,18 +265,18 @@ def run_script_through_websocket(request, session, host):
 
     def on_message(ws, message):
         ws.output += message
-        if session.vmmaster_log_step:
+        if agent_step:
             full_msg = json.dumps({"status": 0, "output": ws.output})
-            update_data_in_obj(log_step, message=full_msg)
+            update_log_step(agent_step, message=full_msg)
 
     def on_close(ws):
         log.info("RunScript: Close websocket on vm %s" % host)
-        if session.vmmaster_log_step:
+        if agent_step:
             full_msg = json.dumps({"status": 1, "output": ws.output})
-            update_data_in_obj(log_step, message=full_msg)
+            update_log_step(agent_step, message=full_msg)
 
     def on_error(ws, message):
-        # status_code = 500
+        status_code = 500
         ws.output = message
         log.debug("RunScript error: %s" % message)
 
@@ -294,9 +295,9 @@ def run_script(request, session):
     host = "ws://%s:%s/runScript" % (session.virtual_machine.ip,
                                      config.VMMASTER_AGENT_PORT)
 
-    if session.vmmaster_log_step:
-        write_session_log(session.vmmaster_log_step.id, "%s %s" %
-                          (request.method, '/runScript'), request.body)
+    if session.log_step:
+        session.log_step.add_agent_step(
+            "%s %s" % (request.method, '/runScript'), request.body)
 
     return run_script_through_websocket(request, session, host)
 

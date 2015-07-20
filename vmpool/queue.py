@@ -25,6 +25,13 @@ class VMPoolQueue(list):
             index = self.index(item)
         return self.pop(index)
 
+    @property
+    def info(self):
+        res = list()
+        for i in self:
+            res.append(str(i.dc))
+        return res
+
 
 class QueueWorker(Thread):
     def __init__(self, queue):
@@ -38,7 +45,7 @@ class QueueWorker(Thread):
             for delayed_vm in list(self.queue):
                 platform = delayed_vm.dc.get('platform', '')
                 if pool.has(platform):
-                    vm = pool.get(platform=platform)
+                    vm = pool.get_by_platform(platform)
                     self.queue.dequeue(delayed_vm)
                     delayed_vm.vm = vm
                 elif pool.can_produce(platform):

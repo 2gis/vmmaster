@@ -23,13 +23,15 @@ class TestCaseWithMicroApp(unittest.TestCase):
                                   "-w 2",
                                   "-b 0.0.0.0:5000",
                                   "tests.functional.app.views:app"
-                                  ], preexec_fn=setsid)  # Run flask micro app via tox and gunicorn
+                                  ], preexec_fn=setsid)
         config = RawConfigParser()
         config.read("%s/tests/config" % path)
         try:
-            this_machine_ip = ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
+            this_machine_ip = \
+                ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
         except ValueError:
-            this_machine_ip = ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
+            this_machine_ip = \
+                ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
         config.set("Network", "addr", "http://%s:5000" % this_machine_ip)
         with open('%s/tests/config' % path, 'wb') as configfile:
             config.write(configfile)
@@ -53,7 +55,8 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_two_same_tests_parallel_run(self):
-        from tests.functional.tests.test_normal import TestParallelSessions1, TestParallelSessions2
+        from tests.functional.tests.test_normal import \
+            TestParallelSessions1, TestParallelSessions2
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
@@ -83,23 +86,29 @@ class TestCase(unittest.TestCase):
         self.stream = StringIO()
 
     def test_run_script_on_session_creation(self):
-        from tests.functional.tests.test_normal import TestRunScriptOnSessionCreation
-        suite = self.loader.loadTestsFromTestCase(TestRunScriptOnSessionCreation)
+        from tests.functional.tests.test_normal import \
+            TestRunScriptOnSessionCreation
+        suite = self.loader.loadTestsFromTestCase(
+            TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
         self.assertEqual(1, result.testsRun, result.errors)
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_with_install_package_on_session_creation(self):
-        from tests.functional.tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
-        suite = self.loader.loadTestsFromTestCase(TestRunScriptWithInstallPackageOnSessionCreation)
+        from tests.functional.tests.test_normal import \
+            TestRunScriptWithInstallPackageOnSessionCreation
+        suite = self.loader.loadTestsFromTestCase(
+            TestRunScriptWithInstallPackageOnSessionCreation)
         result = self.runner.run(suite)
         self.assertEqual(1, result.testsRun, result.errors)
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_tests_parallel_run(self):
-        from tests.functional.tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
+        from tests.functional.tests.test_normal import\
+            TestParallelSlowRunScriptOnSession1, \
+            TestParallelSlowRunScriptOnSession2
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSlowRunScriptOnSession1("test"))
         suite2 = unittest.TestSuite()

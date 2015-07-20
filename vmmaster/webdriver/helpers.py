@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import time
 import base64
 import sys
 import commands
@@ -12,10 +11,10 @@ from Queue import Queue
 from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
 
-from ..core.exceptions import SessionException, ConnectionError, \
-    CreationException, PlatformException
-from ..core.config import config
-from ..core.logger import log
+from vmmaster.core.exceptions import ConnectionError, \
+    CreationException, PlatformException, TimeoutException
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
 from vmmaster.core.utils import utils
 
 
@@ -98,30 +97,6 @@ class SessionProxy(object):
         self._session_id = value
 
 
-def write_vmmaster_log(session_id, control_line, body):
-    from vmmaster.core.db import database
-    return database.create_vmmaster_log_step(
-        session_id=session_id,
-        control_line=control_line,
-        body=body,
-        time=time.time()
-    )
-
-
-def handle_exception(self, request, tb):
-    log.error(tb)
-    resp = self.form_response(code=500,
-                              headers={"Content-Length": len(tb)},
-                              body=tb)
-    try:
-        session = self.sessions.get_session(request.session_id)
-    except SessionException:
-        pass
-    else:
-        session.failed(tb)
-    return resp
-
-
 def take_screenshot(proxy):
     session = current_app.sessions.get_session(proxy.session_id)
     if not session.desired_capabilities.takeScreenshot:
@@ -131,7 +106,7 @@ def take_screenshot(proxy):
 
     if screenshot:
         path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + \
-            "/" + str(session.vmmaster_log_step.id) + ".png"
+            "/" + str(session.log_step.id) + ".png"
         utils.write_file(path, base64.b64decode(screenshot))
         return path
 
@@ -200,18 +175,30 @@ def check_to_exist_ip(vm, tries=10, timeout=5):
             sleep(timeout)
 
 
-def get_session(req, dc):
+def get_session(req):
+    def req_closed():
+        return req.closed
+
+    from vmmaster.core.sessions import Session
+    dc = commands.get_desired_capabilities(req)
+    session = Session(dc)
+
     try:
-        vm = utils.get_endpoint(dc.__dict__)
+        endpoint = utils.get_endpoint(
+            dc, req_closed, session.is_timeouted)
     except Exception as e:
         raise PlatformException('%s' % str(e.message))
 
-    log.info(vm.name)
     if req.closed:
-        if vm:
-            utils.del_endpoint(vm.id)
+        if endpoint:
+            utils.del_endpoint(endpoint.id)
         raise ConnectionError('Session was closed during '
                               'creating selenium session')
 
-    session = current_app.sessions.start_session(dc, vm)
+    if session.is_timeouted():
+        if endpoint:
+            utils.del_endpoint(endpoint.id)
+        raise TimeoutException('Session timeout: %s.' % str(session.id))
+
+    session.run(endpoint)
     return session

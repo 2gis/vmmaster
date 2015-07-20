@@ -13,6 +13,7 @@ def run_command(command, silent=False):
             output += line
 
         sys.stdout.write('\n')
+        # FIXME: do not print "qemu-img create -f qcow2 -b" result in STDOUT
     else:
         process.wait()
 

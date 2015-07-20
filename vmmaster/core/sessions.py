@@ -3,21 +3,19 @@
 import time
 import json
 from Queue import Queue
-from threading import Timer, Thread
-from traceback import format_exc
+from threading import Thread
+# from traceback import format_exc
 
 import requests
 import logging
 requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
 
-from .db import database
-from .config import config
-from .logger import log
-from .exceptions import SessionException, TimeoutException
+from vmmaster.core.db.models import Session as SessionModel
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
+from vmmaster.core.exceptions import SessionException
 from vmmaster.core.utils import utils
-
-from twisted.python.threadable import synchronize
 
 
 def getresponse(req, q):
@@ -48,51 +46,12 @@ class RequestHelper(object):
                                                         self.body)
 
 
-class ShutdownTimer(object):
-    def __init__(self, timeout, callback, *args):
-        self.__timeout = timeout
-        self.__callback = callback
-        self.__args = args
-        self.__start_time = 0
-        self.__timer = Timer(self.__timeout, self.__callback, self.__args)
-
-    def __del__(self):
-        self.__timer.cancel()
-        del self.__timer
-
-    def start(self):
-        self.__timer.start()
-        self.__start_time = time.time()
-
-    def restart(self):
-        self.__timer.cancel()
-        del self.__timer
-        self.__timer = Timer(self.__timeout, self.__callback, self.__args)
-        self.__timer.start()
-
-    def stop(self):
-        self.__timer.cancel()
-
-    def time_elapsed(self):
-        return time.time() - self.__start_time
-
-
-def write_session_log(vmmaster_log_step_id, control_line, body):
-    return database.create_session_log_step(
-        vmmaster_log_step_id=vmmaster_log_step_id,
-        control_line=control_line,
-        body=body,
-        time=time.time()
-    )
-
-
-def update_data_in_obj(log_step, message=None, control_line=None):
+def update_log_step(log_step, message=None, control_line=None):
     if message:
         log_step.body = message
     if control_line:
         log_step.control_line = control_line
-
-    return database.update(obj=log_step)
+    log_step.save()
 
 
 class SimpleResponse:
@@ -102,86 +61,88 @@ class SimpleResponse:
         self.content = content
 
 
-class Session(object):
-    id = None
-    name = None
-    virtual_machine = None
-    desired_capabilities = None
-    timeouted = False
-    closed = False
-
-    vmmaster_log_step = None
-
-    def __init__(self, sessions, dc, vm):
-        self.sessions = sessions
-
-        self.desired_capabilities = dc
-        self.name = dc.name
-        self.platform = dc.platform
-        self.username = dc.user
-        self.virtual_machine = vm
-        self._start = time.time()
-
-        log.info("starting new session on %s." % self.virtual_machine)
-        self.db_session = database.create_session(status="running",
-                                                  name=self.name,
-                                                  time=time.time(),
-                                                  username=self.username,
-                                                  vm=vm)
-        self.id = str(self.db_session.id)
-        self.timer = ShutdownTimer(config.SESSION_TIMEOUT, self.timeout)
-        self.timer.start()
-
-        sessions.map[str(self.id)] = self
-        log.info("session %s started on %s." % (self.id, self.virtual_machine))
+class Session(SessionModel):
+    def __init__(self, dc=None):
+        super(Session, self).__init__(dc)
+        log.info("New session %s for %s" %
+                 (str(self.id), str(dc.platform)))
 
     @property
-    def user_id(self):
-        return self.db_session.user_id
+    def inactivity(self):
+        return time.time() - self.time_modified
 
     @property
     def duration(self):
-        return time.time() - self._start
+        return time.time() - self.time_created
 
-    def set_desired_capabilities(self, dc):
-        self.desired_capabilities = dc
+    def is_timeouted(self):
+        self.refresh()
+        return self.timeouted
 
-    def delete(self):
-        log.info("deleting session: %s" % self.id)
+    @property
+    def log_step(self):
+        if self.session_steps:
+            return self.session_steps[-1]
+
+    @property
+    def info(self):
+        self.refresh()
+        stat = {
+            "id": self.id,
+            "name": self.name,
+            "platform": self.platform,
+            "duration": self.duration,
+            "inactivity": self.inactivity
+        }
+        if hasattr(self, "virtual_machine") and self.virtual_machine:
+            stat["vm"] = self.virtual_machine.info
+        return stat
+
+    def restart_timer(self):
+        self.time_modified = time.time()
+        self.save()
+        self.refresh()
+
+    def delete(self, message=""):
+        self.refresh()
         if self.virtual_machine:
+            log.info("Deleting VM for session: %s" % self.id)
             utils.del_endpoint(self.virtual_machine.id)
-
-        self.sessions.delete_session(self.id)
-        self.timer.stop()
-        del self.timer
-        log.info("session %s deleted." % self.id)
+        log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
+        self.status = "succeed"
         self.closed = True
-        db_session = database.get_session(self.id)
-        db_session.status = "succeed"
-        database.update(db_session)
+        self.save()
         self.delete()
 
     def failed(self, tb):
+        self.status = "failed"
         self.closed = True
-        db_session = database.get_session(self.id)
-        db_session.status = "failed"
-        db_session.error = tb
-        database.update(db_session)
-        self.delete()
+        self.error = tb
+        self.save()
+        self.delete(tb)
+
+    def run(self, endpoint):
+        from vmmaster.core.db import database
+        vm = database.get_vm(endpoint.id)
+
+        self.restart_timer()
+        self.virtual_machine = vm
+        self.status = "running"
+        self.save()
+
+        log.info("Session %s starting on %s." %
+                 (self.id, self.virtual_machine.name))
 
     def close(self):
-        self.closed = True
         self.failed("Session closed by user")
 
     def timeout(self):
+        self.refresh()
         self.timeouted = True
-        log.info("TIMEOUT %s session" % self.id)
-        try:
-            raise TimeoutException("Session timeout")
-        except TimeoutException:
-            self.failed(format_exc())
+        self.save()
+        self.failed("Session timeout")
 
     def make_request(self, port, request):
         """ Make http request to some port in session
@@ -190,13 +151,11 @@ class Session(object):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        if self.vmmaster_log_step:
-            write_session_log(
-                self.vmmaster_log_step.id,
-                "%s %s" % (request.method, request.url),
-                request.body)
+        if self.log_step:
+            self.log_step.add_agent_step(
+                "%s %s" % (request.method, request.url), request.body)
 
-        self.timer.restart()
+        self.restart_timer()
         q = Queue()
         url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
 
@@ -250,60 +209,47 @@ class Session(object):
         else:
             content_to_log = response.content
 
-        if self.vmmaster_log_step:
-            write_session_log(
-                self.vmmaster_log_step.id,
-                "%s" % response.status_code,
-                content_to_log)
+        if self.log_step:
+            self.log_step.add_agent_step(
+                str(response.status_code), content_to_log)
 
         return response.status_code, response.headers, response.content
 
-    @property
-    def info(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "platform": self.platform,
-            "duration": self.duration,
-            "vm": {
-                "id": self.virtual_machine.id,
-                "name": self.virtual_machine.name,
-                "ip": self.virtual_machine.ip
-            },
-        }
+
+class SessionWorker(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.running = True
+        self.daemon = True
+
+    @staticmethod
+    def active_sessions():
+        from vmmaster.core.db import database
+        return database.get_sessions()
+
+    def run(self):
+        while self.running:
+            for session in self.active_sessions():
+                if session.inactivity > config.SESSION_TIMEOUT:
+                    session.timeout()
+            time.sleep(1)
+
+    def stop(self):
+        self.running = False
+        self.join()
+        log.info("SessionWorker stopped")
 
 
 class Sessions(object):
-    synchronized = ['get_session', 'delete_session']
+    @staticmethod
+    def get_session(session_id):
+        from vmmaster.core.db import database
+        session = database.get_session(session_id)
 
-    def __init__(self):
-        self.map = {}
-
-    def __iter__(self):
-        return iter(self.map.items())
-
-    def delete(self):
-        session_ids = [session_id for session_id in self.map]
-        for session_id in session_ids:
-            session = self.get_session(session_id)
-            session.delete()
-
-    def start_session(self, dc, vm):
-        session = Session(self, dc, vm)
-        return session
-
-    def get_session(self, session_id):
-        try:
-            return self.map[str(session_id)]
-        except KeyError:
+        if not session:
             raise SessionException("There is no active session %s" %
                                    session_id)
 
-    def delete_session(self, session_id):
-        try:
-            del self.map[str(session_id)]
-        except KeyError:
-            log.info('Delete session has failed '
-                     'because session %s not exist' % session_id)
+        session.refresh()
+        return session
 
-synchronize(Sessions)

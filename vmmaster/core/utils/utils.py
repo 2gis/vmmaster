@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from Queue import Queue
 import json
 import os
@@ -12,9 +14,9 @@ import sys
 from twisted.internet import threads
 from threading import Thread
 
-from ..config import config
-from . import system_utils, commands
-from ..logger import log
+from vmmaster.core.config import config
+from vmmaster.core.utils import system_utils, commands
+from vmmaster.core.logger import log
 
 
 class UserNotFound(Exception):
@@ -194,7 +196,7 @@ def make_request(request, host, port):
         """ Make http request to some port
             and return the response. """
 
-        log.info('request %s' % repr(request))
+        # log.debug('Request: %s' % request)
         q = Queue()
         url = "http://%s:%s%s" % (host,
                                   port,
@@ -223,25 +225,25 @@ def make_request(request, host, port):
         return response
 
 
-def get_endpoint(dc):
+def get_endpoint(dc, req_closed, session_timeouted):
+    # TODO: call Endpoint object method instead
     from vmmaster.core.sessions import RequestHelper
 
-    log.info("Enqueue with dc: %s" % str(dc))
+    log.info("Wait for endpoint answer (dc: %s)..." % str(dc))
 
     start = time.time()
     endpoint = None
-    while not endpoint:
+    while not endpoint and not req_closed() and not session_timeouted():
         if time.time() - start < config.GET_VM_TIMEOUT:
             response = make_request(
                 RequestHelper(method='POST',
                               url="/endpoint/",
                               headers={'Content-Type': 'application/json'},
-                              body=json.dumps(dc)),
+                              body=json.dumps(dc.to_json())),
                 config.VM_POOL_HOST, config.VM_POOL_PORT)
 
             if response.status_code == 200:
-                log.info('Response has successful '
-                         'with content: %s' % response.content)
+                log.info('Got endpoint (%s)' % response.content)
                 endpoint = Endpoint(to_json(response.content))
             elif response.status_code == 404:
                 raise Exception('No such endpoint for your platform %s' %
@@ -253,6 +255,8 @@ def get_endpoint(dc):
 
 
 def del_endpoint(_id):
+    # TODO: call Endpoint object method instead
     from vmmaster.core.sessions import RequestHelper
-    make_request(RequestHelper(method='DELETE', url="/endpoint/%s" % _id),
-                 config.VM_POOL_HOST, config.VM_POOL_PORT)
+    request = RequestHelper(method='DELETE', url="/endpoint/%s" % _id)
+    log.debug('Request: %s' % request)
+    make_request(request, config.VM_POOL_HOST, config.VM_POOL_PORT)

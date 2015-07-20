@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from vmmaster.core.config import config, setup_config
-from vmmaster.core.db import Session
+from vmmaster.core.db import Session, VirtualMachine
 from vmmaster.core.utils.utils import change_user_vmmaster
 from vmmaster.core.utils.init import home_dir
 from vmmaster.core.logger import setup_logging, log
@@ -22,14 +22,14 @@ session_factory = sessionmaker(bind=engine)
 
 def transaction(func):
     def wrapper(*args, **kwargs):
-        db_session = session_factory()
+        dbsession = session_factory()
         try:
-            return func(db_session=db_session, *args, **kwargs)
+            return func(dbsession=dbsession, *args, **kwargs)
         except:
-            db_session.rollback()
+            dbsession.rollback()
             raise
         finally:
-            db_session.close()
+            dbsession.close()
     return wrapper
 
 
@@ -39,8 +39,8 @@ def old():
 
 
 @transaction
-def old_sessions(db_session=None):
-    return db_session.query(Session).filter(Session.time < old()).all()
+def old_sessions(dbsession=None):
+    return dbsession.query(Session).filter(Session.time_created < old()).all()
 
 
 def delete_files(session=None):
@@ -59,7 +59,7 @@ def delete_files(session=None):
 
 
 @transaction
-def delete_session_data(sessions=None, db_session=None):
+def delete_session_data(sessions=None, dbsession=None):
     from datetime import datetime, timedelta
     sessions_count = len(sessions)
 
@@ -81,8 +81,8 @@ def delete_session_data(sessions=None, db_session=None):
                          (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
             delete_files(session)
-            db_session.delete(session)
-            db_session.commit()
+            dbsession.delete(session)
+            dbsession.commit()
         log.info("Total: %s sessions (%d:%d) have been deleted.\n" % (
             str(sessions_count), first_id, last_id))
     else:

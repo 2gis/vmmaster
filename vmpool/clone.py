@@ -14,7 +14,6 @@ from . import VirtualMachine
 from virtual_machines_pool import pool
 
 from vmmaster.core.dumpxml import dumpxml
-from vmmaster.core.network.network import Network
 from vmmaster.core.connection import Virsh
 from vmmaster.core.logger import log
 from vmmaster.core.utils import utils
@@ -41,11 +40,12 @@ def threaded_wait(func):
 class Clone(VirtualMachine):
     def __init__(self, origin, prefix):
         self.uuid = '%s' % uuid4()
-        self.prefix = '%s-%s' % (prefix, self.uuid)
-        name = "{}-clone-{}".format(origin.name, self.prefix)
-        super(Clone, self).__init__(name)
+        self.prefix = '%s' % prefix
         self.origin = origin
-        self.platform = origin.name
+        name = "{platform}-clone-{prefix}-{uuid}".format(
+            platform=origin.name, prefix=self.prefix, uuid=self.uuid)
+
+        super(Clone, self).__init__(name=name, platform=origin.name)
         self.save()
 
     def __str__(self):
@@ -95,10 +95,10 @@ class KVMClone(Clone):
         super(KVMClone, self).__init__(origin, prefix)
 
         self.conn = Virsh()
-        self.network = Network()
+        self.network = pool.network
 
     def delete(self):
-        log.info("deleting kvm clone: {}".format(self.name))
+        log.info("Deleting kvm clone: {}".format(self.name))
         self.ready = False
         self.save()
 
@@ -121,36 +121,32 @@ class KVMClone(Clone):
         VirtualMachine.delete(self)
 
     def create(self):
-        log.info("creating kvm clone of {platform}".format(
+        log.info("Creating kvm clone of {platform}".format(
             platform=self.platform)
         )
-        origin = self.platform
-        self.dumpxml_file = self.clone_origin(origin)
+        self.dumpxml_file = self.clone_origin(self.platform)
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
         self.deleted = False
         self.ready = True
         self.save()
-        log.info("created kvm {clone} on ip: {ip} with mac: {mac}".format(
+        log.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
             clone=self.name, ip=self.ip, mac=self.mac)
         )
         return self
 
     def rebuild(self):
-        log.info("rebuilding kvm clone of {platform}".format(
-            platform=self.platform)
+        log.info("Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
+            clone=self.name, ip=self.id, platform=self.platform)
         )
         pool.remove_vm(self)
+        self.delete()
 
-        if self.checking:
-            self.delete()
-            self.create()
-
-        pool.add_vm(self)
-        log.info("rebuilded kvm {clone} on ip: {ip} with mac: {mac}".format(
-            clone=self.name, ip=self.ip, mac=self.mac)
-        )
+        try:
+            pool.add(self.platform, self.prefix, pool.pool)
+        except CreationException:
+            pass
 
     def clone_origin(self, origin_name):
         self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
@@ -180,7 +176,7 @@ class KVMClone(Clone):
         return clone_xml
 
     def define_clone(self, clone_dumpxml_file):
-        log.info("defining from {}".format(clone_dumpxml_file))
+        log.info("Defining from {}".format(clone_dumpxml_file))
         file_handler = open(clone_dumpxml_file, "r")
         self.conn.defineXML(file_handler.read())
 
@@ -188,22 +184,22 @@ class KVMClone(Clone):
         pass
 
     def start_virtual_machine(self, machine):
-        log.info("starting {}".format(machine))
+        log.info("Starting {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.create()
 
     def shutdown_virtual_machine(self, machine):
-        log.info("shutting down {}".format(machine))
+        log.info("Shutting down {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.shutdown()
 
     def destroy_clone(self, machine):
-        log.info("destroying {}".format(machine))
+        log.info("Destroying {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.destroy()
 
     def undefine_clone(self, machine):
-        log.info("undefining {}".format(machine))
+        log.info("Undefining {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.undefine()
 
@@ -419,7 +415,7 @@ class OpenstackClone(Clone):
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))
 
-        if 'preloaded' in self.name:
+        if self.is_preloaded():
             pool.remove_vm(self)
             pool.pool.append(self)
 
@@ -427,7 +423,7 @@ class OpenstackClone(Clone):
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
             self._wait_for_activated_service(lambda: log.info(
-                "Rebuilded openstack {clone}".format(clone=self.name)))
+                "Rebuilded openstack clone: {clone}".format(clone=self.name)))
         except Exception as e:
             log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()

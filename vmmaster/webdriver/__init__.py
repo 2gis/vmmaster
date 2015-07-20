@@ -3,13 +3,12 @@
 from traceback import format_exc
 from flask import Blueprint, current_app, request, jsonify, abort
 
-from . import commands
+from vmmaster.webdriver import commands
 import helpers
-
-from ..core.db import database
-from ..core.logger import log
-from ..core.exceptions import SessionException, ConnectionError
-from ..core.auth.custom_auth import auth, anonymous
+from vmmaster.core.db import database
+from vmmaster.core.logger import log
+from vmmaster.core.exceptions import SessionException, ConnectionError
+from vmmaster.core.auth.custom_auth import auth, anonymous
 
 webdriver = Blueprint('webdriver', __name__)
 
@@ -35,7 +34,7 @@ def handle_errors(error):
 
 @webdriver.before_request
 def log_request():
-    log.debug('Request: %s' % request)
+    log.debug('%s' % request)
 
     if current_app.running is False:
         log.info("This request is aborted")
@@ -47,9 +46,9 @@ def log_request():
 
         if proxy.session_id:
             session = current_app.sessions.get_session(proxy.session_id)
-            session.vmmaster_log_step = helpers.write_vmmaster_log(
-                proxy.session_id, "%s %s %s" %
-                (req.method, req.path, req.clientproto), str(req.body))
+            session.add_session_step(
+                "%s %s %s" % (req.method, req.path, req.clientproto),
+                str(req.body))
 
 
 def send_response(response):
@@ -60,12 +59,16 @@ def send_response(response):
 
 @webdriver.after_request
 def log_response(response):
-    if current_app.running is False:
-        response.status_code = 502
-    else:
+    if current_app.running:
         proxy = request.proxy
-        helpers.write_vmmaster_log(
-            proxy.session_id, response.status_code, response.data)
+        try:
+            session = current_app.sessions.get_session(proxy.session_id)
+        except SessionException:
+            session = None
+        if session:
+            session.add_session_step(response.status_code, response.data)
+    else:
+        response.status_code = 502
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
@@ -88,7 +91,9 @@ def verify_token(username, client_token):
 def delete_session(session_id):
     proxy = request.proxy
     proxy.response = helpers.transparent(proxy)
-    current_app.sessions.get_session(proxy.session_id).succeed()
+    session = current_app.sessions.get_session(proxy.session_id)
+    session.add_session_step(proxy.response.status_code, proxy.response.data)
+    session.succeed()
     return send_response(proxy.response)
 
 
@@ -99,13 +104,13 @@ def create_session():
     req = request.proxy.request
     proxy = request.proxy
 
-    dc = commands.get_desired_capabilities(req)
-    session = helpers.get_session(req, dc)
+    session = helpers.get_session(req)
     proxy.session_id = session.id
 
-    session.vmmaster_log_step = helpers.write_vmmaster_log(
-        proxy.session_id,
-        "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))
+    session.add_session_step(
+        "%s %s %s" % (req.method, req.path, req.clientproto),
+        str(req.body))
+
     status, headers, body = commands.start_session(req, session)
     proxy.response = helpers.form_response(status, headers, body)
     return send_response(proxy.response)
@@ -130,11 +135,11 @@ def proxy_request(url):
     parts = req.path.split("/")
 
     session = current_app.sessions.get_session(proxy.session_id)
-    if session.vmmaster_log_step:
+    if session.log_step:
         screenshot = None
         if set(words) & set(parts) or parts[-1] == "session":
             screenshot = helpers.take_screenshot(proxy)
         if screenshot:
-            session.vmmaster_log_step.screenshot = screenshot
-            database.update(session.vmmaster_log_step)
+            session.log_step.screenshot = screenshot
+            session.log_step.save()
     return send_response(proxy.response)

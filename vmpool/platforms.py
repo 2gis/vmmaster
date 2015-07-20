@@ -90,7 +90,7 @@ class KVMPlatforms(PlatformsInterface):
     def platforms(self):
         pfms = self._discover_origins(config.ORIGINS_DIR)
 
-        log.info("load kvm platforms: {}".format(str(pfms)))
+        log.debug("Load kvm platforms: {}".format(str(pfms)))
         return pfms
 
     @staticmethod
@@ -111,7 +111,7 @@ class OpenstackPlatforms(PlatformsInterface):
              and config.OPENSTACK_PLATFORM_NAME_PREFIX in image.name]
 
         pfms = [OpenstackOrigin(origin) for origin in origins]
-        log.info("load openstack platforms: {}".format(str(pfms)))
+        log.debug("Load openstack platforms: {}".format(str(pfms)))
         return pfms
 
     @staticmethod
@@ -169,7 +169,7 @@ class Platforms(object):
     openstack_platforms = None
 
     def __new__(cls, *args, **kwargs):
-        log.info("creating all platforms")
+        log.info("Load platforms...")
         inst = object.__new__(cls)
         if config.USE_KVM:
             cls.kvm_platforms = {vm.name: vm for vm in
@@ -187,7 +187,7 @@ class Platforms(object):
         if bool(cls.openstack_platforms):
             cls.platforms.update(cls.openstack_platforms)
 
-        log.info("load all platforms: {}".format(str(cls.platforms)))
+        log.info("Load all platforms: {}".format(str(cls.platforms)))
 
     @classmethod
     def max_count(cls):

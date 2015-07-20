@@ -53,8 +53,8 @@ class TestVirtualMachinePool(BaseTestCase):
 
         self.assertEqual(2, len(pool.pool))
 
-        deffered1 = threads.apply_async(pool.get, args=(self.platform,))
-        deffered2 = threads.apply_async(pool.get, args=(self.platform,))
+        deffered1 = threads.apply_async(pool.get_by_platform, args=(self.platform,))
+        deffered2 = threads.apply_async(pool.get_by_platform, args=(self.platform,))
         deffered1.wait()
         deffered2.wait()
 
@@ -76,7 +76,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(0, len(pool.pool))
         pool.preload(self.platform)
         self.assertEqual(1, len(pool.pool))
-        vm = pool.get(self.platform)
+        vm = pool.get_by_platform(self.platform)
         vm.delete()
         self.assertEqual(0, pool.count())
 
