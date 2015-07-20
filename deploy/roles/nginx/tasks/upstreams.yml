@@ -1,7 +1,0 @@
----
-- name: write upstreams config
-  template:
-    src=upstreams.conf.j2
-    dest=/etc/nginx/conf.d/_{{ item.name }}_upstream.conf
-  with_items: nginx_upstreams
-  notify: reload nginx

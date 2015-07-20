@@ -1,8 +1,0 @@
-{% for param_name, param_value in item.items() %}
-{% if param_name == 'name' -%}
-  upstream {{ param_value }} {
-{% else %}
-  {{ param_value }};
-{% endif %}
-{% endfor %}
-}
