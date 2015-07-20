@@ -15,6 +15,7 @@ from .db import database
 from .config import config
 from .logger import log
 from .exceptions import SessionException, TimeoutException
+from vmmaster.core.utils import utils
 
 from twisted.python.threadable import synchronize
 
@@ -148,11 +149,7 @@ class Session(object):
     def delete(self):
         log.info("deleting session: %s" % self.id)
         if self.virtual_machine:
-            if self.virtual_machine.name is not None\
-                    and 'preloaded' in str(self.virtual_machine.name):
-                self.virtual_machine.rebuild()
-            else:
-                self.virtual_machine.delete()
+            utils.del_endpoint(self.virtual_machine.id)
 
         self.sessions.delete_session(self.id)
         self.timer.stop()
@@ -268,7 +265,11 @@ class Session(object):
             "name": self.name,
             "platform": self.platform,
             "duration": self.duration,
-            "vm_name": self.virtual_machine.name,
+            "vm": {
+                "id": self.virtual_machine.id,
+                "name": self.virtual_machine.name,
+                "ip": self.virtual_machine.ip
+            },
         }
 
 

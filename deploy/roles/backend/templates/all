@@ -11,16 +11,16 @@ class Config(object):
     DATABASE = "sqlite:///app.db"
 {% endif %}
 
-    CLONES_DIR = "{{vmmaster_clones_dir}}"
-    ORIGINS_DIR = "{{vmmaster_origins_dir}}"
-    SESSION_DIR = "{{vmmaster_session_dir}}"
+    CLONES_DIR = BASEDIR + "{{vmmaster_clones_dir}}"
+    ORIGINS_DIR = BASEDIR + "{{vmmaster_origins_dir}}"
+    SESSION_DIR = BASEDIR + "{{vmmaster_session_dir}}"
 
     # screenshots
-    SCREENSHOTS_DIR = BASEDIR + "/{{vmmaster_screenshots_dir}}"
+    SCREENSHOTS_DIR = BASEDIR + "{{vmmaster_screenshots_dir}}"
     SCREENSHOTS_DAYS = {{vmmaster_screenshots_days}}
 
     # logging
-    LOG_DIR = BASEDIR + "/{{vmmaster_log_dir}}"
+    LOG_DIR = BASEDIR + "{{vmmaster_log_dir}}"
     LOG_SIZE = {{vmmaster_log_size}}
 
     # kvm
@@ -64,6 +64,11 @@ class Config(object):
     PRELOADER_FREQUENCY = {{preloader_frequency}}
     SESSION_TIMEOUT = {{vmmaster_session_timeout}}
     PING_TIMEOUT = {{vmmaster_ping_timeout}}
+
+    # vm pool
+    GET_VM_TIMEOUT = {{get_vm_timeout}}
+    VM_POOL_PORT = {{vmpool_port}}
+    VM_POOL_HOST = "{{vmpool_host}}"
 
     # additional logging
     GRAYLOG = {{vmmaster_graylog}}

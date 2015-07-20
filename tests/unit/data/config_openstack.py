@@ -50,7 +50,12 @@ class Config(object):
     SESSION_TIMEOUT = 30
     PING_TIMEOUT = 1
 
-    GRAPHITE = ('graphite', 2003)
+    # vm pool
+    GET_VM_TIMEOUT = 1
+    VM_POOL_PORT = 9999
+    VM_POOL_HOST = 'localhost'
+
+    # GRAPHITE = ('graphite', 2003)
 
     SELENIUM_PORT = 4455
     VMMASTER_AGENT_PORT = 9000

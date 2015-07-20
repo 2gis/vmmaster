@@ -1,11 +1,8 @@
+# coding: utf-8
 from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
-from core.platforms import Platforms
 from core.sessions import Sessions
 from core.network.network import Network
-from core.session_queue import q
-from core.virtual_machine.virtual_machines_pool import \
-    VirtualMachinesPoolPreloader, pool, VirtualMachineChecker
 from core.logger import log
 
 
@@ -22,22 +19,13 @@ class vmmaster(Flask):
         self.running = True
 
         self.network = Network()
+        sessions = Sessions()
 
         self.json_encoder = JSONEncoder
-        self.platforms = Platforms()
-        self.queue = q
-        self.sessions = Sessions()
-
-        self.preloader = VirtualMachinesPoolPreloader(pool)
-        self.preloader.start()
-        self.vmchecker = VirtualMachineChecker(pool)
-        self.vmchecker.start()
+        self.sessions = sessions
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.preloader.stop()
-        self.vmchecker.stop()
-        pool.free()
         self.network.delete()
         log.info("Server gracefully shut down.")
 

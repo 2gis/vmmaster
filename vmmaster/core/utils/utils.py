@@ -1,11 +1,16 @@
+from Queue import Queue
+import json
 import os
 import errno
 import pwd
 import grp
+import requests
+import time
+import sys
 
 
 from twisted.internet import threads
-
+from threading import Thread
 
 from ..config import config
 from . import system_utils, commands
@@ -128,7 +133,7 @@ def drop_privileges(uid_name='vmmaster', gid_name='vmmaster'):
     os.setuid(running_uid)
 
     # Ensure a very conservative umask
-    old_umask = os.umask(077)
+    # old_umask = os.umask(077)
 
 
 def change_user_vmmaster():
@@ -140,3 +145,114 @@ def to_thread(f):
     def wrapper(*args, **kwargs):
         return threads.deferToThread(f, *args, **kwargs)
     return wrapper
+
+
+def wait_for(condition, timeout=5):
+    start = time.time()
+    while not condition() and time.time() - start < timeout:
+        time.sleep(0.1)
+
+    return condition()
+
+
+class BucketThread(Thread):
+    def __init__(self, bucket, *args, **kwargs):
+        Thread.__init__(self, *args, **kwargs)
+        self.bucket = bucket
+
+    def run(self):
+        try:
+            super(BucketThread, self).run()
+        except:
+            self.bucket.put(sys.exc_info())
+
+
+class Endpoint(object):
+    def __init__(self, vm):
+        self.id = vm['id']
+        self.name = vm['name']
+        self.platform = vm['platform']
+        self.ip = vm['ip']
+
+
+def getresponse(req, q):
+    try:
+        q.put(req())
+    except Exception as e:
+        q.put(e)
+
+
+def to_json(result):
+    try:
+        return json.loads(result)
+    except ValueError:
+        log.info("Couldn't parse response content <%s>" % repr(result))
+        return {}
+
+
+def make_request(request, host, port):
+        """ Make http request to some port
+            and return the response. """
+
+        log.info('request %s' % repr(request))
+        q = Queue()
+        url = "http://%s:%s%s" % (host,
+                                  port,
+                                  request.url)
+
+        req = lambda: requests.request(method=request.method,
+                                       url=url,
+                                       headers=request.headers,
+                                       data=request.body)
+
+        t = Thread(target=getresponse, args=(req, q))
+        t.daemon = True
+        t.start()
+
+        response = None
+        while not response:
+            if not t.isAlive():
+                response = q.get()
+                if isinstance(response, Exception):
+                    log.info('Exception in thread '
+                             'during request: %s' % str(response))
+                break
+            elif t is not None:
+                t.join(0.1)
+
+        return response
+
+
+def get_endpoint(dc):
+    from vmmaster.core.sessions import RequestHelper
+
+    log.info("Enqueue with dc: %s" % str(dc))
+
+    start = time.time()
+    endpoint = None
+    while not endpoint:
+        if time.time() - start < config.GET_VM_TIMEOUT:
+            response = make_request(
+                RequestHelper(method='POST',
+                              url="/endpoint/",
+                              headers={'Content-Type': 'application/json'},
+                              body=json.dumps(dc)),
+                config.VM_POOL_HOST, config.VM_POOL_PORT)
+
+            if response.status_code == 200:
+                log.info('Response has successful '
+                         'with content: %s' % response.content)
+                endpoint = Endpoint(to_json(response.content))
+            elif response.status_code == 404:
+                raise Exception('No such endpoint for your platform %s' %
+                                dc.get('platform', 'None'))
+        else:
+            raise Exception("Endpoint has not created")
+
+    return endpoint
+
+
+def del_endpoint(_id):
+    from vmmaster.core.sessions import RequestHelper
+    make_request(RequestHelper(method='DELETE', url="/endpoint/%s" % _id),
+                 config.VM_POOL_HOST, config.VM_POOL_PORT)

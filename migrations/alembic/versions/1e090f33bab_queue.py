@@ -1,9 +1,7 @@
 """queue
-
 Revision ID: 1e090f33bab
 Revises: bea3ba88c73
 Create Date: 2015-06-01 15:36:31.935968
-
 """
 
 # revision identifiers, used by Alembic.

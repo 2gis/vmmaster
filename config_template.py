@@ -56,6 +56,11 @@ class Config(object):
     SESSION_TIMEOUT = 360
     PING_TIMEOUT = 180
 
+    # vm pool
+    GET_VM_TIMEOUT = 180
+    VM_POOL_PORT = 9999
+    VM_POOL_HOST = 'localhost'
+
     # additional logging
     # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
     # GRAYLOG = ('logserver', 12201)

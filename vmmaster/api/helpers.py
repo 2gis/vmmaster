@@ -2,10 +2,8 @@
 
 from flask import current_app
 
-from ..core.platforms import Platforms
 from ..core.exceptions import SessionException
 from ..core.session_queue import q
-from ..core.virtual_machine.virtual_machines_pool import pool
 from ..core.db import database
 
 
@@ -24,16 +22,8 @@ def get_sessions():
     return sessions_list
 
 
-def get_platforms():
-    return list(Platforms.platforms.keys())
-
-
 def get_queue():
     return str(q)
-
-
-def get_pool():
-    return pool.info
 
 
 def get_user(user_id):

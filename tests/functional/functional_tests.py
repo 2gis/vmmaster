@@ -120,5 +120,6 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result1.failures), result1.failures)
         self.assertEqual(0, len(result2.failures), result2.failures)
 
+
 if __name__ == "__main__":
     lode_runner.run(defaultTest=[__name__])

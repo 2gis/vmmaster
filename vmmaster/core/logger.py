@@ -37,9 +37,17 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
     log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
     if hasattr(config, 'GRAYLOG'):
-        graylog_handler = graypy.GELFHandler(host=config.GRAYLOG[0], port=config.GRAYLOG[1])
-        graylog_handler.setFormatter(log_formatter)
-        log.addHandler(graylog_handler)
+        from vmmaster.core.utils.network_utils import ping
+
+        host =config.GRAYLOG[0]
+        port = config.GRAYLOG[1]
+
+        if ping(host, port):
+            graylog_handler = graypy.GELFHandler(host=host, port=port)
+            graylog_handler.setFormatter(log_formatter)
+            log.addHandler(graylog_handler)
+        else:
+            log.info('GRAYLOG URL not available')
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(

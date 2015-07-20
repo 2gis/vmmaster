@@ -5,17 +5,21 @@
   register: vmmaster_status
 
 - name: install postgres
-  include: ../../install_postgres/tasks/main.yml
+  include: ../../postgres/tasks/main.yml
   when: use_postgres and not update
-
-- name: create dir for instances
-  file: path={{app_path}} state=directory mode=0755 owner={{deploy_user}} group={{deploy_user}} recurse=yes
 
 - name: delete old directory
   file: path={{app_path}} state=absent
 
+- name: create dir for instances
+  file: path={{app_path}} state=directory mode=0755 owner={{deploy_user}} group={{deploy_user}} recurse=yes
+
 - name: git checkout repo
-  git: repo=https://github.com/2gis/vmmaster.git dest={{app_path}} version={{vmmaster_version}} depth=1
+  git: repo=https://github.com/2gis/vmmaster.git dest={{app_path}} version={{vmmaster_version}}
+  sudo: no
+
+- name: install dependencies
+  shell: chmod +x {{app_path}}/install-dependencies.sh && {{app_path}}/install-dependencies.sh
 
 - name: install tox
   pip: name=tox
@@ -23,6 +27,7 @@
 
 - name: create virtualenv with deps
   shell: "cd {{app_path}} && tox"
+  sudo: no
 
 - name: apply special config.py in vmmaster directory
   template: src={{vmmaster_config_name}} dest={{app_path}}/config.py mode=0644
@@ -42,13 +47,9 @@
 - name: change permitions for files
   file: path={{app_path}} state=directory mode=0755 owner=vmmaster group=libvirtd recurse=yes
 
-- name: install upstart script
-  template: src=upstart.conf dest=/etc/init/{{app_name}}.conf mode=0644
-
-- name: change permitions for files
-  file: path={{app_path}} state=directory mode=0755 owner=vmmaster group=libvirtd recurse=yes
+- name: install upstart vmmaster script
+  template: src=upstart_vmmaster.conf dest=/etc/init/{{app_name}}.conf mode=0644
 
 - name: start vmmaster service
   service: name={{app_name}} state=started
   failed_when: "vmmaster_status | failed and 'service not found' not in vmmaster_status.msg"
-  register: vmmaster_status

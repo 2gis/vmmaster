@@ -1,0 +1,10 @@
+---
+- name: install vmmaster
+  include: vmmaster.yml
+  tags: [vmmaster]
+  sudo: yes
+
+- name: install vmpool
+  include: vmpool.yml
+  tags: [vmpool]
+  sudo: yes

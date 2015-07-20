@@ -1,12 +1,11 @@
 import os
 
-from .config import config
-from .exceptions import PlatformException
-from .logger import log
-from .utils import openstack_utils
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
+from vmmaster.core.utils import openstack_utils
 
-from .virtual_machine.clone import KVMClone, OpenstackClone
-from .virtual_machine.virtual_machines_pool import pool
+from clone import KVMClone, OpenstackClone
+from virtual_machines_pool import pool
 
 
 class Platform(object):
@@ -203,10 +202,16 @@ class Platforms(object):
 
     @classmethod
     def check_platform(cls, platform):
-        if platform not in cls.platforms.keys():
-            raise PlatformException("no such platform")
+        if platform in cls.platforms.keys():
+            return True
+        else:
+            return False
 
     @classmethod
     def get(cls, platform):
         cls.check_platform(platform)
         return cls.platforms.get(platform, None)
+
+    @classmethod
+    def info(cls):
+        return list(cls.platforms.keys())

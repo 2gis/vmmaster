@@ -17,16 +17,9 @@ def render_json(result, code=200):
 @api.route('/status')
 def status():
     return render_json({
-        'platforms': helpers.get_platforms(),
         'sessions': helpers.get_sessions(),
-        'queue': helpers.get_queue(),
-        'pool': helpers.get_pool()
+        'queue': helpers.get_queue()
     })
-
-
-@api.route('/platforms')
-def platforms():
-    return render_json({'platforms': helpers.get_platforms()})
 
 
 @api.route('/sessions')
@@ -37,11 +30,6 @@ def sessions():
 @api.route('/queue')
 def queue():
     return render_json({'queue': helpers.get_queue()})
-
-
-@api.route('/pool')
-def pool():
-    return render_json({'pool': helpers.get_pool()})
 
 
 @api.route('/session/<int:session_id>')

@@ -3,6 +3,6 @@
   remote_user: "{{deploy_user}}"
   sudo: yes
   roles:
-    - {role: install_dependencies, when: not update and not only_nginx}
-    - {role: nginx, tags: [nginx], when: not update and (nginx or only_nginx)}
-    - {role: install_vmmaster, when: not only_nginx}
+    - {role: dependencies, tags: [vmmaster, vmpool]}
+    - {role: nginx, tags: [nginx]}
+    - {role: backend}

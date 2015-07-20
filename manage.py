@@ -16,7 +16,6 @@ except AttributeError:
     config = None
     db.database = None
 
-from vmmaster.server import VMMasterServer
 from vmmaster.core.utils.utils import change_user_vmmaster
 
 app = Flask(__name__)
@@ -27,17 +26,23 @@ def activate_logger():
     setup_logging(config.LOG_DIR)
 
 
-def main():
-    VMMasterServer(reactor, config.PORT).run()
-
-
 @manager.command
 def runserver():
     """
     Run server
     """
-    activate_logger()
-    main()
+    activate_logger()  # todo decorator
+    from vmmaster.server import VMMasterServer
+    VMMasterServer(reactor, config.PORT).run()
+
+
+@manager.command
+def vmpool():
+    """
+    Run virtual machine pool
+    """
+    from vmpool.server import VMPool
+    VMPool(reactor, config.VM_POOL_PORT).run()
 
 
 @manager.command
@@ -54,7 +59,7 @@ def init():
     """
     Initialize application
     """
-    activate_logger()
+    # activate_logger()  # todo decorator
     log.info('Initialize application')
     useradd()
     change_user_vmmaster()

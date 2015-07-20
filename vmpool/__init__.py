@@ -1,6 +1,5 @@
 # coding: utf-8
-
-from ..dispatcher import dispatcher, Signals
+from vmmaster.core.dispatcher import dispatcher, Signals
 from vmmaster.core.db.models import VirtualMachine as VirtualMachineModel
 
 

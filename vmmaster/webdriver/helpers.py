@@ -13,11 +13,10 @@ from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
 
 from ..core.exceptions import SessionException, ConnectionError, \
-    CreationException
-from ..core.sessions import RequestHelper
+    CreationException, PlatformException
 from ..core.config import config
 from ..core.logger import log
-from ..core.utils.utils import write_file
+from vmmaster.core.utils import utils
 
 
 class BucketThread(Thread):
@@ -133,7 +132,7 @@ def take_screenshot(proxy):
     if screenshot:
         path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + \
             "/" + str(session.vmmaster_log_step.id) + ".png"
-        write_file(path, base64.b64decode(screenshot))
+        utils.write_file(path, base64.b64decode(screenshot))
         return path
 
 
@@ -156,6 +155,8 @@ def swap_session(req, desired_session):
 
 
 def transparent(proxy):
+    from vmmaster.core.sessions import RequestHelper
+
     req = proxy.request
     session = current_app.sessions.get_session(proxy.session_id)
     swap_session(req, session.selenium_session)
@@ -200,24 +201,17 @@ def check_to_exist_ip(vm, tries=10, timeout=5):
 
 
 def get_session(req, dc):
-    platform = dc.platform
-    log.info("Enqueue: %s" % str(platform))
+    try:
+        vm = utils.get_endpoint(dc.__dict__)
+    except Exception as e:
+        raise PlatformException('%s' % str(e.message))
 
-    from vmmaster.core.virtual_machine.virtual_machines_pool import pool
-    vm = None
-    while not req.closed:
-        if pool.has(platform):
-            vm = pool.get(platform)
-            break
-        elif pool.can_produce(platform):
-            vm = pool.add(platform)
-            break
-
+    log.info(vm.name)
     if req.closed:
         if vm:
-            vm.delete()
-        raise ConnectionError(
-            'Session was closed during creating selenium session')
+            utils.del_endpoint(vm.id)
+        raise ConnectionError('Session was closed during '
+                              'creating selenium session')
 
     session = current_app.sessions.start_session(dc, vm)
     return session

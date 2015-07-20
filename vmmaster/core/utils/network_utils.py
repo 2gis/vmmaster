@@ -61,7 +61,10 @@ def get_socket(host, port):
 
 
 def ping(ip, port):
-    s = get_socket(ip, port)
+    try:
+        s = get_socket(ip, port)
+    except Exception:
+        return False
     if s:
         s.close()
         return True
