@@ -300,6 +300,10 @@ class Sessions(object):
                                    session_id)
 
     def delete_session(self, session_id):
-        del self.map[str(session_id)]
+        try:
+            del self.map[str(session_id)]
+        except KeyError:
+            log.info('Delete session has failed '
+                     'because session %s not exist' % session_id)
 
 synchronize(Sessions)
