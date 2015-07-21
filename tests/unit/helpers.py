@@ -6,6 +6,7 @@ import os
 import threading
 import time
 import socket
+import unittest
 
 
 class TimeoutException(Exception):
@@ -182,3 +183,8 @@ class ServerMock(object):
         self._server.shutdown()
         self._server.server_close()
         self._thread.join(1)
+
+
+class BaseTestCase(unittest.TestCase):
+    def shortDescription(self):
+        return None

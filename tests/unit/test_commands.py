@@ -1,12 +1,11 @@
 # coding: utf-8
 
-import unittest
 import copy
 import json
 import requests
-from helpers import Handler
-from helpers import ServerMock, get_free_port
 
+from helpers import Handler, BaseTestCase
+from helpers import ServerMock, get_free_port
 from mock import Mock, patch
 
 # Mocking db
@@ -15,13 +14,10 @@ from vmmaster.core.exceptions import CreationException
 from vmmaster.core.config import setup_config, config
 
 
-class CommonCommandsTestCase(unittest.TestCase):
+class CommonCommandsTestCase(BaseTestCase):
     webdriver_server = None
     vmmaster_agent = None
     host = 'localhost'
-
-    def shortDescription(self):
-        return None  # TODO: move to parent
 
     @classmethod
     def setUpClass(cls):
@@ -274,10 +270,7 @@ class TestCheckVmOnline(CommonCommandsTestCase):
                           request, self.session, self.webdriver_server.port)
 
 
-class TestGetDesiredCapabilities(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestGetDesiredCapabilities(BaseTestCase):
     def setUp(self):
         self.body = {
             "sessionId": None,

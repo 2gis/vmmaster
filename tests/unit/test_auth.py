@@ -1,8 +1,9 @@
 # coding: utf-8
 
-import unittest
-from mock import Mock, patch
 import json
+
+from mock import Mock, patch
+from helpers import BaseTestCase
 
 
 def decorate_this(*args, **kwargs):
@@ -12,10 +13,7 @@ def decorate_this(*args, **kwargs):
     pass
 
 
-class TestWDAuthPositive(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestWDAuthPositive(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         from flask import Flask
@@ -99,10 +97,7 @@ class TestWDAuthPositive(unittest.TestCase):
         self.assertIn("WWW-Authenticate", resp.headers.keys())
 
 
-class TestAPIAuthPositive(unittest.TestCase):
-    def shortDescription(self):
-        return None  # TODO: move to parent
-
+class TestAPIAuthPositive(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         from flask import Flask
