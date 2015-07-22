@@ -8,7 +8,8 @@ api = Blueprint('api', __name__)
 def status():
     return helpers.render_json({
         'platforms': helpers.get_platforms(),
-        'pool': helpers.get_pool()
+        'pool': helpers.get_pool(),
+        'queue': helpers.get_queue()
     })
 
 
@@ -20,3 +21,8 @@ def platforms():
 @api.route('/pool')
 def pool():
     return helpers.render_json(result={'pool': helpers.get_pool()})
+
+
+@api.route('/queue')
+def queue():
+    return helpers.render_json(result={'queue': helpers.get_queue()})

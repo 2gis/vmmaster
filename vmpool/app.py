@@ -1,5 +1,6 @@
 from flask import Flask
 from platforms import Platforms
+from queue import q, QueueWorker
 from virtual_machines_pool import pool
 from vmpool.virtual_machines_pool import VirtualMachinesPoolPreloader, \
     VirtualMachineChecker
@@ -18,14 +19,18 @@ class VMPoolApplication(Flask):
         super(VMPoolApplication, self).__init__(*args, **kwargs)
         log.info('Running application...')
         self.platforms = Platforms()
+        self.queue = q
 
         self.preloader = VirtualMachinesPoolPreloader(pool)
         self.preloader.start()
         self.vmchecker = VirtualMachineChecker(pool)
         self.vmchecker.start()
+        self.worker = QueueWorker(q)
+        self.worker.start()
 
     def shutdown(self):
         log.info("Shutting down...")
+        self.worker.stop()
         self.preloader.stop()
         self.vmchecker.stop()
         pool.free()

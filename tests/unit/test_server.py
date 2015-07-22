@@ -3,7 +3,6 @@
 import json
 import time
 from mock import Mock, patch, PropertyMock
-from nose.plugins.attrib import attr
 
 from uuid import uuid4
 from vmmaster.core.config import setup_config
@@ -101,6 +100,28 @@ class TestServer(BaseTestCase):
         vm_count = len(self.VirtualMachinesPool.using)
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
+
+    @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
+    def test_server_creating_a_few_parallel_sessions(self):
+        from multiprocessing.pool import ThreadPool
+        pool = ThreadPool(3)
+        deffered1 = pool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered2 = pool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered3 = pool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered1.wait()
+        deffered2.wait()
+        deffered3.wait()
+        result1 = deffered1.get()
+        result2 = deffered2.get()
+        result3 = deffered3.get()
+
+        vm_count = len(self.VirtualMachinesPool.using)
+        self.assertTrue(200 in (result1.status, result2.status, result3.status))
+        self.assertTrue(500 in (result1.status, result2.status, result3.status))
+        self.assertEqual(2, vm_count)
 
     @patch('vmmaster.core.db.database', new=Mock(add=Mock(), update=Mock()))
     def test_server_create_new_session_with_user_and_token(self):
