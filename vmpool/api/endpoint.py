@@ -7,6 +7,7 @@ from vmmaster.core.config import config
 
 from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
+from vmpool.queue import q
 
 endpoint = Blueprint('endpoint', __name__)
 
@@ -22,12 +23,22 @@ def make_response(status=None, response=None):
     return Response(status=status, response=response)
 
 
+def give_vm(delayed_vm=None):
+    vm = {
+        'id': delayed_vm.vm.id,
+        'platform': '%s' % delayed_vm.vm.platform,
+        'name': '%s' % delayed_vm.vm.name,
+        'ip': '%s' % delayed_vm.vm.ip
+    }
+    log.info('Got vm for request with params: %s' % vm)
+    return make_response(status=200, response=vm)
+
+
 @endpoint.route('/', methods=['POST'])
 def get_vm():
-    vm = None
-    body = request.get_json()
-    log.info("Request with dc: %s" % str(body))
-    platform = body.get('platform', None)
+    desired_caps = request.get_json()
+    log.info("Request with dc: %s" % str(desired_caps))
+    platform = desired_caps.get('platform', None)
 
     if isinstance(platform, unicode):
         platform = platform.encode('utf-8')
@@ -41,31 +52,23 @@ def get_vm():
         return make_response(status=404,
                              response='No such platform %s' % platform)
 
-    if pool.has(platform):
-        vm = pool.get(platform=platform)
-    elif pool.can_produce(platform):
-        vm = pool.add(platform)
+    delayed_vm = q.enqueue(desired_caps)
 
-    if vm is None:
+    wait_for(lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT)
+
+    if not delayed_vm.vm:
         return make_response(
             status=500,
             response='Vm can\'t create with platform %s' % platform)
 
-    wait_for(lambda: vm.ready is True, timeout=config.GET_VM_TIMEOUT)
+    wait_for(lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT)
 
-    if not vm.ready:
+    if not delayed_vm.vm.ready:
         return make_response(
             status=500,
             response='Vm has not been created with platform %s' % platform)
 
-    vm = {
-        'id': vm.id,
-        'platform': '%s' % vm.platform,
-        'name': '%s' % vm.name,
-        'ip': '%s' % vm.ip
-    }
-    log.info('Got vm for request with params: %s' % vm)
-    return make_response(status=200, response=vm)
+    return give_vm(delayed_vm)
 
 
 @endpoint.route('/<endpoint_id>', methods=['DELETE'])
