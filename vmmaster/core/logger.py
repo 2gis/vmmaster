@@ -36,19 +36,6 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
 
     log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
 
-    if hasattr(config, 'GRAYLOG'):
-        from vmmaster.core.utils.network_utils import ping
-
-        host =config.GRAYLOG[0]
-        port = config.GRAYLOG[1]
-
-        if ping(host, port):
-            graylog_handler = graypy.GELFHandler(host=host, port=port)
-            graylog_handler.setFormatter(log_formatter)
-            log.addHandler(graylog_handler)
-        else:
-            log.info('GRAYLOG URL not available')
-
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(
             os.path.join(logdir, logfile_name), maxBytes=config.LOG_SIZE, backupCount=5
@@ -67,6 +54,19 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
         stdout_logger = logging.getLogger('STDOUT')
         slout = StreamToLogger(stdout_logger, logging.INFO)
         sys.stdout = slout
+
+    if hasattr(config, 'GRAYLOG'):
+        from vmmaster.core.utils.network_utils import ping
+
+        host =config.GRAYLOG[0]
+        port = config.GRAYLOG[1]
+
+        if ping(host, port):
+            graylog_handler = graypy.GELFHandler(host=host, port=port)
+            graylog_handler.setFormatter(log_formatter)
+            log.addHandler(graylog_handler)
+        else:
+            log.info('GRAYLOG URL not available')
 
     stderr_logger = logging.getLogger('STDERR')
     slerr = StreamToLogger(stderr_logger, logging.ERROR)
