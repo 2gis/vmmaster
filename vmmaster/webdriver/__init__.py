@@ -37,7 +37,7 @@ def log_request():
     log.debug('%s' % request)
 
     if current_app.running is False:
-        log.info("This request is aborted")
+        log.info("This request is aborted %s" % request)
         abort(502)
     else:
         request.proxy = helpers.SessionProxy()
@@ -59,16 +59,13 @@ def send_response(response):
 
 @webdriver.after_request
 def log_response(response):
-    if current_app.running:
-        proxy = request.proxy
-        try:
-            session = current_app.sessions.get_session(proxy.session_id)
-        except SessionException:
-            session = None
-        if session:
-            session.add_session_step(response.status_code, response.data)
-    else:
-        response.status_code = 502
+    proxy = request.proxy
+    try:
+        session = current_app.sessions.get_session(proxy.session_id)
+    except SessionException:
+        session = None
+    if session:
+        session.add_session_step(response.status_code, response.data)
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
