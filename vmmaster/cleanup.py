@@ -43,6 +43,12 @@ def old_sessions(dbsession=None):
     return dbsession.query(Session).filter(Session.time_created < old()).all()
 
 
+@transaction
+def old_endpoints(dbsession=None):
+    return dbsession.query(VirtualMachine)\
+        .filter(VirtualMachine.time_created < old()).all()
+
+
 def delete_files(session=None):
     from shutil import rmtree
     from errno import ENOENT
@@ -56,6 +62,21 @@ def delete_files(session=None):
             if os_error.errno != ENOENT:
                 log.info('Unable to delete %s (%s)' %
                          (str(session_dir), os_error.strerror))
+
+
+@transaction
+def delete_endpoints(endpoints=None, dbsession=None):
+    endpoints_count = len(endpoints)
+
+    log.info("Got %s endpoints. " % str(endpoints_count))
+    if endpoints_count:
+        for endpoint in endpoints:
+            dbsession.delete(endpoint)
+            dbsession.commit()
+        log.info("Total: %s endpoints have been deleted.\n" % (
+            str(endpoints_count)))
+    else:
+        log.info("Nothing to delete.\n")
 
 
 @transaction
@@ -93,4 +114,6 @@ def run():
     log.info('Running cleanup...')
     change_user_vmmaster()
     outdated_sessions = old_sessions()
+    outdated_endpoints = old_endpoints()
     delete_session_data(outdated_sessions)
+    delete_endpoints(outdated_endpoints)

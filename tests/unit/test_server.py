@@ -523,7 +523,7 @@ class TestServerShutdown(BaseTestCase):
             del self.vmpool
 
         self.assertFalse(session.is_closed())
-        session.close()
+        session.failed()
 
         server_is_down(self.address)
         server_is_down(self.vmpool_address)

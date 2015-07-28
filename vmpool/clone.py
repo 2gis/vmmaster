@@ -409,7 +409,7 @@ class OpenstackClone(Clone):
         else:
             log.info("VM {clone} can not be removed because "
                      "it does not exist".format(clone=self.name))
-        self.deleted = True
+        VirtualMachine.delete(self)
         self.save()
 
     def rebuild(self):

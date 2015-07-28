@@ -56,7 +56,7 @@ def startup_script(session):
 
 
 def ping_vm(session):
-    ip = check_to_exist_ip(session.virtual_machine)
+    ip = check_to_exist_ip(session)
     ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
     timeout = config.PING_TIMEOUT
 
@@ -250,7 +250,7 @@ def run_script_through_websocket(request, session, host):
 
 
 def run_script(request, session):
-    host = "ws://%s:%s/runScript" % (session.virtual_machine.ip,
+    host = "ws://%s:%s/runScript" % (session.endpoint_ip,
                                      config.VMMASTER_AGENT_PORT)
 
     if session.log_step:

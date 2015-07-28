@@ -83,7 +83,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def get_by_id(cls, _id=None):
         if _id:
-            log.info('Getting VM by ID: %s' % _id)
+            log.debug('Getting VM by ID: %s' % _id)
             for vm in cls.pool + cls.using:
                 if vm.ready and isinstance(vm.id, int) and vm.id == int(_id):
                     return vm

@@ -1,4 +1,6 @@
 # coding: utf-8
+import time
+
 from vmmaster.core.dispatcher import dispatcher, Signals
 from vmmaster.core.db.models import VirtualMachine as VirtualMachineModel
 
@@ -13,6 +15,7 @@ class VirtualMachine(VirtualMachineModel):
     def delete(self):
         dispatcher.send(signal=Signals.DELETE_VIRTUAL_MACHINE, sender=self)
         self.deleted = True
+        self.time_deleted = time.time()
         self.save()
 
     def is_preloaded(self):

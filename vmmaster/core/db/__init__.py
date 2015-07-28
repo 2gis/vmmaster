@@ -60,8 +60,7 @@ class Database(object):
     @transaction
     def get_session(self, session_id, dbsession=None):
         from vmmaster.core.sessions import Session as WrappedSession
-        return dbsession.query(WrappedSession).options(
-            joinedload(WrappedSession.virtual_machine)).get(session_id)
+        return dbsession.query(WrappedSession).get(session_id)
 
     @transaction
     def get_vm(self, vm_id, dbsession=None):
