@@ -55,6 +55,7 @@ def get_vm():
     wait_for(lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT)
 
     if not delayed_vm.vm:
+        delete_from_queue(delayed_vm)
         return make_response(
             status=500,
             response='Vm can\'t create with platform %s' % platform)
@@ -62,6 +63,7 @@ def get_vm():
     wait_for(lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT)
 
     if not delayed_vm.vm.ready:
+        delete_from_queue(delayed_vm)
         return make_response(
             status=500,
             response='Vm has not been created with platform %s' % platform)
@@ -85,3 +87,9 @@ def delete_vm(endpoint_id):
         log.info(msg)
 
     return make_response(status=200, response=msg)
+
+
+def delete_from_queue(delayed_vm):
+    log.info("Deleting request for getting vm from "
+             "queue with desired capabilities: %s" % delayed_vm.dc)
+    q.dequeue(delayed_vm)

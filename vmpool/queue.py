@@ -20,10 +20,13 @@ class VMPoolQueue(list):
         return delayed_vm
 
     def dequeue(self, item=None):
-        index = 0
-        if item:
-            index = self.index(item)
-        return self.pop(index)
+        try:
+            index = 0
+            if item:
+                index = self.index(item)
+            return self.pop(index)
+        except ValueError:
+            log.debug('Delayed vm %s not found in queue' % str(item.dc))
 
     @property
     def info(self):
