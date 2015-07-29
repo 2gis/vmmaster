@@ -1,11 +1,9 @@
 # coding: utf-8
 
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import sessionmaker, scoped_session, subqueryload
-
+from sqlalchemy.orm import sessionmaker, scoped_session, joinedload
 from .models import Session, SessionLogStep, AgentLogStep, User, \
     VirtualMachine
-
 from vmmaster.core.utils.utils import to_thread
 
 
@@ -59,7 +57,7 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         from vmmaster.core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).options(
-            subqueryload(WrappedSession.virtual_machine)).get(session_id)
+            joinedload(WrappedSession.virtual_machine)).get(session_id)
 
     @transaction
     def get_vm(self, vm_id, dbsession=None):

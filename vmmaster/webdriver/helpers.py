@@ -187,18 +187,23 @@ def get_session(req):
         endpoint = utils.get_endpoint(
             dc, req_closed, session.is_timeouted)
     except Exception as e:
-        raise PlatformException('%s' % str(e.message))
+        error_message = '%s' % str(e.message)
+        session.failed(error_message)
+        raise PlatformException(error_message)
 
     if req.closed:
         if endpoint:
             utils.del_endpoint(endpoint.id)
-        raise ConnectionError('Session was closed during '
-                              'creating selenium session')
+        error_message = 'Session was closed during creating selenium session'
+        session.failed(error_message)
+        raise ConnectionError(error_message)
 
     if session.is_timeouted():
         if endpoint:
             utils.del_endpoint(endpoint.id)
-        raise TimeoutException('Session timeout: %s.' % str(session.id))
+        error_message = 'Session timeout: %s.' % str(session.id)
+        session.failed(error_message)
+        raise TimeoutException(error_message)
 
     session.run(endpoint)
     return session

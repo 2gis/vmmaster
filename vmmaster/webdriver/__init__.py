@@ -59,13 +59,14 @@ def send_response(response):
 
 @webdriver.after_request
 def log_response(response):
-    proxy = request.proxy
-    try:
-        session = current_app.sessions.get_session(proxy.session_id)
-    except SessionException:
-        session = None
-    if session:
-        session.add_session_step(response.status_code, response.data)
+    session_id = request.proxy.session_id
+    if session_id:
+        try:
+            session = current_app.sessions.get_session(session_id)
+        except SessionException:
+            session = None
+        if session:
+            session.add_session_step(response.status_code, response.data)
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
