@@ -99,7 +99,7 @@ class SessionProxy(object):
 
 def take_screenshot(proxy):
     session = current_app.sessions.get_session(proxy.session_id)
-    if not session.desired_capabilities.takeScreenshot:
+    if not session.take_screenshot:
         return None
 
     screenshot = commands.take_screenshot(session, 9000)
@@ -179,13 +179,14 @@ def get_session(req):
     def req_closed():
         return req.closed
 
-    from vmmaster.core.sessions import Session
     dc = commands.get_desired_capabilities(req)
-    session = Session(dc)
+    commands.replace_platform_with_any(req)
+
+    from vmmaster.core.sessions import Session
+    session = Session(dc=dc)
 
     try:
-        endpoint = utils.get_endpoint(
-            dc, req_closed, session.is_timeouted)
+        endpoint = utils.get_endpoint(dc, req_closed, session.is_timeouted)
     except Exception as e:
         error_message = '%s' % str(e.message)
         session.failed(error_message)

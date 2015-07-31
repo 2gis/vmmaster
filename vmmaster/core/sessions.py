@@ -62,10 +62,11 @@ class SimpleResponse:
 
 
 class Session(SessionModel):
-    def __init__(self, dc=None):
-        super(Session, self).__init__(dc)
-        log.info("New session %s for %s" %
-                 (str(self.id), str(dc.platform)))
+    def __init__(self, name=None, dc=None):
+        super(Session, self).__init__(name, dc)
+
+        log.info("New session %s (%s) for %s" %
+                 (str(self.id), self.name, str(dc)))
 
     @property
     def inactivity(self):

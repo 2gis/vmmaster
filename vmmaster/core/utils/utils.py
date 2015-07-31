@@ -229,7 +229,7 @@ def get_endpoint(dc, req_closed, session_timeouted):
     # TODO: call Endpoint object method instead
     from vmmaster.core.sessions import RequestHelper
 
-    log.info("Wait for endpoint answer (dc: %s)..." % str(dc))
+    log.info("Wait for endpoint response (dc: %s)..." % str(dc))
 
     start = time.time()
     endpoint = None
@@ -239,7 +239,7 @@ def get_endpoint(dc, req_closed, session_timeouted):
                 RequestHelper(method='POST',
                               url="/endpoint/",
                               headers={'Content-Type': 'application/json'},
-                              body=json.dumps(dc.to_json())),
+                              body=json.dumps(dc)),
                 config.VM_POOL_HOST, config.VM_POOL_PORT)
 
             if response.status_code == 200:

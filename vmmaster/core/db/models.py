@@ -82,8 +82,10 @@ class Session(Base, FeaturesMixin):
     vm_id = Column(ForeignKey('virtual_machines.id', ondelete='SET NULL'))
     name = Column(String)
     platform = Column(String)
-    _dc = Column("desired_capabilities", String)
+    dc = Column(String)
     selenium_session = Column(String)
+    take_screenshot = Column(Boolean)
+    __run_script = Column("run_script", String)
     time_created = Column(Float, default=time.time)
     time_modified = Column(Float, default=time.time)
 
@@ -98,44 +100,37 @@ class Session(Base, FeaturesMixin):
     session_steps = relationship(
         SessionLogStep, backref=backref("session", enable_typechecks=False))
 
-    def __init__(self, dc):
-        self.platform = dc.platform
-        self.dc = dc
-        self._dc = json.dumps(dc.to_json())
-
-        if dc.name:
-            self.name = dc.name
+    def __init__(self, name=None, dc=None):
+        if name:
+            self.name = name
         else:
             self.name = str(self.id)
 
-        if dc.user:
-            from vmmaster.core.db import database
-            self.user = database.get_user(username=dc.user)
+        if dc:
+            self.dc = json.dumps(dc)
+
+            self.platform = dc["platform"]
+
+            if dc.get("name", None):
+                self.name = dc["name"]
+            else:
+                self.name = str(self.id)
+
+            if dc.get("user", None):
+                from vmmaster.core.db import database
+                self.user = database.get_user(username=dc["user"])
+
+            if dc.get("takeScreenshot", None):
+                self.take_screenshot = True
+
+            if dc.get("runScript", {}):
+                self.__run_script = json.dumps(dc["runScript"])
 
         self.add()
 
     @property
-    def desired_capabilities(self):
-        try:
-            dc = self.dc
-        except AttributeError:
-            dc = json.loads(self._dc)
-            from vmmaster.webdriver.commands import DesiredCapabilities
-            self.dc = DesiredCapabilities(
-                dc.get('name', None),
-                dc.get('platform', None),
-                dc.get('takeScreenshot', None),
-                dc.get('runScript', dict()),
-                dc.get('user', None),
-                dc.get('token', None)
-            )
-            dc = self.dc
-        return dc
-
-    @desired_capabilities.setter
-    def desired_capabilities(self, dc):
-        self._dc = json.dumps(dc.to_json())
-        self.dc = dc
+    def run_script(self):
+        return json.loads(self.__run_script)
 
     def add_session_step(self, control_line, body=None):
         step = SessionLogStep(control_line=control_line,
@@ -222,8 +217,8 @@ class VirtualMachine(Base, FeaturesMixin):
 
     @property
     def info(self):
-        return {"id": self.id,
-                "name": self.name,
-                "ip": self.ip,
-                "platform": self.platform
+        return {"id": str(self.id),
+                "name": str(self.name),
+                "ip": str(self.ip),
+                "platform": str(self.platform)
         }

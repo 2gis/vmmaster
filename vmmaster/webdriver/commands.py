@@ -16,39 +16,6 @@ from vmmaster.core.sessions import RequestHelper, update_log_step
 from vmmaster.core.utils.graphite import graphite, send_metrics
 
 
-class DesiredCapabilities(object):
-    def __init__(self, name=None, platform=None, takeScreenshot=None,
-                 runScript=None, user=None, token=None):
-        self.name = name
-        self.platform = platform
-        self.takeScreenshot = bool(takeScreenshot)
-        self.runScript = dict(runScript)
-
-        from vmmaster.core.auth.custom_auth import anonymous
-        if user:
-            self.user = user
-        else:
-            self.user = anonymous.username
-        if token:
-            self.token = token
-        else:
-            self.token = anonymous.password
-
-    def to_json(self):
-        return {
-            "name": self.name,
-            "platform": self.platform,
-            "takeScreenshot": self.takeScreenshot,
-            "runScript": self.runScript,
-            "user": self.user,
-            "token": self.token
-        }
-
-    def __repr__(self):
-        return "<DesiredCapabilities name=%s platform=%s>" % (self.name,
-                                                              self.platform)
-
-
 def start_session(request, session):
     notdot_platform = "".join(session.platform.split("."))
     _start = time.time()
@@ -57,7 +24,7 @@ def start_session(request, session):
     graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(
         request, session, config.SELENIUM_PORT)
 
-    if session.desired_capabilities.runScript:
+    if session.run_script:
         startup_script(session)
 
     status, headers, body = graphite("%s.%s" % (
@@ -68,6 +35,7 @@ def start_session(request, session):
     session.selenium_session = selenium_session
     session.save()
     session.refresh()
+
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
 
@@ -78,7 +46,7 @@ def start_session(request, session):
 
 def startup_script(session):
     r = RequestHelper(method="POST", body=json.dumps(
-        session.desired_capabilities.runScript))
+        session.run_script))
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)
@@ -196,16 +164,7 @@ def replace_platform_with_any(request):
 
 def get_desired_capabilities(request):
     body = json.loads(request.body)
-
-    replace_platform_with_any(request)
-    dc = DesiredCapabilities(
-        body['desiredCapabilities'].get('name', None),
-        body['desiredCapabilities'].get('platform', None),
-        body['desiredCapabilities'].get('takeScreenshot', None),
-        body['desiredCapabilities'].get('runScript', dict()),
-        body['desiredCapabilities'].get('user', None),
-        body['desiredCapabilities'].get('token', None)
-    )
+    dc = body['desiredCapabilities']
     return dc
 
 
