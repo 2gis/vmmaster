@@ -80,6 +80,10 @@ class Session(SessionModel):
         self.refresh()
         return self.timeouted
 
+    def is_closed(self):
+        self.refresh()
+        return self.closed
+
     @property
     def log_step(self):
         if self.session_steps:
@@ -124,17 +128,24 @@ class Session(SessionModel):
         self.save()
         self.delete(tb)
 
+    def set_vm(self, vm):
+        self.virtual_machine = vm
+
+    def endpoint_name(self):
+        return self.virtual_machine.name
+
     def run(self, endpoint):
         from vmmaster.core.db import database
         vm = database.get_vm(endpoint.id)
 
         self.restart_timer()
-        self.virtual_machine = vm
+
+        self.set_vm(vm)
         self.status = "running"
         self.save()
 
         log.info("Session %s starting on %s." %
-                 (self.id, self.virtual_machine.name))
+                 (self.id, self.endpoint_name()))
 
     def close(self):
         self.failed("Session closed by user")
@@ -247,7 +258,7 @@ class Sessions(object):
         from vmmaster.core.db import database
         session = database.get_session(session_id)
 
-        if not session:
+        if not session or session.is_closed():
             raise SessionException("There is no active session %s" %
                                    session_id)
 

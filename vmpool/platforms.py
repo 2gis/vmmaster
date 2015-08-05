@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import os
 
 from vmmaster.core.config import config
@@ -20,7 +22,6 @@ class Platform(object):
 
 
 class KVMOrigin(Platform):
-    name = None
     drive = None
     settings = None
 
@@ -35,8 +36,6 @@ class KVMOrigin(Platform):
 
 
 class OpenstackOrigin(Platform):
-    name = None
-
     def __init__(self, origin):
         self.client = openstack_utils.nova_client()
         self.id = origin.id
@@ -88,10 +87,9 @@ class KVMPlatforms(PlatformsInterface):
 
     @property
     def platforms(self):
-        pfms = self._discover_origins(config.ORIGINS_DIR)
-
-        log.debug("Load kvm platforms: {}".format(str(pfms)))
-        return pfms
+        _platforms = self._discover_origins(config.ORIGINS_DIR)
+        log.debug("Load kvm platforms: {}".format(str(_platforms)))
+        return _platforms
 
     @staticmethod
     def max_count():
@@ -103,22 +101,35 @@ class KVMPlatforms(PlatformsInterface):
 
 
 class OpenstackPlatforms(PlatformsInterface):
+    @classmethod
+    def limits(cls, if_none):
+        return openstack_utils.nova_client().limits.get().to_dict().get(
+            'absolute', if_none)
+
+    @classmethod
+    def flavor_params(cls, flavor_name):
+        return openstack_utils.nova_client().flavors.find(
+            name=flavor_name).to_dict()
+
+    @staticmethod
+    def images():
+        return openstack_utils.glance_client().images.list()
+
     @property
     def platforms(self):
         origins = \
-            [image for image in openstack_utils.glance_client().images.list()
+            [image for image in self.images()
              if image.status == 'active'
              and config.OPENSTACK_PLATFORM_NAME_PREFIX in image.name]
 
-        pfms = [OpenstackOrigin(origin) for origin in origins]
-        log.debug("Load openstack platforms: {}".format(str(pfms)))
-        return pfms
+        _platforms = [OpenstackOrigin(origin) for origin in origins]
+        log.debug("Load openstack platforms: {}".format(str(_platforms)))
+        return _platforms
 
     @staticmethod
     def max_count():
         config_max_count = config.OPENSTACK_MAX_VM_COUNT
-        limits = openstack_utils.nova_client().limits.get().to_dict().get(
-            'absolute', {'maxTotalInstances': 0})
+        limits = OpenstackPlatforms.limits(if_none={'maxTotalInstances': 0})
 
         if config_max_count <= limits.get('maxTotalInstances', 0):
             max_count = config_max_count
@@ -131,30 +142,25 @@ class OpenstackPlatforms(PlatformsInterface):
 
     @staticmethod
     def can_produce(platform):
-        flavor_name = Platforms.get(platform).flavor_name
-        limits = openstack_utils.nova_client().limits.get().to_dict().get(
-            'absolute', {'maxTotalCores': 0,
-                         'maxTotalInstances': 0,
-                         'maxTotalRAMSize': 0,
-                         'totalCoresUsed': 0,
-                         'totalInstancesUsed': 0,
-                         'totalRAMUsed': 0})
-        flavor_params = openstack_utils.nova_client().flavors.find(
-            name=flavor_name).to_dict()
+        limits = OpenstackPlatforms.limits(if_none={
+            'maxTotalCores': 0, 'maxTotalInstances': 0, 'maxTotalRAMSize': 0,
+            'totalCoresUsed': 0, 'totalInstancesUsed': 0, 'totalRAMUsed': 0})
 
+        flavor_params = OpenstackPlatforms.flavor_params(
+            Platforms.get(platform).flavor_name)
         if flavor_params.get('vcpus', 0) >= limits.get('maxTotalCores', 0) - \
                 limits.get('totalCoresUsed', 0):
-            log.info('I can\'t produce new virtual machine with platform %s '
-                     'because not enough CPU resources' % platform)
+            log.info('I can\'t produce new virtual machine with platform %s: '
+                     'not enough CPU resources' % platform)
         elif flavor_params.get('ram', 0) >= limits.get('maxTotalRAMSize', 0) \
                 - limits.get('totalRAMUsed', 0):
-            log.info('I can\'t produce new virtual machine with platform %s '
-                     'because not enough RAM resources' % platform)
+            log.info('I can\'t produce new virtual machine with platform %s: '
+                     'not enough RAM resources' % platform)
         elif limits.get('totalInstancesUsed', 0) >= \
                 limits.get('maxTotalInstances', 0) \
                 or pool.count() >= OpenstackPlatforms.max_count():
-            log.info('I can\'t produce new virtual machine with platform %s '
-                     'because not enough Instances resources' % platform)
+            log.info('I can\'t produce new virtual machine with platform %s: '
+                     'not enough Instances resources' % platform)
         else:
             log.info('I can produce new virtual machine with platform %s' %
                      platform)
@@ -193,9 +199,9 @@ class Platforms(object):
     def max_count(cls):
         m_count = 0
         if bool(cls.kvm_platforms):
-            m_count += KVMPlatforms().max_count()
+            m_count += KVMPlatforms.max_count()
         if bool(cls.openstack_platforms):
-            m_count += OpenstackPlatforms().max_count()
+            m_count += OpenstackPlatforms.max_count()
         return m_count
 
     @classmethod

@@ -9,7 +9,7 @@ from vmmaster.core.config import config
 
 from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
-from vmpool.queue import q
+from vmpool.vmqueue import q
 
 endpoint = Blueprint('endpoint', __name__)
 

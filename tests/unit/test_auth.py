@@ -19,10 +19,14 @@ class TestWDAuthPositive(BaseTestCase):
         from flask import Flask
         cls.app = Flask(__name__)
         cls.app.running = True
+
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')
-        from vmpool.platforms import Platforms
-        cls.platform = Platforms().platforms.keys()[0]
+
+        with patch('vmmaster.core.network.network.Network', Mock()), \
+                patch('vmmaster.core.connection.Virsh', Mock()):
+            from vmpool.platforms import Platforms
+            cls.platform = Platforms().platforms.keys()[0]
 
     def setUp(self):
         self.desired_caps = {
@@ -102,10 +106,14 @@ class TestAPIAuthPositive(BaseTestCase):
     def setUpClass(cls):
         from flask import Flask
         cls.app = Flask(__name__)
+
         from vmmaster.core.config import setup_config
         setup_config('data/config.py')
-        from vmpool.platforms import Platforms
-        cls.platform = Platforms().platforms.keys()[0]
+
+        with patch('vmmaster.core.network.network.Network', Mock()), \
+                patch('vmmaster.core.connection.Virsh', Mock()):
+            from vmpool.platforms import Platforms
+            cls.platform = Platforms().platforms.keys()[0]
 
         cls.method = "GET"
         from base64 import urlsafe_b64encode

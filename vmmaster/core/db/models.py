@@ -100,6 +100,10 @@ class Session(Base, FeaturesMixin):
     session_steps = relationship(
         SessionLogStep, backref=backref("session", enable_typechecks=False))
 
+    def set_user(self, username):
+        from vmmaster.core.db import database
+        self.user = database.get_user(username=username)
+
     def __init__(self, name=None, dc=None):
         if name:
             self.name = name
@@ -117,8 +121,7 @@ class Session(Base, FeaturesMixin):
                 self.name = str(self.id)
 
             if dc.get("user", None):
-                from vmmaster.core.db import database
-                self.user = database.get_user(username=dc["user"])
+                self.set_user(dc["user"])
 
             if dc.get("takeScreenshot", None):
                 self.take_screenshot = True

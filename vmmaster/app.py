@@ -19,13 +19,13 @@ class Vmmaster(Flask):
         self.running = True
 
         self.sessions = Sessions()
-        self.session_timeout_checker = SessionWorker()
-        self.session_timeout_checker.start()
+        self.session_worker = SessionWorker()
+        self.session_worker.start()
         self.json_encoder = JSONEncoder
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.session_timeout_checker.stop()
+        self.session_worker.stop()
         log.info("Server gracefully shut down.")
 
 

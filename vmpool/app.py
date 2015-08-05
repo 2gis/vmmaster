@@ -2,8 +2,8 @@
 
 from flask import Flask
 from platforms import Platforms
-from queue import q, QueueWorker
-from virtual_machines_pool import pool
+from vmpool.vmqueue import q, QueueWorker
+from vmpool.virtual_machines_pool import pool
 from vmpool.virtual_machines_pool import VirtualMachinesPoolPreloader, \
     VirtualMachineChecker
 from vmmaster.core.logger import log, setup_logging
@@ -12,7 +12,8 @@ from vmmaster.core.utils.init import home_dir
 from api.endpoint import endpoint
 from api.api import api
 
-setup_config('%s/config.py' % home_dir())
+if not config:
+    setup_config('%s/config.py' % home_dir())
 setup_logging(logdir=config.LOG_DIR, logfile_name='vmpool.log')
 
 
@@ -27,7 +28,7 @@ class VMPoolApplication(Flask):
         self.preloader.start()
         self.vmchecker = VirtualMachineChecker(pool)
         self.vmchecker.start()
-        self.worker = QueueWorker(q)
+        self.worker = QueueWorker(self.queue)
         self.worker.start()
 
     def shutdown(self):

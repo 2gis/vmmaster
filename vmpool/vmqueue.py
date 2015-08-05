@@ -2,7 +2,6 @@
 from threading import Thread
 from time import sleep
 
-from vmpool.virtual_machines_pool import pool
 from vmmaster.core.logger import log
 
 
@@ -20,13 +19,10 @@ class VMPoolQueue(list):
         return delayed_vm
 
     def dequeue(self, item=None):
-        try:
-            index = 0
-            if item:
-                index = self.index(item)
-            return self.pop(index)
-        except ValueError:
-            log.debug('Delayed vm %s not found in queue' % str(item.dc))
+        index = 0
+        if item:
+            index = self.index(item)
+        return self.pop(index)
 
     @property
     def info(self):
@@ -39,11 +35,12 @@ class VMPoolQueue(list):
 class QueueWorker(Thread):
     def __init__(self, queue):
         Thread.__init__(self)
-        self.queue = queue
         self.running = True
         self.daemon = True
+        self.queue = queue
 
     def run(self):
+        from vmpool.virtual_machines_pool import pool
         while self.running:
             for delayed_vm in list(self.queue):
                 platform = delayed_vm.dc.get('platform', '')

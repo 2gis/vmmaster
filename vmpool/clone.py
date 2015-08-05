@@ -20,7 +20,7 @@ from vmmaster.core.utils import utils
 from vmmaster.core.utils import openstack_utils
 from vmmaster.core.exceptions import libvirtError, CreationException
 from vmmaster.core.config import config
-
+from vmmaster.core.network.network import Network
 from vmmaster.core.utils import network_utils
 
 
@@ -95,7 +95,7 @@ class KVMClone(Clone):
         super(KVMClone, self).__init__(origin, prefix)
 
         self.conn = Virsh()
-        self.network = pool.network
+        self.network = Network()
 
     def delete(self):
         log.info("Deleting kvm clone: {}".format(self.name))
