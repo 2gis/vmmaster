@@ -322,7 +322,7 @@ class TestServer(BaseTestCase):
             }
         }
         response = new_session_request(self.address, desired_caps)
-        error = json.loads(response.content).get('value')
+        error = json.loads(response.content).get('value').get('message')
 
         self.assertIn('PlatformException: No such endpoint for your '
                       'platform no_platform', error)

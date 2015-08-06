@@ -25,9 +25,12 @@ def handle_errors(error):
             pass
         else:
             session.failed(tb)
+
     error_context = {
-        'status': 1,
-        'value': "%s" % tb
+        'status': 13,
+        'value': {
+            "message": "%s" % tb
+        }
     }
     return jsonify(error_context), 500
 
