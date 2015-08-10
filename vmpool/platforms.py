@@ -45,9 +45,15 @@ class OpenstackOrigin(Platform):
             config.OPENSTACK_PLATFORM_NAME_PREFIX)[1]
         self.min_disk = origin.min_disk
         self.min_ram = origin.min_ram
-        self.flavor_id = origin.instance_type_flavorid
-        self.flavor_name = (
-            lambda s: s.client.flavors.get(s.flavor_id).name)(self)
+
+        try:
+            self.flavor_id = origin.instance_type_flavorid
+            self.flavor_name = (
+                lambda s: s.client.flavors.get(s.flavor_id).name)(self)
+        except Exception:
+            self.flavor_name = config.OPENSTACK_DEFAULT_FLAVOR
+
+
 
     @staticmethod
     def make_clone(origin, prefix):
@@ -102,7 +108,6 @@ class OpenstackPlatforms(PlatformsInterface):
         origins = \
             [image for image in openstack_utils.glance_client().images.list()
              if image.status == 'active'
-             and image.get('image_type', None) == 'snapshot'
              and config.OPENSTACK_PLATFORM_NAME_PREFIX in image.name]
 
         pfms = [OpenstackOrigin(origin) for origin in origins]
