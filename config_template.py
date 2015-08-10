@@ -44,6 +44,7 @@ class Config(object):
     OPENSTACK_ZONE_FOR_VM_CREATE = ""
     OPENSTACK_PLATFORM_NAME_PREFIX = "origin-"
     OPENSTACK_PING_RETRY_COUNT = 3
+    OPENSTACK_DEFAULT_FLAVOR = ''
     OPENASTACK_VM_META_DATA = {
         'admin_pass': 'testPassw0rd.'
     }
