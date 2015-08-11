@@ -47,11 +47,15 @@ class Database(object):
         return cls._instance
 
     def __init__(self, connection_string):
-        self.engine = create_engine(connection_string)
-        self.DBSession = scoped_session(sessionmaker(bind=self.engine,
-                                                     autocommit=False,
-                                                     autoflush=False,
-                                                     expire_on_commit=False))
+        self.engine = create_engine(connection_string,
+                                    pool_size=200,
+                                    max_overflow=100,
+                                    pool_timeout=60)
+        self.session_maker = sessionmaker(bind=self.engine,
+                                          autocommit=False,
+                                          autoflush=False,
+                                          expire_on_commit=False)
+        self.DBSession = scoped_session(self.session_maker)
 
     @transaction
     def get_session(self, session_id, dbsession=None):
