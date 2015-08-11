@@ -95,6 +95,7 @@ class Session(SessionModel):
         stat = {
             "id": self.id,
             "name": self.name,
+            "status": self.status,
             "platform": self.platform,
             "duration": self.duration,
             "inactivity": self.inactivity

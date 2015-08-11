@@ -45,8 +45,7 @@ def start_session(request, session):
 
 
 def startup_script(session):
-    r = RequestHelper(method="POST", body=json.dumps(
-        session.run_script))
+    r = RequestHelper(method="POST", body=session.run_script)
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)

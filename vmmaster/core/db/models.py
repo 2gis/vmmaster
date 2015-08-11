@@ -85,7 +85,7 @@ class Session(Base, FeaturesMixin):
     dc = Column(String)
     selenium_session = Column(String)
     take_screenshot = Column(Boolean)
-    __run_script = Column("run_script", String)
+    run_script = Column(String)
     time_created = Column(Float, default=time.time)
     time_modified = Column(Float, default=time.time)
 
@@ -126,14 +126,10 @@ class Session(Base, FeaturesMixin):
             if dc.get("takeScreenshot", None):
                 self.take_screenshot = True
 
-            if dc.get("runScript", {}):
-                self.__run_script = json.dumps(dc["runScript"])
+            if dc.get("runScript", None):
+                self.run_script = json.dumps(dc["runScript"])
 
         self.add()
-
-    @property
-    def run_script(self):
-        return json.loads(self.__run_script)
 
     def add_session_step(self, control_line, body=None):
         step = SessionLogStep(control_line=control_line,
