@@ -1,9 +1,10 @@
 # coding: utf-8
+
 from flask import jsonify
 
 from vmpool.platforms import Platforms
 from vmpool.virtual_machines_pool import pool
-from vmpool.queue import q
+from vmpool.vmqueue import q
 
 
 def get_platforms():
@@ -15,7 +16,7 @@ def get_pool():
 
 
 def get_queue():
-    return str(q)
+    return q.info
 
 
 def render_json(result, code=200):

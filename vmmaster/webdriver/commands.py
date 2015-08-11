@@ -7,45 +7,13 @@ from functools import partial
 import websocket
 import thread
 
-from ..core.utils import network_utils
-from ..webdriver.helpers import check_to_exist_ip
-from ..core.config import config
-from ..core.logger import log
-from ..core.exceptions import CreationException
-from ..core.sessions import RequestHelper, write_session_log, \
-    update_data_in_obj
-from ..core.utils.graphite import graphite, send_metrics
-from ..core.auth.custom_auth import anonymous
-
-
-class DesiredCapabilities(object):
-    def __init__(self,
-                 name=None,
-                 platform=None,
-                 takeScreenshot=None,
-                 runScript=None,
-                 user=None,
-                 token=None):
-        self.name = name
-        self.platform = platform
-        self.takeScreenshot = bool(takeScreenshot)
-        self.runScript = dict(runScript)
-        self.user = user
-        self.token = token
-
-    def to_json(self):
-        return {
-            "name": self.name,
-            "platform": self.platform,
-            "takeScreenshot": self.takeScreenshot,
-            "runScript": self.runScript,
-            "user": self.user,
-            "token": self.token
-        }
-
-    def __repr__(self):
-        return "<DesiredCapabilities name=%s platform=%s>" % (self.name,
-                                                              self.platform)
+from vmmaster.core.utils import network_utils
+from vmmaster.webdriver.helpers import check_to_exist_ip
+from vmmaster.core.config import config
+from vmmaster.core.logger import log
+from vmmaster.core.exceptions import CreationException
+from vmmaster.core.sessions import RequestHelper, update_log_step
+from vmmaster.core.utils.graphite import graphite, send_metrics
 
 
 def start_session(request, session):
@@ -56,7 +24,7 @@ def start_session(request, session):
     graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(
         request, session, config.SELENIUM_PORT)
 
-    if session.desired_capabilities.runScript:
+    if session.run_script:
         startup_script(session)
 
     status, headers, body = graphite("%s.%s" % (
@@ -65,6 +33,9 @@ def start_session(request, session):
 
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
+    session.save()
+    session.refresh()
+
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
 
@@ -74,8 +45,7 @@ def start_session(request, session):
 
 
 def startup_script(session):
-    r = RequestHelper(method="POST", body=json.dumps(
-        session.desired_capabilities.runScript))
+    r = RequestHelper(method="POST", body=session.run_script)
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)
@@ -94,7 +64,7 @@ def ping_vm(session):
     _ping = partial(network_utils.ping, ip)
     start = time.time()
     while time.time() - start < timeout and not session.closed:
-        session.timer.restart()
+        session.restart_timer()
         result = map(_ping, ports)
         if all(result):
             break
@@ -193,16 +163,7 @@ def replace_platform_with_any(request):
 
 def get_desired_capabilities(request):
     body = json.loads(request.body)
-
-    replace_platform_with_any(request)
-    dc = DesiredCapabilities(
-        body['desiredCapabilities'].get('name', None),
-        body['desiredCapabilities'].get('platform', None),
-        body['desiredCapabilities'].get('takeScreenshot', None),
-        body['desiredCapabilities'].get('runScript', dict()),
-        body['desiredCapabilities'].get('user', anonymous.username),
-        body['desiredCapabilities'].get('token', anonymous.password)
-    )
+    dc = body['desiredCapabilities']
     return dc
 
 
@@ -251,9 +212,7 @@ def run_script_through_websocket(request, session, host):
     status_code = 200
     full_msg = json.dumps({"status": 0, "output": ''})
 
-    if session.vmmaster_log_step:
-        log_step = write_session_log(
-            session.vmmaster_log_step.id, status_code, full_msg)
+    agent_step = session.log_step.add_agent_step(status_code, full_msg)
 
     def on_open(ws):
         def run(*args):
@@ -264,18 +223,18 @@ def run_script_through_websocket(request, session, host):
 
     def on_message(ws, message):
         ws.output += message
-        if session.vmmaster_log_step:
+        if agent_step:
             full_msg = json.dumps({"status": 0, "output": ws.output})
-            update_data_in_obj(log_step, message=full_msg)
+            update_log_step(agent_step, message=full_msg)
 
     def on_close(ws):
         log.info("RunScript: Close websocket on vm %s" % host)
-        if session.vmmaster_log_step:
+        if agent_step:
             full_msg = json.dumps({"status": 1, "output": ws.output})
-            update_data_in_obj(log_step, message=full_msg)
+            update_log_step(agent_step, message=full_msg)
 
     def on_error(ws, message):
-        # status_code = 500
+        status_code = 500
         ws.output = message
         log.debug("RunScript error: %s" % message)
 
@@ -294,9 +253,9 @@ def run_script(request, session):
     host = "ws://%s:%s/runScript" % (session.virtual_machine.ip,
                                      config.VMMASTER_AGENT_PORT)
 
-    if session.vmmaster_log_step:
-        write_session_log(session.vmmaster_log_step.id, "%s %s" %
-                          (request.method, '/runScript'), request.body)
+    if session.log_step:
+        session.log_step.add_agent_step(
+            "%s %s" % (request.method, '/runScript'), request.body)
 
     return run_script_through_websocket(request, session, host)
 

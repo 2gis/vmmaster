@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import json
 
 from flask import Blueprint, request, Response
@@ -7,7 +9,7 @@ from vmmaster.core.config import config
 
 from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
-from vmpool.queue import q
+from vmpool.vmqueue import q
 
 endpoint = Blueprint('endpoint', __name__)
 
@@ -23,21 +25,17 @@ def make_response(status=None, response=None):
     return Response(status=status, response=response)
 
 
-def give_vm(delayed_vm=None):
-    vm = {
-        'id': delayed_vm.vm.id,
-        'platform': '%s' % delayed_vm.vm.platform,
-        'name': '%s' % delayed_vm.vm.name,
-        'ip': '%s' % delayed_vm.vm.ip
-    }
-    log.info('Got vm for request with params: %s' % vm)
-    return make_response(status=200, response=vm)
+def give_vm(delayed_vm):
+    vm = delayed_vm.vm
+    log.info('Got vm for request with params: %s' % vm.info)
+    return make_response(status=200, response=vm.info)
 
 
 @endpoint.route('/', methods=['POST'])
 def get_vm():
     desired_caps = request.get_json()
-    log.info("Request with dc: %s" % str(desired_caps))
+    # TODO: fix avalanche logging by waiting sessions requests
+    log.debug("Request with dc: %s" % str(desired_caps))
     platform = desired_caps.get('platform', None)
 
     if isinstance(platform, unicode):
@@ -57,6 +55,7 @@ def get_vm():
     wait_for(lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT)
 
     if not delayed_vm.vm:
+        delete_from_queue(delayed_vm)
         return make_response(
             status=500,
             response='Vm can\'t create with platform %s' % platform)
@@ -64,6 +63,7 @@ def get_vm():
     wait_for(lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT)
 
     if not delayed_vm.vm.ready:
+        delete_from_queue(delayed_vm)
         return make_response(
             status=500,
             response='Vm has not been created with platform %s' % platform)
@@ -73,9 +73,9 @@ def get_vm():
 
 @endpoint.route('/<endpoint_id>', methods=['DELETE'])
 def delete_vm(endpoint_id):
-    vm = pool.get(_id=endpoint_id)
+    vm = pool.get_by_id(endpoint_id)
     if vm:
-        if vm.name is not None and 'preloaded' in vm.name:
+        if vm.is_preloaded():
             vm.rebuild()
         else:
             vm.delete()
@@ -87,3 +87,9 @@ def delete_vm(endpoint_id):
         log.info(msg)
 
     return make_response(status=200, response=msg)
+
+
+def delete_from_queue(delayed_vm):
+    log.info("Deleting request for getting vm from "
+             "queue with desired capabilities: %s" % delayed_vm.dc)
+    q.dequeue(delayed_vm)

@@ -10,14 +10,9 @@ class SessionQueue():
         from ..core.db import database
         return database.queue()
 
-    @property
-    def waiting(self):
-        from ..core.db import database
-        return database.vm_waiting()
-
     def __str__(self):
         res = []
-        for vm in self.waiting:
+        for vm in self.all:
             res.append(str(vm))
         return str(res)
 

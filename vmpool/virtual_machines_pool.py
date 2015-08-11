@@ -1,18 +1,18 @@
 # coding: utf-8
 
 import time
-
 from threading import Thread
 from collections import defaultdict
-
 from vmmaster.core.exceptions import CreationException
 from vmmaster.core.config import config
 from vmmaster.core.logger import log
+from vmmaster.core.network.network import Network
 
 
 class VirtualMachinesPool(object):
     pool = list()
     using = list()
+    network = Network()
 
     def __str__(self):
         return str(self.pool)
@@ -38,14 +38,15 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def free(cls):
-        log.info("deleting using machines")
+        log.info("Deleting using machines")
         for vm in list(cls.using):
             cls.using.remove(vm)
             vm.delete()
-        log.info("deleting pool")
+        log.info("Deleting pool")
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete()
+        cls.network.delete()
 
     @classmethod
     def count(cls):
@@ -61,20 +62,15 @@ class VirtualMachinesPool(object):
         for vm in cls.pool:
             if vm.platform == platform and vm.ready and not vm.checking:
                 return True
-
         return False
 
     @classmethod
-    def get(cls, platform=None, _id=None):
-        if _id:
-            log.info('Getting vm with ID: %s' % _id)
-            for vm in cls.pool + cls.using:
-                if vm.ready and isinstance(vm.id, int) and vm.id == int(_id):
-                    return vm
+    def get_by_platform(cls, platform=None):
         if platform:
-            for vm in sorted(cls.pool, key=lambda v: v.created, reverse=True):
-                log.info("Getting VM %s has ready property is %s and checking "
-                         "property is %s" % (vm.name, vm.ready, vm.checking))
+            for vm in sorted(cls.pool, key=lambda v: v.time_created,
+                             reverse=True):
+                log.info("Got VM %s (id=%s, ready=%s, checking="
+                         "%s)" % (vm.name, vm.id, vm.ready, vm.checking))
                 if vm.platform == platform and vm.ready and not vm.checking:
                     if vm.ping_vm():
                         cls.pool.remove(vm)
@@ -83,6 +79,14 @@ class VirtualMachinesPool(object):
                     else:
                         cls.pool.remove(vm)
                         vm.delete()
+
+    @classmethod
+    def get_by_id(cls, _id=None):
+        if _id:
+            log.info('Getting VM by ID: %s' % _id)
+            for vm in cls.pool + cls.using:
+                if vm.ready and isinstance(vm.id, int) and vm.id == int(_id):
+                    return vm
 
     @classmethod
     def count_virtual_machines(cls, it):
@@ -106,7 +110,7 @@ class VirtualMachinesPool(object):
 
         if not cls.can_produce(platform):
             raise CreationException(
-                "maximum count of virtual machines already running")
+                "Maximum count of virtual machines already running")
 
         if to is None:
             to = cls.using
@@ -152,7 +156,7 @@ class VirtualMachinesPool(object):
         def print_view(lst):
             return [{"name": l.name, "ip": l.ip, "id": l.id,
                      "ready": l.ready, "checking": l.checking,
-                     "created": l.created} for l in lst]
+                     "time_created": l.time_created} for l in lst]
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
@@ -169,19 +173,18 @@ class VirtualMachinesPool(object):
 
 
 class VirtualMachinesPoolPreloader(Thread):
-    def __init__(self, pool):
+    def __init__(self, _pool):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
-        self.pool = pool
+        self.pool = _pool
 
     def run(self):
         while self.running:
             platform = self.need_load()
             if platform is not None:
                 if self.pool.can_produce(platform):
-                    log.info("VM for preloaded was found. Preloading vm for "
-                             "platform %s " % platform)
+                    log.info("Preloading vm for platform %s." % platform)
                     self.pool.preload(platform, "preloaded")
 
             time.sleep(config.PRELOADER_FREQUENCY)
@@ -212,11 +215,11 @@ class VirtualMachinesPoolPreloader(Thread):
 
 
 class VirtualMachineChecker(Thread):
-    def __init__(self, pool):
+    def __init__(self, _pool):
         Thread.__init__(self)
         self.running = config.VM_CHECK
         self.daemon = True
-        self.pool = pool
+        self.pool = _pool
 
     def run(self):
         while self.running:
@@ -227,7 +230,7 @@ class VirtualMachineChecker(Thread):
         for vm in self.pool.pool:
             vm.checking = True
             vm.save()
-            log.info("Check for {clone} with {ip}:{port}".format(
+            log.info("Checking {clone} with {ip}:{port}...".format(
                 clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
                 if not vm.ping_vm():

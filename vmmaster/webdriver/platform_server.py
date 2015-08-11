@@ -214,7 +214,6 @@ class PlatformHandler(object):
 
             vm = job.result
             session = self.sessions.start_session(desired_caps.name, desired_caps.platform, vm)
-            session.set_desired_capabilities(desired_caps)
             proxy.session_id = session.id
             session._vmmaster_log_step = write_vmmaster_log(
                 proxy.session_id, "%s %s %s" % (req.method, req.path, req.clientproto), str(req.body))

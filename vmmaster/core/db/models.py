@@ -1,79 +1,155 @@
 # coding: utf-8
 
 import time
+import json
+from uuid import uuid4
+from datetime import datetime
 
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, \
     ForeignKey, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
-from uuid import uuid4
-
+from sqlalchemy.orm import relationship, backref
 
 Base = declarative_base()
 
 
-class SessionLogStep(Base):
+class FeaturesMixin(object):
+    def add(self):
+        from vmmaster.core.db import database
+        database.add(self)
+
+    def save(self):
+        from vmmaster.core.db import database
+        database.update(self)
+
+    def refresh(self):
+        from vmmaster.core.db import database
+        database.refresh(self)
+
+
+class AgentLogStep(Base, FeaturesMixin):
+    __tablename__ = 'agent_log_steps'
+
+    id = Column(Integer, Sequence('agent_log_steps_id_seq'), primary_key=True)
+    session_log_step_id = Column(Integer, ForeignKey(
+        'session_log_steps.id', ondelete='CASCADE'))
+    control_line = Column(String)
+    body = Column(String)
+    time_created = Column(Float, default=time.time)
+
+    def __init__(self, control_line, body=None):
+        self.control_line = control_line
+        self.body = body
+        self.add()
+
+
+class SessionLogStep(Base, FeaturesMixin):
     __tablename__ = 'session_log_steps'
 
     id = Column(Integer,
                 Sequence('session_log_steps_id_seq'),
                 primary_key=True)
-    vmmaster_log_step_id = Column(Integer, ForeignKey('vmmaster_log_steps.id',
-                                                      ondelete='CASCADE'))
-    control_line = Column(String)
-    body = Column(String)
-    time = Column(Float)
-
-
-class VmmasterLogStep(Base):
-    __tablename__ = 'vmmaster_log_steps'
-
-    id = Column(Integer,
-                Sequence('vmmaster_log_steps_id_seq'),
-                primary_key=True)
     session_id = Column(Integer, ForeignKey('sessions.id', ondelete='CASCADE'))
     control_line = Column(String)
     body = Column(String)
     screenshot = Column(String)
-    time = Column(Float)
-    agent_steps = relationship(SessionLogStep,
-                               backref="vmmaster_log_step",
-                               passive_deletes=True)
+    time_created = Column(Float, default=time.time)
+
+    # Relationships
+    agent_steps = relationship(
+        AgentLogStep, backref="session_log_step")
+
+    def __init__(self, control_line, body=None, session_id=None):
+        self.control_line = control_line
+        self.body = body
+        if session_id:
+            self.session_id = session_id
+        self.add()
+
+    def add_agent_step(self, control_line, body):
+        step = AgentLogStep(control_line=control_line, body=body)
+        self.refresh()
+        self.agent_steps.append(step)
+        step.save()
+        return step
 
 
-class Session(Base):
+class Session(Base, FeaturesMixin):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
-    user_id = Column(ForeignKey('users.id', ondelete='SET DEFAULT'),
-                     nullable=True,
-                     default=1)
-    vm_id = Column(ForeignKey('virtual_machines.id', ondelete='SET NULL'),
-                   nullable=True, default=None)
-    status = Column('status', Enum('unknown',
-                                   'running',
-                                   'succeed',
-                                   'failed',
-                                   name='status', native_enum=False))
+    user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
+    vm_id = Column(ForeignKey('virtual_machines.id', ondelete='SET NULL'))
     name = Column(String)
+    platform = Column(String)
+    dc = Column(String)
+    selenium_session = Column(String)
+    take_screenshot = Column(Boolean)
+    run_script = Column(String)
+    time_created = Column(Float, default=time.time)
+    time_modified = Column(Float, default=time.time)
+
+    # State
+    status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
+                         name='status', native_enum=False), default='waiting')
     error = Column(String)
-    time = Column(Float)
-    session_steps = relationship(VmmasterLogStep,
-                                 backref="session",
-                                 passive_deletes=True)
+    timeouted = Column(Boolean, default=False)
+    closed = Column(Boolean, default=False)
+
+    # Relationships
+    session_steps = relationship(
+        SessionLogStep, backref=backref("session", enable_typechecks=False))
+
+    def set_user(self, username):
+        from vmmaster.core.db import database
+        self.user = database.get_user(username=username)
+
+    def __init__(self, name=None, dc=None):
+        if name:
+            self.name = name
+        else:
+            self.name = str(self.id)
+
+        if dc:
+            self.dc = json.dumps(dc)
+
+            self.platform = dc["platform"]
+
+            if dc.get("name", None):
+                self.name = dc["name"]
+            else:
+                self.name = str(self.id)
+
+            if dc.get("user", None):
+                self.set_user(dc["user"])
+
+            if dc.get("takeScreenshot", None):
+                self.take_screenshot = True
+
+            if dc.get("runScript", None):
+                self.run_script = json.dumps(dc["runScript"])
+
+        self.add()
+
+    def add_session_step(self, control_line, body=None):
+        step = SessionLogStep(control_line=control_line,
+                              body=body)
+        self.refresh()
+        self.session_steps.append(step)
+        step.save()
+        return step
 
 
-class User(Base):
+class User(Base, FeaturesMixin):
     __tablename__ = 'users'
 
-    def generate_token(self):
+    @staticmethod
+    def generate_token():
         return str(uuid4())
 
     def regenerate_token(self):
-        from vmmaster.core import db
-        self.token = self.generate_token()
-        db.database.update(self)  # TODO: replace with SAVE()
+        self.token = User.generate_token()
+        self.save()
         return self
 
     @property
@@ -94,6 +170,7 @@ class User(Base):
     last_login = Column(DateTime)
     token = Column(String(50), nullable=True, default=generate_token)
 
+    # Relationships
     sessions = relationship(Session, backref="user", passive_deletes=True)
 
 
@@ -103,35 +180,44 @@ class UserGroup(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(length=20), unique=True, nullable=False)
 
+    # Relationships
     users = relationship(User, backref="group", passive_deletes=True)
 
 
-class VirtualMachine(Base):
+class VirtualMachine(Base, FeaturesMixin):
     __tablename__ = 'virtual_machines'
 
     id = Column(Integer, primary_key=True)
+    name = Column(String)
+    ip = Column(String)
+    mac = Column(String)
+    platform = Column(String)
+    time_created = Column(Float, default=time.time)
 
-    name = Column(String, default=None)
-    ip = Column(String, default=None)
-    mac = Column(String, default=None)
-    platform = Column(String, default=None)
-
+    # State
     ready = Column(Boolean, default=False)
     checking = Column(Boolean, default=False)
     deleted = Column(Boolean, default=False)
 
-    created = Column(Float, default=None)
+    # Relationships
+    session = relationship(
+        Session, backref=backref("virtual_machine",
+                                 single_parent=True,
+                                 enable_typechecks=False,
+                                 cascade="all, delete-orphan"))
 
-    session = relationship(Session,  uselist=False, backref="vm",
-                           enable_typechecks=False)
-
-    def __init__(self, name):
+    def __init__(self, name, platform):
         self.name = name
-        self.created = time.time()
-        from vmmaster.core.db import database
-        database.add(self)
+        self.platform = platform
+        self.add()
 
-    def save(self):
-        """Save object to DB"""
-        from vmmaster.core.db import database
-        database.update(self)
+    def is_preloaded(self):
+        return 'preloaded' in self.name
+
+    @property
+    def info(self):
+        return {"id": str(self.id),
+                "name": str(self.name),
+                "ip": str(self.ip),
+                "platform": str(self.platform)
+        }

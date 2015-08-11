@@ -15,7 +15,7 @@ script = ScriptDirectory.from_config(alembic_cfg)
 
 
 def run(connection_string):
-    revision = "37f924a78337"
+    revision = "1d286235add5"
 
     alembic_cfg.set_main_option("sqlalchemy.url", connection_string)
     try:

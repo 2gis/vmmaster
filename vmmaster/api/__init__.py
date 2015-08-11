@@ -2,7 +2,7 @@
 
 from flask import Blueprint, jsonify
 import helpers
-from ..core.auth.api_auth import auth
+from vmmaster.core.auth.api_auth import auth
 
 api = Blueprint('api', __name__)
 
@@ -23,20 +23,20 @@ def status():
 
 
 @api.route('/sessions')
-def sessions():
+def get_sessions():
     return render_json({'sessions': helpers.get_sessions()})
 
 
 @api.route('/queue')
-def queue():
+def get_queue():
     return render_json({'queue': helpers.get_queue()})
 
 
 @api.route('/session/<int:session_id>')
-def session(session_id):
-    _session = helpers.get_session(session_id)
-    if _session:
-        return render_json(_session.info)
+def get_session(session_id):
+    session = helpers.get_session(session_id)
+    if session:
+        return render_json(session.info)
     else:
         return render_json("Session %s not found" % session_id, 404)
 
@@ -53,7 +53,7 @@ def stop_session(session_id):
 
 @api.route('/user/<int:user_id>', methods=['GET'])
 @auth.login_required
-def user_info(user_id):
+def get_user(user_id):
     user = helpers.get_user(user_id)
     if user:
         return render_json(user.info)

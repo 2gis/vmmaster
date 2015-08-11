@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from vmmaster.core.logger import log
@@ -13,7 +15,7 @@ class VMPool(object):
                                 self.app)
         site = Site(resource)
         self.bind = self.reactor.listenTCP(port, site)
-        log.info('Server is listening on %s ...' % port)
+        log.info('VM Pool is listening on %s ...' % port)
 
     def run(self):
         self.reactor.run()

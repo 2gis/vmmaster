@@ -1,12 +1,12 @@
 """virtual_machine
 Revision ID: 37f924a78337
-Revises: 1e090f33bab
+Revises: bea3ba88c73
 Create Date: 2015-06-24 17:26:36.552058
 """
 
 # revision identifiers, used by Alembic.
 revision = '37f924a78337'
-down_revision = '1e090f33bab'
+down_revision = 'bea3ba88c73'
 
 from alembic import op
 import sqlalchemy as sa
