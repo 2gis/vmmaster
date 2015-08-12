@@ -82,8 +82,14 @@ class TestWDAuthPositive(BaseTestCase):
             # Token doesn't matter
             self.push_to_ctx()
             resp = wd_auth.login_required(decorate_this)()
+
+        success_data = {
+            "status": 1,
+            "value": "Authentification was failed",
+            "message": "Please try again"
+        }
         self.assertEqual(resp.status_code, 401)
-        self.assertIn("WWW-Authenticate", resp.headers.keys())
+        self.assertDictEqual(json.loads(resp.data), success_data)
 
     def test_auth_wrong_token(self):
         from vmmaster.core import db
@@ -97,8 +103,14 @@ class TestWDAuthPositive(BaseTestCase):
                                       token=wrong_token)
             self.push_to_ctx()
             resp = wd_auth.login_required(decorate_this)()
+
+        success_data = {
+            "status": 1,
+            "value": "Authentification was failed",
+            "message": "Please try again"
+        }
         self.assertEqual(resp.status_code, 401)
-        self.assertIn("WWW-Authenticate", resp.headers.keys())
+        self.assertDictEqual(json.loads(resp.data), success_data)
 
 
 class TestAPIAuthPositive(BaseTestCase):
@@ -159,8 +171,14 @@ class TestAPIAuthPositive(BaseTestCase):
             # GET api/user/2 (forbidden resource)
             resp = api_auth.login_required(decorate_this)(user_id=2)
         self.assertIsNotNone(resp)
+
+        success_data = {
+            "status": 1,
+            "value": "Access denied",
+            "message": "Please contact your administrator of service"
+        }
         self.assertEqual(resp.status_code, 403)
-        self.assertEqual(resp.data, "Access denied")
+        self.assertDictEqual(json.loads(resp.data), success_data)
 
     def test_access_by_locked_user(self):
         from vmmaster.core import db
@@ -175,5 +193,11 @@ class TestAPIAuthPositive(BaseTestCase):
             self.push_to_ctx()
             resp = api_auth.login_required(decorate_this)(user_id=1)
         self.assertIsNotNone(resp)
+
+        success_data = {
+            "status": 1,
+            "value": "Account is locked",
+            "message": "Please contact your administrator of service"
+        }
         self.assertEqual(resp.status_code, 403)
-        self.assertEqual(resp.data, "Account is locked")
+        self.assertDictEqual(json.loads(resp.data), success_data)
