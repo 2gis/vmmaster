@@ -169,14 +169,6 @@ class BucketThread(Thread):
             self.bucket.put(sys.exc_info())
 
 
-class Endpoint(object):
-    def __init__(self, vm):
-        self.id = vm['id']
-        self.name = vm['name']
-        self.platform = vm['platform']
-        self.ip = vm['ip']
-
-
 def getresponse(req, q):
     try:
         q.put(req())
@@ -223,40 +215,3 @@ def make_request(request, host, port):
                 t.join(0.1)
 
         return response
-
-
-def get_endpoint(dc, req_closed, session_timeouted):
-    # TODO: call Endpoint object method instead
-    from vmmaster.core.sessions import RequestHelper
-
-    log.info("Wait for endpoint response (dc: %s)..." % str(dc))
-
-    start = time.time()
-    endpoint = None
-    while not endpoint and not req_closed() and not session_timeouted():
-        if time.time() - start < config.GET_VM_TIMEOUT:
-            response = make_request(
-                RequestHelper(method='POST',
-                              url="/endpoint/",
-                              headers={'Content-Type': 'application/json'},
-                              body=json.dumps(dc)),
-                config.VM_POOL_HOST, config.VM_POOL_PORT)
-
-            if response.status_code == 200:
-                log.info('Got endpoint (%s)' % response.content)
-                endpoint = Endpoint(to_json(response.content))
-            elif response.status_code == 404:
-                raise Exception('No such endpoint for your platform %s' %
-                                dc.get('platform', 'None'))
-        else:
-            raise Exception("Endpoint has not created")
-
-    return endpoint
-
-
-def del_endpoint(_id):
-    # TODO: call Endpoint object method instead
-    from vmmaster.core.sessions import RequestHelper
-    request = RequestHelper(method='DELETE', url="/endpoint/%s" % _id)
-    log.debug('Request: %s' % request)
-    make_request(request, config.VM_POOL_HOST, config.VM_POOL_PORT)

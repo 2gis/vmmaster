@@ -50,7 +50,7 @@ def threaded(func):
         if req.closed:
             if proxy.session_id:
                 session = current_app.sessions.get_session(proxy.session_id)
-                session.close()
+                session.failed()
             raise ConnectionError("Client has disconnected")
         elif not error_bucket.empty():
             error = error_bucket.get()
@@ -159,25 +159,24 @@ def internal_exec(command, proxy):
     return form_response(code, headers, body)
 
 
-def check_to_exist_ip(vm, tries=10, timeout=5):
+def check_to_exist_ip(session, tries=10, timeout=5):
     from time import sleep
     i = 0
     while True:
-        if vm.ip is not None:
-            return vm.ip
+        if session.endpoint_ip is not None:
+            return session.endpoint_ip
         else:
             if i > tries:
                 raise CreationException('Error: VM %s have not ip address' %
-                                        vm.name)
+                                        session.endpoint_name)
             i += 1
             log.info('IP is %s for VM %s, wait for %ss. before next try...' %
-                     (vm.ip, vm.name, timeout))
+                     (session.endpoint_ip, session.endpoint_name, timeout))
             sleep(timeout)
 
 
 def get_session(req):
-    def req_closed():
-        return req.closed
+    from vmmaster.core import endpoints
 
     dc = commands.get_desired_capabilities(req)
     commands.replace_platform_with_any(req)
@@ -186,25 +185,11 @@ def get_session(req):
     session = Session(dc=dc)
 
     try:
-        endpoint = utils.get_endpoint(dc, req_closed, session.is_timeouted)
+        endpoint = endpoints.get(dc)
     except Exception as e:
         error_message = '%s' % str(e.message)
         session.failed(error_message)
         raise PlatformException(error_message)
-
-    if req.closed:
-        if endpoint:
-            utils.del_endpoint(endpoint.id)
-        error_message = 'Session was closed during creating selenium session'
-        session.failed(error_message)
-        raise ConnectionError(error_message)
-
-    if session.is_timeouted():
-        if endpoint:
-            utils.del_endpoint(endpoint.id)
-        error_message = 'Session timeout: %s.' % str(session.id)
-        session.failed(error_message)
-        raise TimeoutException(error_message)
 
     session.run(endpoint)
     return session

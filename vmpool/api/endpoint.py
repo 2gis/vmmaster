@@ -25,14 +25,24 @@ def make_response(status=None, response=None):
     return Response(status=status, response=response)
 
 
-def give_vm(delayed_vm):
-    vm = delayed_vm.vm
-    log.info('Got vm for request with params: %s' % vm.info)
+def give_vm(vm):
     return make_response(status=200, response=vm.info)
 
 
+@endpoint.route('/<endpoint_id>', methods=['GET'])
+def get_vm_from_pool(endpoint_id):
+    vm = pool.get_by_id(endpoint_id)
+    if vm:
+        log.debug('Got vm for request with params: %s' % vm.info)
+        return give_vm(vm)
+    else:
+        return make_response(status=404,
+                             response='No such endpoint '
+                                      'with id: %s' % endpoint_id)
+
+
 @endpoint.route('/', methods=['POST'])
-def get_vm():
+def new_vm():
     desired_caps = request.get_json()
     # TODO: fix avalanche logging by waiting sessions requests
     log.debug("Request with dc: %s" % str(desired_caps))
@@ -68,7 +78,8 @@ def get_vm():
             status=500,
             response='Vm has not been created with platform %s' % platform)
 
-    return give_vm(delayed_vm)
+    log.info('Got vm for request with params: %s' % delayed_vm.vm.info)
+    return give_vm(delayed_vm.vm)
 
 
 @endpoint.route('/<endpoint_id>', methods=['DELETE'])

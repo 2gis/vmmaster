@@ -45,7 +45,7 @@ class TestApi(BaseTestCase):
             del self.app
             del self.vmpool
 
-    @patch('vmmaster.core.utils.utils.del_endpoint', new=Mock())
+    @patch('vmmaster.core.endpoints.delete', new=Mock())
     @patch('vmmaster.core.db.database', new=Mock())
     def test_api_sessions(self):
         from vmmaster.core.sessions import Session
@@ -66,7 +66,7 @@ class TestApi(BaseTestCase):
         self.assertEqual(self.platform, sessions[0]['platform'])
         self.assertEqual(200, body['metacode'])
 
-        session.close()
+        session.failed()
 
     def test_api_platforms(self):
         response = self.vmpool_client.get('/api/platforms')
@@ -78,13 +78,13 @@ class TestApi(BaseTestCase):
         self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])
 
-    @patch('vmmaster.core.utils.utils.del_endpoint', new=Mock())
+    @patch('vmmaster.core.endpoints.delete', new=Mock())
     @patch('vmmaster.core.db.database', Mock())
     def test_api_stop_session(self):
         from vmmaster.core.sessions import Session
         session = Session()
         session.id = 1
-        session.close = Mock()
+        session.failed = Mock()
 
         with patch('vmmaster.core.db.database.get_session',
                    Mock(return_value=session)):
@@ -92,4 +92,4 @@ class TestApi(BaseTestCase):
                                                  % session.id)
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
-        session.close.assert_any_call()
+        session.failed.assert_any_call()

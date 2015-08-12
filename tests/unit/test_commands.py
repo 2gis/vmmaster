@@ -58,18 +58,17 @@ class CommonCommandsTestCase(BaseTestCase):
             self.session.name = "session1"
             self.session.platform = "test_origin_1"
 
-            from vmpool import VirtualMachine
-            vm = VirtualMachine("vm1", "test_origin_1")
-            vm.id = 1
-            vm.ip = self.host
+            vm = {
+                'name': 'vm1',
+                'id': 1,
+                'ip': self.host
+            }
 
-            with patch('vmmaster.core.db.database.get_vm', Mock(
-                    return_value=vm)):
-                self.session.run(vm)
+            self.session.run(vm)
 
     def tearDown(self):
         with patch('vmmaster.core.db.database', Mock()), \
-                patch('vmmaster.core.utils.utils.del_endpoint', Mock()):
+                patch('vmmaster.core.endpoints.delete', Mock()):
             self.session.delete()
 
     @classmethod

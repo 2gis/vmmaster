@@ -45,7 +45,7 @@ def get_session(session_id):
 def stop_session(session_id):
     _session = helpers.get_session(session_id)
     if _session:
-        _session.close()
+        _session.failed()
         return render_json("Session %s closed successfully" % session_id, 200)
     else:
         return render_json("Session %s not found" % session_id, 404)

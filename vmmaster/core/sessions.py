@@ -15,7 +15,6 @@ from vmmaster.core.db.models import Session as SessionModel
 from vmmaster.core.config import config
 from vmmaster.core.logger import log
 from vmmaster.core.exceptions import SessionException
-from vmmaster.core.utils import utils
 
 
 def getresponse(req, q):
@@ -98,10 +97,15 @@ class Session(SessionModel):
             "status": self.status,
             "platform": self.platform,
             "duration": self.duration,
-            "inactivity": self.inactivity
+            "inactivity": self.inactivity,
         }
-        if hasattr(self, "virtual_machine") and self.virtual_machine:
-            stat["vm"] = self.virtual_machine.info
+
+        if self.endpoint_id:
+            stat["endpoint"] = {
+                "id": self.endpoint_id,
+                "ip": self.endpoint_ip,
+                "name": self.endpoint_name
+            }
         return stat
 
     def restart_timer(self):
@@ -110,10 +114,12 @@ class Session(SessionModel):
         self.refresh()
 
     def delete(self, message=""):
+        from vmmaster.core import endpoints
+
         self.refresh()
-        if self.virtual_machine:
+        if self.endpoint_id:
             log.info("Deleting VM for session: %s" % self.id)
-            utils.del_endpoint(self.virtual_machine.id)
+            endpoints.delete(self.endpoint_id)
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
@@ -122,34 +128,25 @@ class Session(SessionModel):
         self.save()
         self.delete()
 
-    def failed(self, tb):
+    def failed(self, tb="Session closed by user"):
         self.status = "failed"
         self.closed = True
         self.error = tb
         self.save()
         self.delete(tb)
 
-    def set_vm(self, vm):
-        self.virtual_machine = vm
-
-    def endpoint_name(self):
-        return self.virtual_machine.name
+    def set_vm(self, endpoint):
+        self.endpoint_id = endpoint.get('id', None)
+        self.endpoint_ip = endpoint.get('ip', None)
+        self.endpoint_name = endpoint.get('name', None)
 
     def run(self, endpoint):
-        from vmmaster.core.db import database
-        vm = database.get_vm(endpoint.id)
-
         self.restart_timer()
-
-        self.set_vm(vm)
+        self.set_vm(endpoint)
         self.status = "running"
         self.save()
 
-        log.info("Session %s starting on %s." %
-                 (self.id, self.endpoint_name()))
-
-    def close(self):
-        self.failed("Session closed by user")
+        log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
 
     def timeout(self):
         self.refresh()
@@ -170,7 +167,7 @@ class Session(SessionModel):
 
         self.restart_timer()
         q = Queue()
-        url = "http://%s:%s%s" % (self.virtual_machine.ip, port, request.url)
+        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
 
         req = lambda: requests.request(method=request.method,
                                        url=url,

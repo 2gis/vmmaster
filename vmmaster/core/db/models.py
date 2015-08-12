@@ -79,7 +79,9 @@ class Session(Base, FeaturesMixin):
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
-    vm_id = Column(ForeignKey('virtual_machines.id', ondelete='SET NULL'))
+    endpoint_id = Column(Integer)
+    endpoint_ip = Column(String)
+    endpoint_name = Column(String)
     name = Column(String)
     platform = Column(String)
     dc = Column(String)
@@ -193,18 +195,12 @@ class VirtualMachine(Base, FeaturesMixin):
     mac = Column(String)
     platform = Column(String)
     time_created = Column(Float, default=time.time)
+    time_deleted = Column(Float)
 
     # State
     ready = Column(Boolean, default=False)
     checking = Column(Boolean, default=False)
     deleted = Column(Boolean, default=False)
-
-    # Relationships
-    session = relationship(
-        Session, backref=backref("virtual_machine",
-                                 single_parent=True,
-                                 enable_typechecks=False,
-                                 cascade="all, delete-orphan"))
 
     def __init__(self, name, platform):
         self.name = name
