@@ -46,32 +46,34 @@ class AgentLogStep(Base, FeaturesMixin):
 class SessionLogStep(Base, FeaturesMixin):
     __tablename__ = 'session_log_steps'
 
-    id = Column(Integer,
-                Sequence('session_log_steps_id_seq'),
+    id = Column(Integer, Sequence('session_log_steps_id_seq'),
                 primary_key=True)
     session_id = Column(Integer, ForeignKey('sessions.id', ondelete='CASCADE'))
     control_line = Column(String)
     body = Column(String)
     screenshot = Column(String)
     time_created = Column(Float, default=time.time)
+    milestone = Column(Boolean)
 
     # Relationships
     agent_steps = relationship(
         AgentLogStep, backref="session_log_step")
 
-    def __init__(self, control_line, body=None, session_id=None):
+    def __init__(self, control_line, body=None, session_id=None,
+                 milestone=True):
         self.control_line = control_line
         self.body = body
+        self.milestone = milestone
         if session_id:
             self.session_id = session_id
         self.add()
 
     def add_agent_step(self, control_line, body):
-        step = AgentLogStep(control_line=control_line, body=body)
+        agent_step = AgentLogStep(control_line=control_line, body=body)
         self.refresh()
-        self.agent_steps.append(step)
-        step.save()
-        return step
+        self.agent_steps.append(agent_step)
+        self.save()
+        return agent_step
 
 
 class Session(Base, FeaturesMixin):
@@ -114,9 +116,7 @@ class Session(Base, FeaturesMixin):
 
         if dc:
             self.dc = json.dumps(dc)
-
             self.platform = dc["platform"]
-
             if dc.get("name", None):
                 self.name = dc["name"]
             else:
@@ -124,22 +124,29 @@ class Session(Base, FeaturesMixin):
 
             if dc.get("user", None):
                 self.set_user(dc["user"])
-
             if dc.get("takeScreenshot", None):
                 self.take_screenshot = True
-
             if dc.get("runScript", None):
                 self.run_script = json.dumps(dc["runScript"])
 
         self.add()
 
-    def add_session_step(self, control_line, body=None):
+    def add_session_step(self, control_line, body=None, milestone=True):
         step = SessionLogStep(control_line=control_line,
-                              body=body)
+                              body=body,
+                              milestone=milestone)
         self.refresh()
         self.session_steps.append(step)
-        step.save()
+        self.save()
         return step
+
+    def get_milestone_step(self):
+        """
+        Find last session log step marked as milestone to write agent log
+        :return: SessionLogStep object
+        """
+        from vmmaster.core.db import database
+        return database.get_last_step(self)
 
 
 class User(Base, FeaturesMixin):

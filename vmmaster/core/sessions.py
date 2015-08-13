@@ -4,7 +4,6 @@ import time
 import json
 from Queue import Queue
 from threading import Thread
-# from traceback import format_exc
 
 import requests
 import logging
@@ -39,10 +38,8 @@ class RequestHelper(object):
         self.body = body
 
     def __repr__(self):
-        return "method:%s url:%s headers:%s body:%s" % (self.method,
-                                                        self.url,
-                                                        self.headers,
-                                                        self.body)
+        return "method:%s url:%s headers:%s body:%s" % (
+            self.method, self.url, self.headers, self.body)
 
 
 def update_log_step(log_step, message=None, control_line=None):
@@ -50,7 +47,6 @@ def update_log_step(log_step, message=None, control_line=None):
         log_step.body = message
     if control_line:
         log_step.control_line = control_line
-    log_step.save()
 
 
 class SimpleResponse:
@@ -84,11 +80,6 @@ class Session(SessionModel):
         return self.closed
 
     @property
-    def log_step(self):
-        if self.session_steps:
-            return self.session_steps[-1]
-
-    @property
     def info(self):
         self.refresh()
         stat = {
@@ -110,8 +101,6 @@ class Session(SessionModel):
 
     def restart_timer(self):
         self.time_modified = time.time()
-        self.save()
-        self.refresh()
 
     def delete(self, message=""):
         from vmmaster.core import endpoints
@@ -144,7 +133,6 @@ class Session(SessionModel):
         self.restart_timer()
         self.set_vm(endpoint)
         self.status = "running"
-        self.save()
 
         log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
 
@@ -154,6 +142,11 @@ class Session(SessionModel):
         self.save()
         self.failed("Session timeout")
 
+    def add_agent_step_to_milestone(self, control_line, body=None):
+        current_milestone_step = self.get_milestone_step()
+        if current_milestone_step:
+            return current_milestone_step.add_agent_step(control_line, body)
+
     def make_request(self, port, request):
         """ Make http request to some port in session
             and return the response. """
@@ -161,9 +154,9 @@ class Session(SessionModel):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        if self.log_step:
-            self.log_step.add_agent_step(
-                "%s %s" % (request.method, request.url), request.body)
+        self.add_agent_step_to_milestone(
+            control_line="%s %s" % (request.method, request.url),
+            body=request.body)
 
         self.restart_timer()
         q = Queue()
@@ -219,9 +212,9 @@ class Session(SessionModel):
         else:
             content_to_log = response.content
 
-        if self.log_step:
-            self.log_step.add_agent_step(
-                str(response.status_code), content_to_log)
+        self.add_agent_step_to_milestone(
+            control_line=str(response.status_code),
+            body=content_to_log)
 
         return response.status_code, response.headers, response.content
 
@@ -262,4 +255,3 @@ class Sessions(object):
 
         session.refresh()
         return session
-

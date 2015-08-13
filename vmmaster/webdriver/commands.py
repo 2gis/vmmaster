@@ -34,7 +34,6 @@ def start_session(request, session):
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
     session.save()
-    session.refresh()
 
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
@@ -212,7 +211,9 @@ def run_script_through_websocket(request, session, host):
     status_code = 200
     full_msg = json.dumps({"status": 0, "output": ''})
 
-    agent_step = session.log_step.add_agent_step(status_code, full_msg)
+    agent_step = session.add_agent_step_to_milestone(
+        control_line=status_code,
+        body=full_msg)
 
     def on_open(ws):
         def run(*args):
@@ -253,9 +254,9 @@ def run_script(request, session):
     host = "ws://%s:%s/runScript" % (session.endpoint_ip,
                                      config.VMMASTER_AGENT_PORT)
 
-    if session.log_step:
-        session.log_step.add_agent_step(
-            "%s %s" % (request.method, '/runScript'), request.body)
+    session.add_agent_step_to_milestone(
+        control_line="%s %s" % (request.method, '/runScript'),
+        body=request.body)
 
     return run_script_through_websocket(request, session, host)
 

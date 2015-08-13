@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify, abort
+from flask import Blueprint, current_app, request, jsonify
 
 from vmmaster.webdriver import commands
 import helpers
@@ -39,19 +39,16 @@ def handle_errors(error):
 def log_request():
     log.debug('%s' % request)
 
-    if current_app.running is False:
-        log.info("This request is aborted %s" % request)
-        abort(502)
-    else:
-        request.proxy = helpers.SessionProxy()
-        proxy = request.proxy
-        req = request.proxy.request
+    request.proxy = helpers.SessionProxy()
+    proxy = request.proxy
+    req = request.proxy.request
+    session_id = proxy.session_id
 
-        if proxy.session_id:
-            session = current_app.sessions.get_session(proxy.session_id)
-            session.add_session_step(
-                "%s %s %s" % (req.method, req.path, req.clientproto),
-                str(req.body))
+    if session_id:
+        session = current_app.sessions.get_session(session_id)
+        control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
+        session.add_session_step(control_line=control_line,
+                                 body=str(req.body))
 
 
 def send_response(response):
@@ -62,14 +59,18 @@ def send_response(response):
 
 @webdriver.after_request
 def log_response(response):
-    session_id = request.proxy.session_id
+    proxy = request.proxy
+    session_id = proxy.session_id
+
     if session_id:
         try:
             session = current_app.sessions.get_session(session_id)
         except SessionException:
             session = None
         if session:
-            session.add_session_step(response.status_code, response.data)
+            session.add_session_step(control_line=response.status_code,
+                                     body=response.data,
+                                     milestone=False)
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
 
@@ -92,9 +93,16 @@ def verify_token(username, client_token):
 def delete_session(session_id):
     proxy = request.proxy
     proxy.response = helpers.transparent(proxy)
-    session = current_app.sessions.get_session(proxy.session_id)
-    session.add_session_step(proxy.response.status_code, proxy.response.data)
+    session_id = proxy.session_id
+
+    session = current_app.sessions.get_session(session_id)
+    session.add_session_step(control_line=proxy.response.status_code,
+                             body=proxy.response.data,
+                             milestone=False)
     session.succeed()
+
+    # Session is done, forget about it
+    proxy.session_id = None
     return send_response(proxy.response)
 
 
@@ -104,13 +112,12 @@ def delete_session(session_id):
 def create_session():
     req = request.proxy.request
     proxy = request.proxy
-
     session = helpers.get_session(req)
     proxy.session_id = session.id
 
-    session.add_session_step(
-        "%s %s %s" % (req.method, req.path, req.clientproto),
-        str(req.body))
+    control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
+    session.add_session_step(control_line=control_line,
+                             body=str(req.body))
 
     status, headers, body = commands.start_session(req, session)
     proxy.response = helpers.form_response(status, headers, body)
@@ -136,11 +143,13 @@ def proxy_request(url):
     parts = req.path.split("/")
 
     session = current_app.sessions.get_session(proxy.session_id)
-    if session.log_step:
+    log_step = session.get_milestone_step()
+    # TODO: move all this stuff into the helper take_screenshot
+    if log_step:
         screenshot = None
         if set(words) & set(parts) or parts[-1] == "session":
             screenshot = helpers.take_screenshot(proxy)
         if screenshot:
-            session.log_step.screenshot = screenshot
-            session.log_step.save()
+            log_step.screenshot = screenshot
+            log_step.save()
     return send_response(proxy.response)

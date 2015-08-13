@@ -105,8 +105,9 @@ def take_screenshot(proxy):
     screenshot = commands.take_screenshot(session, 9000)
 
     if screenshot:
+        log_step = session.get_milestone_step()
         path = config.SCREENSHOTS_DIR + "/" + str(proxy.session_id) + \
-            "/" + str(session.log_step.id) + ".png"
+            "/" + str(log_step.id) + ".png"
         utils.write_file(path, base64.b64decode(screenshot))
         return path
 
