@@ -6,13 +6,13 @@ class Config(object):
 
     DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/vmmaster_db"
 
-    CLONES_DIR = BASE_DIR + "/vmmaster/clones"
-    ORIGINS_DIR = BASE_DIR + "/vmmaster/origins"
-    SESSION_DIR = BASE_DIR + "/vmmaster/session"
+    CLONES_DIR = BASE_DIR + "/clones"
+    ORIGINS_DIR = BASE_DIR + "/origins"
+    SESSION_DIR = BASE_DIR + "/session"
     LOG_DIR = BASE_DIR + "/logs"
     LOG_SIZE = 5242880
 
-    SCREENSHOTS_DIR = BASE_DIR + "/vmmaster/screenshots"
+    SCREENSHOTS_DIR = BASE_DIR + "/screenshots"
     SCREENSHOTS_DAYS = 7
 
     LOG_LEVEL = "INFO"
