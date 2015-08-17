@@ -20,6 +20,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
     def setUpClass(cls):
         path = os.path.dirname(os.path.realpath(__file__))
         cls.p = subprocess.Popen(["gunicorn",
+                                  "--log-level=warning",
                                   "-w 2",
                                   "-b 0.0.0.0:5000",
                                   "tests.functional.app.views:app"
@@ -46,7 +47,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.stream = StringIO()
 
     def test_positive_case(self):
-        from tests.functional.tests.test_normal import TestPositiveCase
+        from tests.test_normal import TestPositiveCase
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
         self.assertEqual(2, result.testsRun, result.errors)
@@ -55,7 +56,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_two_same_tests_parallel_run(self):
-        from tests.functional.tests.test_normal import \
+        from tests.test_normal import \
             TestParallelSessions1, TestParallelSessions2
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
@@ -86,7 +87,7 @@ class TestCase(unittest.TestCase):
         self.stream = StringIO()
 
     def test_run_script_on_session_creation(self):
-        from tests.functional.tests.test_normal import \
+        from tests.test_normal import \
             TestRunScriptOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptOnSessionCreation)
@@ -96,7 +97,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_with_install_package_on_session_creation(self):
-        from tests.functional.tests.test_normal import \
+        from tests.test_normal import \
             TestRunScriptWithInstallPackageOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptWithInstallPackageOnSessionCreation)
@@ -106,7 +107,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     def test_run_script_tests_parallel_run(self):
-        from tests.functional.tests.test_normal import\
+        from tests.test_normal import\
             TestParallelSlowRunScriptOnSession1, \
             TestParallelSlowRunScriptOnSession2
         suite1 = unittest.TestSuite()
@@ -128,7 +129,3 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result2.errors), result2.errors)
         self.assertEqual(0, len(result1.failures), result1.failures)
         self.assertEqual(0, len(result2.failures), result2.failures)
-
-
-if __name__ == "__main__":
-    lode_runner.run(defaultTest=[__name__])

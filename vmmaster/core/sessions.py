@@ -47,6 +47,7 @@ def update_log_step(log_step, message=None, control_line=None):
         log_step.body = message
     if control_line:
         log_step.control_line = control_line
+    log_step.save()
 
 
 class SimpleResponse:
