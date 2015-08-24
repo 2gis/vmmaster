@@ -34,7 +34,6 @@ def start_session(request, session):
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
     session.save()
-    session.refresh()
 
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
@@ -210,9 +209,10 @@ def take_screenshot(session, port):
 
 def run_script_through_websocket(request, session, host):
     status_code = 200
-    full_msg = json.dumps({"status": 0, "output": ''})
-
-    agent_step = session.log_step.add_agent_step(status_code, full_msg)
+    default_msg = json.dumps({"status": 0, "output": ""})
+    agent_step = session.add_agent_step_to_milestone(
+        control_line=status_code,
+        body=default_msg)
 
     def on_open(ws):
         def run(*args):
@@ -224,16 +224,17 @@ def run_script_through_websocket(request, session, host):
     def on_message(ws, message):
         ws.output += message
         if agent_step:
-            full_msg = json.dumps({"status": 0, "output": ws.output})
-            update_log_step(agent_step, message=full_msg)
+            msg = json.dumps({"status": 0, "output": ws.output})
+            update_log_step(agent_step, message=msg)
 
     def on_close(ws):
+        if agent_step and ws.output:
+            msg = json.dumps({"status": 0, "output": ws.output})
+            update_log_step(agent_step, message=msg)
         log.info("RunScript: Close websocket on vm %s" % host)
-        if agent_step:
-            full_msg = json.dumps({"status": 1, "output": ws.output})
-            update_log_step(agent_step, message=full_msg)
 
     def on_error(ws, message):
+        global status_code
         status_code = 500
         ws.output = message
         log.debug("RunScript error: %s" % message)
@@ -244,8 +245,10 @@ def run_script_through_websocket(request, session, host):
                                 on_open=on_open,
                                 on_error=on_error)
     ws.output = ""
+    ws.status = 0
     ws.run_forever()
 
+    full_msg = json.dumps({"status": ws.status, "output": ws.output})
     return status_code, {}, full_msg
 
 
@@ -253,9 +256,9 @@ def run_script(request, session):
     host = "ws://%s:%s/runScript" % (session.endpoint_ip,
                                      config.VMMASTER_AGENT_PORT)
 
-    if session.log_step:
-        session.log_step.add_agent_step(
-            "%s %s" % (request.method, '/runScript'), request.body)
+    session.add_agent_step_to_milestone(
+        control_line="%s %s" % (request.method, '/runScript'),
+        body=request.body)
 
     return run_script_through_websocket(request, session, host)
 

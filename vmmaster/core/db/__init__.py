@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session, joinedload
 from .models import Session, SessionLogStep, AgentLogStep, User, \
     VirtualMachine
@@ -61,6 +61,12 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         from vmmaster.core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).get(session_id)
+
+    @transaction
+    def get_last_step(self, session, dbsession=None):
+        return dbsession.query(SessionLogStep).filter_by(
+            session_id=session.id, milestone=True).order_by(
+                desc(SessionLogStep.id)).first()
 
     @transaction
     def get_vm(self, vm_id, dbsession=None):

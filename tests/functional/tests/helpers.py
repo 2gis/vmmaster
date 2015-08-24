@@ -14,7 +14,7 @@ class TestCase(unittest.TestCase):
 
     def __new__(cls, *args, **kwargs):
         if cls.desired_capabilities is None:
-            cls.desired_capabilities = DesiredCapabilities.CHROME
+            cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
         cls.desired_capabilities["name"] = cls.__name__
         cls.desired_capabilities["platform"] = config.platform
         cls.desired_capabilities["takeScreenshot"] = "true"

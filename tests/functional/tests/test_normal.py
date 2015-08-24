@@ -3,6 +3,7 @@
 import os
 from helpers import TestCase
 from ConfigParser import RawConfigParser
+
 path = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -23,12 +24,14 @@ class TestPositiveCase(TestCase):
 class TestRunScriptOnSessionCreation(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.desired_capabilities["runScript"] = {"script": 'echo "hello" > ~/hello_file'}
+        cls.desired_capabilities["runScript"] = \
+            {"script": 'echo "hello" > ~/hello_file'}
         super(TestRunScriptOnSessionCreation, cls).setUpClass()
 
     def test_run_script_on_session_creation(self):
         output = self.vmmaster.run_script("cat ~/hello_file").get("output")
-        self.assertEqual(u"hello\n", output)
+        self.assertEqual(u"hello\n", output,
+                         msg="%s != %s" % (u"hello\n", output))
 
 
 def parallel_tests_body(self):
@@ -52,9 +55,14 @@ class TestParallelSessions2(TestCase):
 
 
 def run_scripts_parallel_body(self):
-    self.vmmaster.run_script("sudo pip install tox==1.9.0 && tox --version > ~/ver_file")
+    self.vmmaster.run_script("""
+        sudo apt-get update
+        sudo apt-get -y install python-pip=1.5.4-1ubuntu3
+        pip --version > ~/ver_file
+    """)
     output = self.vmmaster.run_script("cat ~/ver_file").get("output")
-    self.assertEqual(u"1.9.0 imported from /usr/local/lib/python2.7/dist-packages/tox/__init__.pyc\n", output)
+    self.assertIn(u"pip 1.5.4", output,
+                  msg="%s not found in %s" % (u"pip 1.5.4", output))
 
 
 class TestParallelSlowRunScriptOnSession1(TestCase):
@@ -70,9 +78,17 @@ class TestParallelSlowRunScriptOnSession2(TestCase):
 class TestRunScriptWithInstallPackageOnSessionCreation(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.desired_capabilities["runScript"] = {"command": "/bin/bash", "script": "sudo pip install tox==1.9.0 && tox --version > ~/ver_file"}
-        super(TestRunScriptWithInstallPackageOnSessionCreation, cls).setUpClass()
+        cls.desired_capabilities["runScript"] = {
+            "command": "/bin/bash",
+            "script": """
+                sudo apt-get update
+                sudo apt-get -y install python-pip=1.5.4-1ubuntu3
+                pip --version > ~/ver_file
+            """}
+        super(TestRunScriptWithInstallPackageOnSessionCreation, cls).\
+            setUpClass()
 
     def test_run_script_on_session_creation(self):
         output = self.vmmaster.run_script("cat ~/ver_file").get("output")
-        self.assertEqual(u"1.9.0 imported from /usr/local/lib/python2.7/dist-packages/tox/__init__.pyc\n", output)
+        self.assertIn(u"pip 1.5.4", output,
+                      msg="%s not found in %s" % (u"pip 1.5.4", output))
