@@ -210,7 +210,7 @@ def take_screenshot(session, port):
 def run_script_through_websocket(request, session, host):
     status_code = 200
     default_msg = json.dumps({"status": 0, "output": ""})
-    agent_step = session.add_agent_step_to_milestone(
+    sub_step = session.add_sub_step(
         control_line=status_code,
         body=default_msg)
 
@@ -223,14 +223,14 @@ def run_script_through_websocket(request, session, host):
 
     def on_message(ws, message):
         ws.output += message
-        if agent_step:
+        if sub_step:
             msg = json.dumps({"status": 0, "output": ws.output})
-            update_log_step(agent_step, message=msg)
+            update_log_step(sub_step, message=msg)
 
     def on_close(ws):
-        if agent_step and ws.output:
+        if sub_step and ws.output:
             msg = json.dumps({"status": 0, "output": ws.output})
-            update_log_step(agent_step, message=msg)
+            update_log_step(sub_step, message=msg)
         log.info("RunScript: Close websocket on vm %s" % host)
 
     def on_error(ws, message):
@@ -256,7 +256,7 @@ def run_script(request, session):
     host = "ws://%s:%s/runScript" % (session.endpoint_ip,
                                      config.VMMASTER_AGENT_PORT)
 
-    session.add_agent_step_to_milestone(
+    session.add_sub_step(
         control_line="%s %s" % (request.method, '/runScript'),
         body=request.body)
 

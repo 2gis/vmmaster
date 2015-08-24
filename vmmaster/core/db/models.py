@@ -27,10 +27,10 @@ class FeaturesMixin(object):
         database.refresh(self)
 
 
-class AgentLogStep(Base, FeaturesMixin):
-    __tablename__ = 'agent_log_steps'
+class SessionLogSubStep(Base, FeaturesMixin):
+    __tablename__ = 'sub_steps'
 
-    id = Column(Integer, Sequence('agent_log_steps_id_seq'), primary_key=True)
+    id = Column(Integer, Sequence('sub_steps_id_seq'), primary_key=True)
     session_log_step_id = Column(Integer, ForeignKey(
         'session_log_steps.id', ondelete='CASCADE'))
     control_line = Column(String)
@@ -56,8 +56,8 @@ class SessionLogStep(Base, FeaturesMixin):
     milestone = Column(Boolean)
 
     # Relationships
-    agent_steps = relationship(
-        AgentLogStep, backref="session_log_step")
+    sub_steps = relationship(
+        SessionLogSubStep, backref="session_log_step")
 
     def __init__(self, control_line, body=None, session_id=None,
                  milestone=True):
@@ -68,12 +68,12 @@ class SessionLogStep(Base, FeaturesMixin):
             self.session_id = session_id
         self.add()
 
-    def add_agent_step(self, control_line, body):
-        agent_step = AgentLogStep(control_line=control_line, body=body)
+    def add_sub_step(self, control_line, body):
+        sub_step = SessionLogSubStep(control_line=control_line, body=body)
         self.refresh()
-        self.agent_steps.append(agent_step)
+        self.sub_steps.append(sub_step)
         self.save()
-        return agent_step
+        return sub_step
 
 
 class Session(Base, FeaturesMixin):
@@ -142,7 +142,7 @@ class Session(Base, FeaturesMixin):
 
     def get_milestone_step(self):
         """
-        Find last session log step marked as milestone to write agent log
+        Find last session log step marked as milestone for sub_step
         :return: SessionLogStep object
         """
         from vmmaster.core.db import database
