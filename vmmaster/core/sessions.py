@@ -38,7 +38,7 @@ class RequestHelper(object):
         self.body = body
 
     def __repr__(self):
-        return "method:%s url:%s headers:%s body:%s" % (
+        return "<RequestHelper method:%s url:%s headers:%s body:%s>" % (
             self.method, self.url, self.headers, self.body)
 
 
