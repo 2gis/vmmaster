@@ -4,13 +4,16 @@ import inspect
 import os
 
 
-class ConfigInstance(object):
+class Config(object):
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
-             cls.instance = super(ConfigInstance, cls).__new__(cls)
+            cls.instance = super(Config, cls).__new__(cls)
         return cls.instance
 
-config = ConfigInstance()
+    def update(self, new_values):
+        self.__dict__.update(new_values)
+
+config = Config()
 
 
 def setup_config(path_to_config):
@@ -21,8 +24,8 @@ def setup_config(path_to_config):
         calframe = inspect.getouterframes(curframe, 2)
         calpath = calframe[1][1]
         path_to_config = os.path.dirname(calpath) + os.sep + path_to_config
-    config = ConfigInstance()
     attrs = runpy.run_path(path_to_config)
     temp_config = imp.new_module("temp_config")
     temp_config.__dict__.update(attrs)
-    config.__dict__ = temp_config.Config.__dict__.copy()
+    global config
+    config.update(temp_config.Config.__dict__)
