@@ -4,7 +4,7 @@ import time
 import socket
 
 
-from vmmaster.core.logger import log
+from core.logger import log
 
 
 def get_interface_subnet(inteface):

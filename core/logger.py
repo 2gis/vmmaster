@@ -56,7 +56,7 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
         sys.stdout = slout
 
     if hasattr(config, 'GRAYLOG'):
-        from vmmaster.core.utils.network_utils import ping
+        from core.utils.network_utils import ping
 
         host =config.GRAYLOG[0]
         port = config.GRAYLOG[1]

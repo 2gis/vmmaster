@@ -2,7 +2,7 @@
 
 from flask import Blueprint, jsonify
 import helpers
-from vmmaster.core.auth.api_auth import auth
+from core.auth.api_auth import auth
 
 api = Blueprint('api', __name__)
 

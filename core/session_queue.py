@@ -7,7 +7,7 @@ class SessionQueue():
 
     @property
     def all(self):
-        from ..core.db import database
+        from core.db import database
         return database.queue()
 
     def __str__(self):

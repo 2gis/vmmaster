@@ -6,11 +6,11 @@ import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from vmmaster.core.config import config, setup_config
-from vmmaster.core.db import Session, VirtualMachine
-from vmmaster.core.utils.utils import change_user_vmmaster
-from vmmaster.core.utils.init import home_dir
-from vmmaster.core.logger import setup_logging, log
+from core.config import config, setup_config
+from core.db import Session, VirtualMachine
+from core.utils.utils import change_user_vmmaster
+from core.utils.init import home_dir
+from core.logger import setup_logging, log
 
 setup_config('%s/config.py' % home_dir())
 setup_logging(logdir=config.LOG_DIR, logfile_name='vmmaster_cleanup.log')

@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from flask import current_app
-from vmmaster.core.exceptions import SessionException
+from core.exceptions import SessionException
 
 
 def get_session(session_id):
@@ -13,7 +13,7 @@ def get_session(session_id):
 
 
 def get_sessions():
-    from vmmaster.core.db import database
+    from core.db import database
     sessions = list()
     for session in database.get_sessions():
         sessions.append(session.info)
@@ -21,7 +21,7 @@ def get_sessions():
 
 
 def get_queue():
-    from vmmaster.core.db import database
+    from core.db import database
     queue = list()
     for session in database.get_queue():
         queue.append(session.info)
@@ -29,7 +29,7 @@ def get_queue():
 
 
 def get_user(user_id):
-    from vmmaster.core.db import database
+    from core.db import database
     return database.get_user(user_id=user_id)
 
 

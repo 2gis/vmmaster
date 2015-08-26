@@ -5,7 +5,7 @@ from twisted.web.server import Site, NOT_DONE_YET
 from twisted.internet import defer
 from app import create_app
 
-from vmmaster.core.logger import log
+from core.logger import log
 
 
 def _block_on(d, timeout=None):

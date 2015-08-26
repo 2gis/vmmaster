@@ -13,15 +13,15 @@ from threading import Thread
 from . import VirtualMachine
 from virtual_machines_pool import pool
 
-from vmmaster.core.dumpxml import dumpxml
-from vmmaster.core.connection import Virsh
-from vmmaster.core.logger import log
-from vmmaster.core.utils import utils
-from vmmaster.core.utils import openstack_utils
-from vmmaster.core.exceptions import libvirtError, CreationException
-from vmmaster.core.config import config
-from vmmaster.core.network.network import Network
-from vmmaster.core.utils import network_utils
+from core.dumpxml import dumpxml
+from core.connection import Virsh
+from core.logger import log
+from core.utils import utils
+from core.utils import openstack_utils
+from core.exceptions import libvirtError, CreationException
+from core.config import config
+from core.network.network import Network
+from core.utils import network_utils
 
 
 def threaded_wait(func):

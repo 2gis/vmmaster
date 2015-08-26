@@ -1,8 +1,8 @@
 # coding: utf-8
 import time
 
-from vmmaster.core.dispatcher import dispatcher, Signals
-from vmmaster.core.db.models import VirtualMachine as VirtualMachineModel
+from core.dispatcher import dispatcher, Signals
+from core.db.models import VirtualMachine as VirtualMachineModel
 
 
 class VirtualMachine(VirtualMachineModel):

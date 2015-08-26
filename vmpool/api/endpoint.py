@@ -3,9 +3,9 @@
 import json
 
 from flask import Blueprint, request, Response
-from vmmaster.core.utils.utils import wait_for
-from vmmaster.core.logger import log
-from vmmaster.core.config import config
+from core.utils.utils import wait_for
+from core.logger import log
+from core.config import config
 
 from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms

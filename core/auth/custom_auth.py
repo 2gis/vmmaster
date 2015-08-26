@@ -4,7 +4,7 @@ from functools import wraps
 from flask import request, make_response
 from json import loads, dumps
 from werkzeug.datastructures import Authorization
-import vmmaster.core.db as db
+import core.db as db
 
 anonymous = Authorization('basic', {'username': 'anonymous', 'password': None})
 

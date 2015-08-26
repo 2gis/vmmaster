@@ -4,8 +4,8 @@ import os
 import unittest
 from mock import Mock, patch
 
-from vmmaster.core.utils import system_utils
-from vmmaster.core.config import setup_config, config
+from core.utils import system_utils
+from core.config import setup_config, config
 
 
 class TestCleanup(unittest.TestCase):
@@ -13,17 +13,17 @@ class TestCleanup(unittest.TestCase):
     def setUp(cls):
         setup_config('data/config.py')
 
-        from vmmaster.core import db
+        from core import db
         db.database = db.Database(config.DATABASE)
 
     def tearDown(self):
         pass
 
     def test_file_deletion(self):
-        with patch('vmmaster.core.utils.init.home_dir',
-                   Mock(return_value=config.BASE_DIR)), \
-            patch('vmmaster.core.logger.setup_logging',
-                  Mock(return_value=Mock())):
+        with patch('core.utils.init.home_dir',
+                Mock(return_value=config.BASE_DIR)), \
+            patch('core.logger.setup_logging',
+                Mock(return_value=Mock())):
             from vmmaster import cleanup
             from vmmaster.core.sessions import Session
 
@@ -49,11 +49,11 @@ class TestCleanup(unittest.TestCase):
             ["rm", "-rf", config.SCREENSHOTS_DIR], silent=True)
 
     def test_outdated_sessions(self):
-        with patch('vmmaster.core.utils.init.home_dir',
+        with patch('core.utils.init.home_dir',
                    Mock(return_value=config.BASE_DIR)), \
-            patch('vmmaster.core.logger.setup_logging',
+            patch('core.logger.setup_logging',
                   Mock(return_value=Mock())):
-            from vmmaster import cleanup
+        from vmmaster import cleanup
         from time import time
         from vmmaster.core.sessions import Session
 

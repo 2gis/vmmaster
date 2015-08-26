@@ -15,15 +15,15 @@ Base = declarative_base()
 
 class FeaturesMixin(object):
     def add(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.add(self)
 
     def save(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.update(self)
 
     def refresh(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.refresh(self)
 
 
@@ -105,7 +105,7 @@ class Session(Base, FeaturesMixin):
         SessionLogStep, backref=backref("session", enable_typechecks=False))
 
     def set_user(self, username):
-        from vmmaster.core.db import database
+        from core.db import database
         self.user = database.get_user(username=username)
 
     def __init__(self, name=None, dc=None):

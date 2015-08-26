@@ -6,9 +6,9 @@ from vmpool.vmqueue import q, QueueWorker
 from vmpool.virtual_machines_pool import pool
 from vmpool.virtual_machines_pool import VirtualMachinesPoolPreloader, \
     VirtualMachineChecker
-from vmmaster.core.logger import log, setup_logging
-from vmmaster.core.config import setup_config, config
-from vmmaster.core.utils.init import home_dir
+from core.logger import log, setup_logging
+from core.config import setup_config, config
+from core.utils.init import home_dir
 from api.endpoint import endpoint
 from api.api import api
 

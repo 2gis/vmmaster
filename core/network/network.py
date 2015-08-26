@@ -1,10 +1,10 @@
 import libvirt
 from uuid import uuid4
 
-from vmmaster.core.network.network_xml import NetworkXml
-from vmmaster.core.network.mac_ip_table import MacIpTable
-from vmmaster.core.connection import Virsh
-from vmmaster.core.logger import log
+from core.network.network_xml import NetworkXml
+from core.network.mac_ip_table import MacIpTable
+from core.connection import Virsh
+from core.logger import log
 
 
 class Network(MacIpTable):

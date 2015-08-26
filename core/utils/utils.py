@@ -14,9 +14,9 @@ import sys
 from twisted.internet import threads
 from threading import Thread
 
-from vmmaster.core.config import config
-from vmmaster.core.utils import system_utils, commands
-from vmmaster.core.logger import log
+from core.config import config
+from core.utils import system_utils, commands
+from core.logger import log
 
 
 class UserNotFound(Exception):

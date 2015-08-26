@@ -5,10 +5,10 @@ from flask import Blueprint, current_app, request, jsonify
 
 from vmmaster.webdriver import commands
 import helpers
-from vmmaster.core.db import database
-from vmmaster.core.logger import log
-from vmmaster.core.exceptions import SessionException, ConnectionError
-from vmmaster.core.auth.custom_auth import auth, anonymous
+from core.db import database
+from core.logger import log
+from core.exceptions import SessionException, ConnectionError
+from core.auth.custom_auth import auth, anonymous
 
 webdriver = Blueprint('webdriver', __name__)
 

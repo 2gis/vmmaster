@@ -84,7 +84,7 @@ def vmmaster_label(address, session, label=None):
                    "/wd/hub/session/%s/vmmasterLabel" % str(session),
                    body=json.dumps({"label": label}))
 
-from vmmaster.core.utils.network_utils import get_socket
+from core.utils.network_utils import get_socket
 
 
 def server_is_up(address, wait=5):

@@ -10,10 +10,10 @@ import logging
 requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
 
-from vmmaster.core.db.models import Session as SessionModel
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.exceptions import SessionException
+from core.db.models import Session as SessionModel
+from core.config import config
+from core.logger import log
+from core.exceptions import SessionException
 
 
 def getresponse(req, q):
@@ -104,7 +104,7 @@ class Session(SessionModel):
         self.time_modified = time.time()
 
     def delete(self, message=""):
-        from vmmaster.core import endpoints
+        from core import endpoints
 
         self.refresh()
         if self.endpoint_id:
@@ -228,7 +228,7 @@ class SessionWorker(Thread):
 
     @staticmethod
     def active_sessions():
-        from vmmaster.core.db import database
+        from core.db import database
         return database.get_sessions()
 
     def run(self):
@@ -247,7 +247,7 @@ class SessionWorker(Thread):
 class Sessions(object):
     @staticmethod
     def get_session(session_id):
-        from vmmaster.core.db import database
+        from core.db import database
         session = database.get_session(session_id)
 
         if not session or session.is_closed():
