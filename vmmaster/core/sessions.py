@@ -143,10 +143,10 @@ class Session(SessionModel):
         self.save()
         self.failed("Session timeout")
 
-    def add_agent_step_to_milestone(self, control_line, body=None):
+    def add_sub_step(self, control_line, body=None):
         current_milestone_step = self.get_milestone_step()
         if current_milestone_step:
-            return current_milestone_step.add_agent_step(control_line, body)
+            return current_milestone_step.add_sub_step(control_line, body)
 
     def make_request(self, port, request):
         """ Make http request to some port in session
@@ -155,7 +155,7 @@ class Session(SessionModel):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        self.add_agent_step_to_milestone(
+        self.add_sub_step(
             control_line="%s %s" % (request.method, request.url),
             body=request.body)
 
@@ -213,7 +213,7 @@ class Session(SessionModel):
         else:
             content_to_log = response.content
 
-        self.add_agent_step_to_milestone(
+        self.add_sub_step(
             control_line=str(response.status_code),
             body=content_to_log)
 

@@ -1,8 +1,8 @@
 # coding: utf-8
 
 from sqlalchemy import create_engine, inspect, desc
-from sqlalchemy.orm import sessionmaker, scoped_session, joinedload
-from .models import Session, SessionLogStep, AgentLogStep, User, \
+from sqlalchemy.orm import sessionmaker, scoped_session
+from .models import Session, SessionLogStep, SessionLogSubStep, User, \
     VirtualMachine
 from vmmaster.core.utils.utils import to_thread
 
