@@ -348,12 +348,12 @@ class TestSessionWorker(BaseTestCase):
 
         too_long = config.SESSION_TIMEOUT + 1
         with patch('vmmaster.core.sessions.Session.inactivity',
-                   PropertyMock(return_value=too_long)):
+                   PropertyMock(return_value=too_long)),\
+            patch('vmmaster.core.sessions.Session.timeout', Mock()):
             from vmmaster.core.sessions import Session
             session = Session()
             session.id = 1
             session.selenium_session = '1'
-            session.timeout = Mock()
 
             self.worker.active_sessions = Mock(return_value=[session])
             self.worker.start()
