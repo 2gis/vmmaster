@@ -37,9 +37,11 @@ class SessionLogSubStep(Base, FeaturesMixin):
     body = Column(String)
     time_created = Column(Float, default=time.time)
 
-    def __init__(self, control_line, body=None):
+    def __init__(self, control_line, body=None, parent_id=None):
         self.control_line = control_line
         self.body = body
+        if parent_id:
+            self.session_log_step_id = parent_id
         self.add()
 
 
@@ -69,11 +71,9 @@ class SessionLogStep(Base, FeaturesMixin):
         self.add()
 
     def add_sub_step(self, control_line, body):
-        sub_step = SessionLogSubStep(control_line=control_line, body=body)
-        self.refresh()
-        self.sub_steps.append(sub_step)
-        self.save()
-        return sub_step
+        return SessionLogSubStep(control_line=control_line,
+                                 body=body,
+                                 parent_id=self.id)
 
 
 class Session(Base, FeaturesMixin):
@@ -132,13 +132,10 @@ class Session(Base, FeaturesMixin):
         self.add()
 
     def add_session_step(self, control_line, body=None, milestone=True):
-        step = SessionLogStep(control_line=control_line,
+        return SessionLogStep(control_line=control_line,
                               body=body,
-                              milestone=milestone)
-        self.refresh()
-        self.session_steps.append(step)
-        self.save()
-        return step
+                              milestone=milestone,
+                              session_id=self.id)
 
     def get_milestone_step(self):
         """
