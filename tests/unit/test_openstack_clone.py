@@ -490,6 +490,7 @@ class TestOpenstackClone(BaseTestCase):
             self.assertEqual(self.pool.using[0].mac, 'test_mac')
             self.assertEqual(self.pool.count(), 1)
 
+
 @patch.multiple(
     'core.utils.openstack_utils',
     neutron_client=Mock(return_value=Mock()),
@@ -515,17 +516,21 @@ class TestNetworkGetting(BaseTestCase):
             min_disk=20, min_ram=2, instance_type_flavorid=1)
         type(mocked_image).name = PropertyMock(return_value='test_origin_1')
 
-        with patch('core.network.network.Network', Mock()), \
-            patch('core.connection.Virsh', Mock()), \
-                patch('core.db.database', Mock()), \
-            patch.multiple(
-                'core.utils.openstack_utils',
-                nova_client=Mock(return_value=Mock()),
-                neutron_client=Mock(return_value=Mock()),
-                glance_client=Mock(return_value=Mock())), \
-                patch('vmpool.platforms.OpenstackPlatforms.images',
-                      Mock(return_value=[mocked_image])):
-
+        with patch(
+            'core.network.network.Network', Mock()
+        ), patch(
+            'core.connection.Virsh', Mock()
+        ), patch(
+            'core.db.database', Mock()
+        ), patch.multiple(
+            'core.utils.openstack_utils',
+            nova_client=Mock(return_value=Mock()),
+            neutron_client=Mock(return_value=Mock()),
+            glance_client=Mock(return_value=Mock())
+        ), patch(
+            'vmpool.platforms.OpenstackPlatforms.images',
+            Mock(return_value=[mocked_image])
+        ):
             from vmpool.platforms import Platforms
             Platforms()
 

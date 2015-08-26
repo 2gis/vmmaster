@@ -93,9 +93,11 @@ class TestServer(BaseTestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
-    @patch.multiple('core.sessions.Session',
-                set_vm=Mock(),
-                endpoint_name=Mock(return_value='some_machine'))
+    @patch.multiple(
+        'core.sessions.Session',
+        set_vm=Mock(),
+        endpoint_name=Mock(return_value='some_machine')
+    )
     def test_server_creating_a_few_parallel_sessions(self):
         from multiprocessing.pool import ThreadPool
         tpool = ThreadPool(3)
@@ -347,9 +349,12 @@ class TestSessionWorker(BaseTestCase):
         """
 
         too_long = config.SESSION_TIMEOUT + 1
-        with patch('core.sessions.Session.inactivity',
-                   PropertyMock(return_value=too_long)),\
-            patch('core.sessions.Session.timeout', Mock()):
+        with patch(
+            'core.sessions.Session.inactivity',
+            PropertyMock(return_value=too_long)
+        ), patch(
+            'core.sessions.Session.timeout', Mock()
+        ):
             from core.sessions import Session
             session = Session()
             session.id = 1
@@ -367,16 +372,21 @@ class TestSessionStates(BaseTestCase):
         self.address = ("localhost", 9001)
         self.vmpool_address = ("localhost", 9999)
 
-        with patch('core.network.network.Network', Mock()), \
-            patch('core.connection.Virsh', Mock()), \
-                patch('core.db.database', Mock(
-                    get_sessions=Mock(return_value=[])
-                )), \
-            patch('core.utils.init.home_dir',
-                  Mock(return_value=fake_home_dir())), \
-                patch('core.logger.setup_logging',
-                      Mock(return_value=Mock())):
-
+        with patch(
+            'core.network.network.Network', Mock()
+        ), patch(
+            'core.connection.Virsh', Mock()
+        ), patch(
+            'core.db.database', Mock(
+                get_sessions=Mock(return_value=[])
+            )
+        ), patch(
+            'core.utils.init.home_dir',
+            Mock(return_value=fake_home_dir())
+        ), patch(
+            'core.logger.setup_logging',
+            Mock(return_value=Mock())
+        ):
             from core.auth import custom_auth
             custom_auth.user_exists = empty_decorator
             custom_auth.auth.login_required = empty_decorator

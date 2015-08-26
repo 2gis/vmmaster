@@ -52,8 +52,6 @@ class OpenstackOrigin(Platform):
         except Exception:
             self.flavor_name = config.OPENSTACK_DEFAULT_FLAVOR
 
-
-
     @staticmethod
     def make_clone(origin, prefix):
         return OpenstackClone(origin, prefix)

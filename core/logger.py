@@ -22,7 +22,9 @@ class StreamToLogger(object):
             self.logger.log(self.log_level, line.rstrip())
 
 
-def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog=True, loglevel=None):
+def setup_logging(
+        logdir=None, logfile_name='vmmaster.log',
+        scrnlog=True, txtlog=True, loglevel=None):
     if loglevel is None:
         loglevel = logging.getLevelName(config.LOG_LEVEL.upper())
 
@@ -34,15 +36,18 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
     log = logging.getLogger('')
     log.setLevel(loglevel)
 
-    log_formatter = logging.Formatter("%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s")
+    log_format = "%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s"
+    log_formatter = logging.Formatter(log_format)
 
     if txtlog:
         txt_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(logdir, logfile_name), maxBytes=config.LOG_SIZE, backupCount=5
+            os.path.join(logdir, logfile_name),
+            maxBytes=config.LOG_SIZE,
+            backupCount=5
         )
         txt_handler.setFormatter(log_formatter)
         log.addHandler(txt_handler)
-        
+
         log.info("Logger initialised.")
 
     if scrnlog:
@@ -58,7 +63,7 @@ def setup_logging(logdir=None, logfile_name='vmmaster.log', scrnlog=True, txtlog
     if hasattr(config, 'GRAYLOG'):
         from core.utils.network_utils import ping
 
-        host =config.GRAYLOG[0]
+        host = config.GRAYLOG[0]
         port = config.GRAYLOG[1]
 
         if ping(host, port):

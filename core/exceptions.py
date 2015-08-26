@@ -1,4 +1,4 @@
-from libvirt import libvirtError
+from libvirt import libvirtError  # NOQA
 
 
 class PlatformException(Exception):

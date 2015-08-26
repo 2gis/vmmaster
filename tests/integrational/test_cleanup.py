@@ -20,12 +20,13 @@ class TestCleanup(unittest.TestCase):
         pass
 
     def test_file_deletion(self):
-        with patch('core.utils.init.home_dir',
-                Mock(return_value=config.BASE_DIR)), \
-            patch('core.logger.setup_logging',
-                Mock(return_value=Mock())):
+        with patch(
+            'core.utils.init.home_dir', Mock(return_value=config.BASE_DIR)
+        ), patch(
+            'core.logger.setup_logging', Mock(return_value=Mock())
+        ):
             from vmmaster import cleanup
-            from vmmaster.core.sessions import Session
+            from core.sessions import Session
 
         session = Session()
         session.status = 'unknown'
@@ -49,13 +50,14 @@ class TestCleanup(unittest.TestCase):
             ["rm", "-rf", config.SCREENSHOTS_DIR], silent=True)
 
     def test_outdated_sessions(self):
-        with patch('core.utils.init.home_dir',
-                   Mock(return_value=config.BASE_DIR)), \
-            patch('core.logger.setup_logging',
-                  Mock(return_value=Mock())):
-        from vmmaster import cleanup
+        with patch(
+            'core.utils.init.home_dir', Mock(return_value=config.BASE_DIR)
+        ), patch(
+            'core.logger.setup_logging', Mock(return_value=Mock())
+        ):
+            from vmmaster import cleanup
         from time import time
-        from vmmaster.core.sessions import Session
+        from core.sessions import Session
 
         session = Session()
         session.status = 'unknown'

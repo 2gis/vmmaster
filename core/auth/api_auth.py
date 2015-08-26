@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from json import loads, dumps
+from json import dumps
 from flask.ext.httpauth import HTTPBasicAuth
 from functools import wraps
 from flask import request, make_response

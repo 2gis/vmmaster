@@ -3,7 +3,9 @@ import sys
 
 
 def run_command(command, silent=False):
-    process = subprocess.Popen(command, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+    process = subprocess.Popen(
+        command, stderr=subprocess.STDOUT, stdout=subprocess.PIPE
+    )
 
     if not silent:
         output = ""

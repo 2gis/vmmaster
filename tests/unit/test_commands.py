@@ -355,7 +355,7 @@ class TestRunScript(CommonCommandsTestCase):
     def tearDown(self):
         super(TestRunScript, self).tearDown()
 
-    @patch('vmmaster.core.sessions.Session.add_sub_step',
+    @patch('core.sessions.Session.add_sub_step',
            Mock())
     def test_run_script(self):
         from vmmaster.webdriver import commands

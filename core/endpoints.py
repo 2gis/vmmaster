@@ -1,5 +1,4 @@
 # coding: utf-8
-import time
 import json
 
 from core.utils import utils

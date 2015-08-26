@@ -20,7 +20,9 @@ class Network(MacIpTable):
             self.name = "session_network"
             self.uuid = uuid4()
             self.bridge_name = "virbr2"
-            self.dumpxml_file = NetworkXml(self.name, self.uuid, self.bridge_name, self.free_table).xml.toprettyxml()
+            self.dumpxml_file = NetworkXml(
+                self.name, self.uuid, self.bridge_name, self.free_table
+            ).xml.toprettyxml()
             self.conn = Virsh()
             try:
                 self.conn.networkDefineXML(self.dumpxml_file)

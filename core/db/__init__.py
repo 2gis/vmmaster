@@ -2,7 +2,7 @@
 
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
-from .models import Session, SessionLogStep, SessionLogSubStep, User, \
+from .models import SessionLogStep, User, \
     VirtualMachine
 from core.utils.utils import to_thread
 

@@ -142,7 +142,7 @@ class Session(Base, FeaturesMixin):
         Find last session log step marked as milestone for sub_step
         :return: SessionLogStep object
         """
-        from vmmaster.core.db import database
+        from core.db import database
         return database.get_last_step(self)
 
 
@@ -216,8 +216,9 @@ class VirtualMachine(Base, FeaturesMixin):
 
     @property
     def info(self):
-        return {"id": str(self.id),
-                "name": str(self.name),
-                "ip": str(self.ip),
-                "platform": str(self.platform)
+        return {
+            "id": str(self.id),
+            "name": str(self.name),
+            "ip": str(self.ip),
+            "platform": str(self.platform)
         }

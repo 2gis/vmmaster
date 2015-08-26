@@ -1,10 +1,6 @@
 import netifaces
 from . import system_utils
-import time
 import socket
-
-
-from core.logger import log
 
 
 def get_interface_subnet(inteface):
@@ -42,8 +38,10 @@ def get_ip_by_mac(mac):
 def get_socket(host, port):
     s = None
 
-    for res in socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM):
-        af, socktype, proto, canonname, sa = res
+    addr_info = socket.getaddrinfo(
+        host, port, socket.AF_UNSPEC, socket.SOCK_STREAM
+    )
+    for af, socktype, proto, canonname, sa in addr_info:
         try:
             s = socket.socket(af, socktype, proto)
         except socket.error:

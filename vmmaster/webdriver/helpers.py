@@ -12,7 +12,7 @@ from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
 
 from core.exceptions import ConnectionError, \
-    CreationException, PlatformException, TimeoutException
+    CreationException, PlatformException
 from core.config import config
 from core.logger import log
 from core.utils import utils

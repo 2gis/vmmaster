@@ -1,4 +1,4 @@
-from pydispatch import dispatcher
+from pydispatch import dispatcher  # NOQA
 
 
 class Signals(object):
