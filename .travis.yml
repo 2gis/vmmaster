@@ -3,6 +3,6 @@ language: python
 python:
   - 2.7
 install:
-  - install-dependencies.sh
+  - ./install-dependencies.sh
   - pip install tox
 script: tox -e unit
