@@ -5,8 +5,14 @@ echo -en "\033[36m"
 echo "running flake8!"
 echo -en "\033[0m"
 
-git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$' | xargs .tox/bin/flake8
-RESULT=$?
+FILES=$(git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$')
+if [[ -n $FILES ]]; then
+    .tox/bin/flake8 $FILES
+    RESULT=$?
+else
+    echo "no files to check"
+    RESULT=0
+fi
 
 if [ $RESULT -ne 0 ]
 then
