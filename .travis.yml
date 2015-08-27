@@ -2,12 +2,7 @@ sudo: false
 language: python
 python:
   - 2.7
-addons:
-  apt:
-    packages:
-    - python-libvirt
 install:
   - pip install tox
   - tox -e travisdeps
-  - cp /usr/lib/python2.7/dist-packages/libvirt* ~/build/2gis/vmmaster/.tox/lib/python2.7/site-packages/
 script: PYTHONPATH=`pwd` tox -e travisci
