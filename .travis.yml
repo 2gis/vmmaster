@@ -4,6 +4,6 @@ python:
   - 2.7
 install:
   - sudo apt-get update
-  - sudo apt-get -y install libvirt-dev
+  - sudo apt-get -y install libvirt-dev pkg-config
   - pip install tox
 script: tox -e unit
