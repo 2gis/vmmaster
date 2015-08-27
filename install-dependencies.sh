@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# install dependencies
-sudo apt-get update
-
 # enable cloud-archive to get the latest libvirt
 sudo apt-get -y install python-software-properties
 sudo add-apt-repository -y cloud-archive:icehouse
+
+# install dependencies
+sudo apt-get update
 
 # install kvm with libvirt
 sudo apt-get -y install qemu-kvm libvirt-bin
