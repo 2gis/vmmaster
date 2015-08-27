@@ -4,5 +4,4 @@ python:
   - 2.7
 install:
   - pip install tox
-  - tox -e travisdeps
-script: PYTHONPATH=`pwd` tox -e travisci
+script: tox -e unit
