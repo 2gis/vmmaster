@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core.config import config, setup_config
-from core.db import Session, VirtualMachine
+from core.db.models import Session, VirtualMachine
 from core.utils.utils import change_user_vmmaster
 from core.utils.init import home_dir
 from core.logger import setup_logging, log
