@@ -1,21 +1,21 @@
 # coding: utf-8
 
 from mock import Mock, patch
-from vmmaster.core.exceptions import CreationException
-from vmmaster.core.config import config, setup_config
+from core.exceptions import CreationException
+from core.config import config, setup_config
 from helpers import BaseTestCase
 
 
-@patch('vmmaster.core.db.database', Mock())
+@patch('core.db.database', Mock())
 class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.platform = "test_origin_1"
 
-        with patch('vmmaster.core.connection.Virsh', Mock()), \
-                patch('vmmaster.core.network.network.Network', Mock()):
+        with patch('core.connection.Virsh', Mock()), \
+                patch('core.network.network.Network', Mock()):
             from vmpool.platforms import Platforms
-            from vmmaster.core.network.network import Network
+            from core.network.network import Network
             Platforms()
             self.network = Network()
 
@@ -33,8 +33,8 @@ class TestVirtualMachinePool(BaseTestCase):
         KVMClone.drive_path = Mock()
 
     def tearDown(self):
-        with patch('vmmaster.core.db.database', Mock()), \
-                patch('vmmaster.core.utils.utils.delete_file', Mock()):
+        with patch('core.db.database', Mock()), \
+                patch('core.utils.utils.delete_file', Mock()):
             self.pool.free()
 
     def test_pool_count(self):
@@ -81,7 +81,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(1, len(self.pool.pool))
 
         vm = self.pool.get_by_platform(self.platform)
-        with patch('vmmaster.core.utils.utils.delete_file', Mock()):
+        with patch('core.utils.utils.delete_file', Mock()):
             vm.delete()
 
         self.assertEqual(0, self.pool.count())

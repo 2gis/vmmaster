@@ -1,14 +1,13 @@
 # coding: utf-8
-import time
 import json
 
-from vmmaster.core.utils import utils
-from vmmaster.core.logger import log
-from vmmaster.core.config import config
+from core.utils import utils
+from core.logger import log
+from core.config import config
 
 
 def get(dc):
-    from vmmaster.core.sessions import RequestHelper
+    from core.sessions import RequestHelper
 
     log.info("Wait for endpoint answer (dc: %s)..." % str(dc))
     response = utils.make_request(
@@ -32,7 +31,7 @@ def get(dc):
 
 
 def delete(endpoint_id):
-    from vmmaster.core.sessions import RequestHelper
+    from core.sessions import RequestHelper
     request = RequestHelper(method='DELETE',
                             url="/endpoint/%s" % endpoint_id)
     log.debug('Request: %s' % request)

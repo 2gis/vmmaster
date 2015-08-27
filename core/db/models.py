@@ -15,15 +15,15 @@ Base = declarative_base()
 
 class FeaturesMixin(object):
     def add(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.add(self)
 
     def save(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.update(self)
 
     def refresh(self):
-        from vmmaster.core.db import database
+        from core.db import database
         database.refresh(self)
 
 
@@ -105,7 +105,7 @@ class Session(Base, FeaturesMixin):
         SessionLogStep, backref=backref("session", enable_typechecks=False))
 
     def set_user(self, username):
-        from vmmaster.core.db import database
+        from core.db import database
         self.user = database.get_user(username=username)
 
     def __init__(self, name=None, dc=None):
@@ -142,7 +142,7 @@ class Session(Base, FeaturesMixin):
         Find last session log step marked as milestone for sub_step
         :return: SessionLogStep object
         """
-        from vmmaster.core.db import database
+        from core.db import database
         return database.get_last_step(self)
 
 
@@ -216,8 +216,9 @@ class VirtualMachine(Base, FeaturesMixin):
 
     @property
     def info(self):
-        return {"id": str(self.id),
-                "name": str(self.name),
-                "ip": str(self.ip),
-                "platform": str(self.platform)
+        return {
+            "id": str(self.id),
+            "name": str(self.name),
+            "ip": str(self.ip),
+            "platform": str(self.platform)
         }

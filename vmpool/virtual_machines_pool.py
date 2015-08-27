@@ -3,10 +3,10 @@
 import time
 from threading import Thread
 from collections import defaultdict
-from vmmaster.core.exceptions import CreationException
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.network.network import Network
+from core.exceptions import CreationException
+from core.config import config
+from core.logger import log
+from core.network.network import Network
 
 
 class VirtualMachinesPool(object):

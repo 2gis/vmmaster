@@ -7,13 +7,13 @@ from functools import partial
 import websocket
 import thread
 
-from vmmaster.core.utils import network_utils
+from core.utils import network_utils
 from vmmaster.webdriver.helpers import check_to_exist_ip
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.exceptions import CreationException
-from vmmaster.core.sessions import RequestHelper, update_log_step
-from vmmaster.core.utils.graphite import graphite, send_metrics
+from core.config import config
+from core.logger import log
+from core.exceptions import CreationException
+from core.sessions import RequestHelper, update_log_step
+from core.utils.graphite import graphite, send_metrics
 
 
 def start_session(request, session):

@@ -2,9 +2,9 @@
 
 import os
 
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.utils import openstack_utils
+from core.config import config
+from core.logger import log
+from core.utils import openstack_utils
 
 from clone import KVMClone, OpenstackClone
 from virtual_machines_pool import pool
@@ -51,8 +51,6 @@ class OpenstackOrigin(Platform):
                 lambda s: s.client.flavors.get(s.flavor_id).name)(self)
         except Exception:
             self.flavor_name = config.OPENSTACK_DEFAULT_FLAVOR
-
-
 
     @staticmethod
     def make_clone(origin, prefix):

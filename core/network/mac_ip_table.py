@@ -11,15 +11,9 @@ def random_mac():
     return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
-# singleton
 class MacIpTable(object):
     free_table = []
     used_table = []
-
-    # def __new__(cls, *args, **kwargs):
-    #     if not hasattr(cls, 'instance'):
-    #         cls.instance = super(MacIpTable, cls).__new__(cls, *args, **kwargs)
-    #     return cls.instance
 
     def __init__(self):
         self.free_table = self.generate_table()
@@ -28,7 +22,6 @@ class MacIpTable(object):
         table = []
         for i in range(2, 255):
             table.append({
-                # 'name': 'vm{0}'.format(i),
                 'ip': '192.168.201.{0}'.format(i),
                 'mac': '{1}'.format(i, random_mac())
             })

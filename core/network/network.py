@@ -1,10 +1,10 @@
 import libvirt
 from uuid import uuid4
 
-from vmmaster.core.network.network_xml import NetworkXml
-from vmmaster.core.network.mac_ip_table import MacIpTable
-from vmmaster.core.connection import Virsh
-from vmmaster.core.logger import log
+from core.network.network_xml import NetworkXml
+from core.network.mac_ip_table import MacIpTable
+from core.connection import Virsh
+from core.logger import log
 
 
 class Network(MacIpTable):
@@ -20,7 +20,9 @@ class Network(MacIpTable):
             self.name = "session_network"
             self.uuid = uuid4()
             self.bridge_name = "virbr2"
-            self.dumpxml_file = NetworkXml(self.name, self.uuid, self.bridge_name, self.free_table).xml.toprettyxml()
+            self.dumpxml_file = NetworkXml(
+                self.name, self.uuid, self.bridge_name, self.free_table
+            ).xml.toprettyxml()
             self.conn = Virsh()
             try:
                 self.conn.networkDefineXML(self.dumpxml_file)

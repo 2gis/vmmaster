@@ -3,11 +3,11 @@ from flask import Flask
 from twisted.internet import reactor
 from flask.ext.script import Manager
 
-from vmmaster.core.config import setup_config, config
-from vmmaster.core.utils.init import home_dir, useradd
-from vmmaster.core.logger import log
-from vmmaster.core import db
-from vmmaster.core.logger import setup_logging
+from core.config import setup_config, config
+from core.utils.init import home_dir, useradd
+from core.logger import log
+from core import db
+from core.logger import setup_logging
 
 try:
     setup_config('%s/config.py' % home_dir())
@@ -16,7 +16,7 @@ except AttributeError:
     config = None
     db.database = None
 
-from vmmaster.core.utils.utils import change_user_vmmaster
+from core.utils.utils import change_user_vmmaster
 
 app = Flask(__name__)
 manager = Manager(app)

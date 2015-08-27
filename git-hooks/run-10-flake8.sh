@@ -5,7 +5,7 @@ echo -en "\033[36m"
 echo "running flake8!"
 echo -en "\033[0m"
 
-git diff --cached --name-only HEAD^ | egrep '^.*\.py$' | xargs .tox/bin/flake8
+git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$' | xargs .tox/bin/flake8
 RESULT=$?
 
 if [ $RESULT -ne 0 ]

@@ -7,7 +7,7 @@ import os
 class ConfigInstance(object):
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
-             cls.instance = super(ConfigInstance, cls).__new__(cls)
+            cls.instance = super(ConfigInstance, cls).__new__(cls)
         return cls.instance
 
 config = ConfigInstance()

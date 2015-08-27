@@ -11,11 +11,11 @@ from Queue import Queue
 from flask import Request as FlaskRequest
 from flask import Response, current_app, request, copy_current_request_context
 
-from vmmaster.core.exceptions import ConnectionError, \
-    CreationException, PlatformException, TimeoutException
-from vmmaster.core.config import config
-from vmmaster.core.logger import log
-from vmmaster.core.utils import utils
+from core.exceptions import ConnectionError, \
+    CreationException, PlatformException
+from core.config import config
+from core.logger import log
+from core.utils import utils
 
 
 class BucketThread(Thread):
@@ -131,7 +131,7 @@ def swap_session(req, desired_session):
 
 
 def transparent(proxy):
-    from vmmaster.core.sessions import RequestHelper
+    from core.sessions import RequestHelper
 
     req = proxy.request
     session = current_app.sessions.get_session(proxy.session_id)
@@ -177,12 +177,12 @@ def check_to_exist_ip(session, tries=10, timeout=5):
 
 
 def get_session(req):
-    from vmmaster.core import endpoints
+    from core import endpoints
 
     dc = commands.get_desired_capabilities(req)
     commands.replace_platform_with_any(req)
 
-    from vmmaster.core.sessions import Session
+    from core.sessions import Session
     session = Session(dc=dc)
 
     try:

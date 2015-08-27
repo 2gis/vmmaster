@@ -2,9 +2,9 @@
 
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
-from .models import Session, SessionLogStep, SessionLogSubStep, User, \
+from .models import SessionLogStep, User, \
     VirtualMachine
-from vmmaster.core.utils.utils import to_thread
+from core.utils.utils import to_thread
 
 
 def threaded_transaction(func):
@@ -59,7 +59,7 @@ class Database(object):
 
     @transaction
     def get_session(self, session_id, dbsession=None):
-        from vmmaster.core.sessions import Session as WrappedSession
+        from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).get(session_id)
 
     @transaction
@@ -74,13 +74,13 @@ class Database(object):
 
     @transaction
     def get_sessions(self, dbsession=None):
-        from vmmaster.core.sessions import Session as WrappedSession
+        from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).filter_by(
             closed=False, timeouted=False, status='running').all()
 
     @transaction
     def get_queue(self, dbsession=None):
-        from vmmaster.core.sessions import Session as WrappedSession
+        from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).filter_by(
             status='waiting').all()
 

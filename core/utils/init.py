@@ -38,7 +38,10 @@ def copy_files_to_home(home):
     copy = ["/bin/cp", "-r", package_dir() + "home" + os.sep + ".", home]
     return_code, output = run_command(copy)
     if return_code != 0:
-        cout("\nFailed to copy files to home dir: %s\n" % home_dir(), color=FAIL)
+        cout(
+            "\nFailed to copy files to home dir: %s\n" % home_dir(),
+            color=FAIL
+        )
         exit(output)
     chown = ["/bin/chown", "-R", "vmmaster:vmmaster", home]
     return_code, output = run_command(chown)

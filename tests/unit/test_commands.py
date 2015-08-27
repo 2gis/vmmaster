@@ -7,8 +7,8 @@ from mock import Mock, patch
 from helpers import Handler, BaseTestCase
 from helpers import ServerMock, get_free_port
 
-from vmmaster.core.exceptions import CreationException
-from vmmaster.core.config import setup_config, config
+from core.exceptions import CreationException
+from core.config import setup_config, config
 
 
 class CommonCommandsTestCase(BaseTestCase):
@@ -51,8 +51,8 @@ class CommonCommandsTestCase(BaseTestCase):
         cls.vmmaster_agent.start()
 
     def setUp(self):
-        with patch('vmmaster.core.db.database', Mock()):
-            from vmmaster.core.sessions import Session
+        with patch('core.db.database', Mock()):
+            from core.sessions import Session
             self.session = Session()
             self.session.id = 1
             self.session.name = "session1"
@@ -67,8 +67,8 @@ class CommonCommandsTestCase(BaseTestCase):
             self.session.run(vm)
 
     def tearDown(self):
-        with patch('vmmaster.core.db.database', Mock()), \
-                patch('vmmaster.core.endpoints.delete', Mock()):
+        with patch('core.db.database', Mock()), \
+                patch('core.endpoints.delete', Mock()):
             self.session.delete()
 
     @classmethod
@@ -82,14 +82,14 @@ class CommonCommandsTestCase(BaseTestCase):
     return_value=(200, {}, json.dumps({'sessionId': "1"})))
 )
 @patch('vmmaster.webdriver.commands.ping_vm', new=Mock(__name__="ping_vm"))
-@patch('vmmaster.core.db.database', Mock())
+@patch('core.db.database', Mock())
 class TestStartSessionCommands(CommonCommandsTestCase):
     def setUp(self):
         super(TestStartSessionCommands, self).setUp()
         self.session.dc = Mock(__name__="dc")
 
     def test_start_session_when_selenium_status_failed(self):
-        with patch('vmmaster.core.sessions.Session.make_request',
+        with patch('core.sessions.Session.make_request',
                    side_effect=Mock(
                        __name__="make_request",
                        return_value=(200, {}, json.dumps({'status': 1})))):
@@ -122,7 +122,7 @@ class TestStartSessionCommands(CommonCommandsTestCase):
                                   request, self.session)
 
 
-@patch('vmmaster.core.db.database', Mock())
+@patch('core.db.database', Mock())
 class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
     def test_session_response_success(self):
         from vmmaster.webdriver import commands
@@ -172,7 +172,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
                           request, self.session, self.webdriver_server.port)
 
 
-@patch('vmmaster.core.db.database', Mock())
+@patch('core.db.database', Mock())
 class TestCheckVmOnline(CommonCommandsTestCase):
     def setUp(self):
         super(TestCheckVmOnline, self).setUp()
@@ -355,7 +355,7 @@ class TestRunScript(CommonCommandsTestCase):
     def tearDown(self):
         super(TestRunScript, self).tearDown()
 
-    @patch('vmmaster.core.sessions.Session.add_sub_step',
+    @patch('core.sessions.Session.add_sub_step',
            Mock())
     def test_run_script(self):
         from vmmaster.webdriver import commands

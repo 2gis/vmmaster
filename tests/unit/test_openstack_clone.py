@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from mock import Mock, patch, PropertyMock
-from vmmaster.core.config import setup_config
+from core.config import setup_config
 from helpers import wait_for, BaseTestCase, fake_home_dir
 
 
@@ -13,7 +13,7 @@ def custom_wait(self, method):
 @patch('vmpool.virtual_machines_pool.VirtualMachinesPool.can_produce',
        new=Mock(return_value=True))
 @patch.multiple(
-    'vmmaster.core.utils.openstack_utils',
+    'core.utils.openstack_utils',
     neutron_client=Mock(return_value=Mock()),
     nova_client=Mock(return_value=Mock()),
     glance_client=Mock(return_value=Mock()))
@@ -21,10 +21,10 @@ def custom_wait(self, method):
     'vmpool.clone.OpenstackClone',
     get_network_name=Mock(return_value='Local-Net'),
     get_network_id=Mock(return_value=1))
-@patch('vmmaster.core.connection.Virsh', Mock())
-@patch('vmmaster.core.network.network.Network', Mock(
+@patch('core.connection.Virsh', Mock())
+@patch('core.network.network.Network', Mock(
     get_ip=Mock(return_value='0')))
-@patch('vmmaster.core.db.database', new=Mock())
+@patch('core.db.database', new=Mock())
 class TestOpenstackClone(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -37,20 +37,20 @@ class TestOpenstackClone(BaseTestCase):
                             instance_type_flavorid=1)
         type(mocked_image).name = PropertyMock(return_value='test_origin_1')
 
-        with patch('vmmaster.core.network.network.Network', Mock(
+        with patch('core.network.network.Network', Mock(
                 get_ip=Mock(return_value='0'))), \
-            patch('vmmaster.core.connection.Virsh', Mock()), \
-            patch('vmmaster.core.db.database', Mock()), \
+            patch('core.connection.Virsh', Mock()), \
+            patch('core.db.database', Mock()), \
             patch.multiple(
-                'vmmaster.core.utils.openstack_utils',
+                'core.utils.openstack_utils',
                 neutron_client=Mock(return_value=Mock()),
                 nova_client=Mock(return_value=Mock()),
                 glance_client=Mock(return_value=Mock())), \
             patch('vmpool.platforms.OpenstackPlatforms.images',
                   Mock(return_value=[mocked_image])),\
-            patch('vmmaster.core.utils.init.home_dir',
+            patch('core.utils.init.home_dir',
                   Mock(return_value=fake_home_dir())), \
-            patch('vmmaster.core.logger.setup_logging',
+            patch('core.logger.setup_logging',
                   Mock(return_value=Mock())):
 
             from vmpool.platforms import Platforms
@@ -60,7 +60,7 @@ class TestOpenstackClone(BaseTestCase):
             self.pool = pool
 
     def tearDown(self):
-        with patch('vmmaster.core.db.database', Mock()):
+        with patch('core.db.database', Mock()):
             self.pool.free()
 
     @patch.multiple(
@@ -84,7 +84,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(
                 servers=Mock(create=Mock(
                     side_effect=Exception('Exception in create'))))
@@ -105,7 +105,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
@@ -126,7 +126,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
@@ -149,7 +149,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(
                 servers=Mock(
                     find=Mock(side_effect=Exception(
@@ -175,7 +175,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
@@ -190,7 +190,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(create=Mock()),
                                      images=Mock(
                                          find=Mock(side_effect=Exception(
@@ -209,7 +209,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(create=Mock()),
                                      flavors=Mock(
                                          find=Mock(side_effect=Exception(
@@ -229,7 +229,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -249,7 +249,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -268,7 +268,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded and added in pool
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -290,7 +290,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded and added in pool
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -313,7 +313,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded and added in pool
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -336,7 +336,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded and added in pool
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
@@ -359,7 +359,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock(
                     side_effect=Exception('Rebuild error'))))))
@@ -381,7 +381,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock(
                     side_effect=Exception('Rebuild error'))))))
@@ -406,7 +406,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been rebuilded
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(
                 servers=Mock(find=Mock(side_effect=Exception(
                     'Exception in vm_has_created'))))
@@ -430,7 +430,7 @@ class TestOpenstackClone(BaseTestCase):
           second call return 'active'
         Expected: vm has been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(status=Mock(lower=Mock(
                     side_effect=['build', 'active']))))))
@@ -450,7 +450,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova,\
+        with patch('core.utils.openstack_utils.nova_client') as nova,\
                 patch('vmpool.clone.'
                       'OpenstackClone.ping_vm') as ping_mock:
             nova.return_value = Mock(servers=Mock(find=Mock(
@@ -478,7 +478,7 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.nova_client') as nova:
+        with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(addresses=Mock(get=Mock(
                     return_value=[{'addr': '127.0.0.1',
@@ -490,8 +490,9 @@ class TestOpenstackClone(BaseTestCase):
             self.assertEqual(self.pool.using[0].mac, 'test_mac')
             self.assertEqual(self.pool.count(), 1)
 
+
 @patch.multiple(
-    'vmmaster.core.utils.openstack_utils',
+    'core.utils.openstack_utils',
     neutron_client=Mock(return_value=Mock()),
     nova_client=Mock(return_value=Mock()),
     glance_client=Mock(return_value=Mock()))
@@ -503,7 +504,7 @@ class TestOpenstackClone(BaseTestCase):
     get_ip=Mock(__name__='get_ip'))
 @patch('vmpool.virtual_machines_pool.VirtualMachinesPool.can_produce',
        new=Mock(return_value=True))
-@patch('vmmaster.core.db.database', new=Mock())
+@patch('core.db.database', new=Mock())
 class TestNetworkGetting(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -515,17 +516,21 @@ class TestNetworkGetting(BaseTestCase):
             min_disk=20, min_ram=2, instance_type_flavorid=1)
         type(mocked_image).name = PropertyMock(return_value='test_origin_1')
 
-        with patch('vmmaster.core.network.network.Network', Mock()), \
-            patch('vmmaster.core.connection.Virsh', Mock()), \
-                patch('vmmaster.core.db.database', Mock()), \
-            patch.multiple(
-                'vmmaster.core.utils.openstack_utils',
-                nova_client=Mock(return_value=Mock()),
-                neutron_client=Mock(return_value=Mock()),
-                glance_client=Mock(return_value=Mock())), \
-                patch('vmpool.platforms.OpenstackPlatforms.images',
-                      Mock(return_value=[mocked_image])):
-
+        with patch(
+            'core.network.network.Network', Mock()
+        ), patch(
+            'core.connection.Virsh', Mock()
+        ), patch(
+            'core.db.database', Mock()
+        ), patch.multiple(
+            'core.utils.openstack_utils',
+            nova_client=Mock(return_value=Mock()),
+            neutron_client=Mock(return_value=Mock()),
+            glance_client=Mock(return_value=Mock())
+        ), patch(
+            'vmpool.platforms.OpenstackPlatforms.images',
+            Mock(return_value=[mocked_image])
+        ):
             from vmpool.platforms import Platforms
             Platforms()
 
@@ -533,7 +538,7 @@ class TestNetworkGetting(BaseTestCase):
             self.pool = pool
 
     def tearDown(self):
-        with patch('vmmaster.core.db.database', new=Mock()):
+        with patch('core.db.database', new=Mock()):
             self.pool.free()
 
     @patch('netifaces.ifaddresses',
@@ -549,7 +554,7 @@ class TestNetworkGetting(BaseTestCase):
 
         Expected: vm has been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.neutron_client') \
+        with patch('core.utils.openstack_utils.neutron_client') \
                 as nova:
             nova.return_value = Mock(list_subnets=Mock(return_value=Mock(
                 get=Mock(
@@ -573,7 +578,7 @@ class TestNetworkGetting(BaseTestCase):
 
         Expected: vm has not been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.neutron_client') \
+        with patch('core.utils.openstack_utils.neutron_client') \
                 as nova:
             nova.return_value = Mock(list_subnets=Mock(
                 return_value=Mock(get=Mock(side_effect=Exception(
@@ -591,7 +596,7 @@ class TestNetworkGetting(BaseTestCase):
 
         Expected: vm has not been created
         """
-        with patch('vmmaster.core.utils.openstack_utils.neutron_client') \
+        with patch('core.utils.openstack_utils.neutron_client') \
                 as nova:
             nova.return_value = Mock(list_subnets=Mock(
                 return_value=Mock(get=Mock(

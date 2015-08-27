@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from json import loads, dumps
+from json import dumps
 from flask.ext.httpauth import HTTPBasicAuth
 from functools import wraps
 from flask import request, make_response
-import vmmaster.core.db as db
+import core.db as db
 
 
 def account_is_locked():

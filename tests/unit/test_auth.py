@@ -20,11 +20,11 @@ class TestWDAuthPositive(BaseTestCase):
         cls.app = Flask(__name__)
         cls.app.running = True
 
-        from vmmaster.core.config import setup_config
+        from core.config import setup_config
         setup_config('data/config.py')
 
-        with patch('vmmaster.core.network.network.Network', Mock()), \
-                patch('vmmaster.core.connection.Virsh', Mock()):
+        with patch('core.network.network.Network', Mock()), \
+                patch('core.connection.Virsh', Mock()):
             from vmpool.platforms import Platforms
             cls.platform = Platforms().platforms.keys()[0]
 
@@ -52,21 +52,21 @@ class TestWDAuthPositive(BaseTestCase):
             self.desired_caps["desiredCapabilities"]["token"] = token
 
     def test_auth_without_credentials(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.custom_auth import auth as wd_auth
-            from vmmaster.core.auth.custom_auth import anonymous
+            from core.auth.custom_auth import auth as wd_auth
+            from core.auth.custom_auth import anonymous
             self.push_to_ctx()
             wd_auth.login_required(decorate_this)()
         self.assertEqual(wd_auth.username, anonymous.username)
 
     def test_auth_existing(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.custom_auth import auth as wd_auth
-            from vmmaster.core.auth.custom_auth import anonymous
+            from core.auth.custom_auth import auth as wd_auth
+            from core.auth.custom_auth import anonymous
             self.set_auth_credentials(username=anonymous.username,
                                       token=anonymous.password)
             self.push_to_ctx()
@@ -74,10 +74,10 @@ class TestWDAuthPositive(BaseTestCase):
         self.assertEqual(wd_auth.username, anonymous.username)
 
     def test_auth_not_existing_user(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.custom_auth import auth as wd_auth
+            from core.auth.custom_auth import auth as wd_auth
             self.set_auth_credentials(username="not_existing_user")
             # Token doesn't matter
             self.push_to_ctx()
@@ -92,11 +92,11 @@ class TestWDAuthPositive(BaseTestCase):
         self.assertDictEqual(json.loads(resp.data), success_data)
 
     def test_auth_wrong_token(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.custom_auth import auth as wd_auth
-            from vmmaster.core.auth.custom_auth import anonymous
+            from core.auth.custom_auth import auth as wd_auth
+            from core.auth.custom_auth import anonymous
             existing_user = anonymous.username
             wrong_token = "not" + str(anonymous.password)
             self.set_auth_credentials(username=existing_user,
@@ -119,17 +119,17 @@ class TestAPIAuthPositive(BaseTestCase):
         from flask import Flask
         cls.app = Flask(__name__)
 
-        from vmmaster.core.config import setup_config
+        from core.config import setup_config
         setup_config('data/config.py')
 
-        with patch('vmmaster.core.network.network.Network', Mock()), \
-                patch('vmmaster.core.connection.Virsh', Mock()):
+        with patch('core.network.network.Network', Mock()), \
+                patch('core.connection.Virsh', Mock()):
             from vmpool.platforms import Platforms
             cls.platform = Platforms().platforms.keys()[0]
 
         cls.method = "GET"
         from base64 import urlsafe_b64encode
-        from vmmaster.core.auth.custom_auth import anonymous
+        from core.auth.custom_auth import anonymous
         cls.headers = dict(Authorization="Basic " + urlsafe_b64encode(
             str(anonymous.username) + ":" + str(anonymous.password))
         )
@@ -143,10 +143,10 @@ class TestAPIAuthPositive(BaseTestCase):
         self.ctx.push()
 
     def test_access_to_allowed_resource(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.api_auth import auth as api_auth
+            from core.auth.api_auth import auth as api_auth
 
             @api_auth.verify_password
             def always_verify(*args, **kwargs):
@@ -158,10 +158,10 @@ class TestAPIAuthPositive(BaseTestCase):
         self.assertIsNone(resp)
 
     def test_access_to_forbidden_resource(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))):
-            from vmmaster.core.auth.api_auth import auth as api_auth
+            from core.auth.api_auth import auth as api_auth
 
             @api_auth.verify_password
             def always_verify(*args, **kwargs):
@@ -181,10 +181,10 @@ class TestAPIAuthPositive(BaseTestCase):
         self.assertDictEqual(json.loads(resp.data), success_data)
 
     def test_access_by_locked_user(self):
-        from vmmaster.core import db
+        from core import db
         with patch.object(db, "database", new=Mock(
                 get_user=Mock(return_value=Mock(is_active=False)))):
-            from vmmaster.core.auth.api_auth import auth as api_auth
+            from core.auth.api_auth import auth as api_auth
 
             @api_auth.verify_password
             def always_verify(*args, **kwargs):
