@@ -1,10 +1,8 @@
+sudo: true
 language: python
 python:
   - 2.7
 install:
-  - sudo apt-get update
-  - sudo apt-get install -qq python-libvirt
+  - ./install-dependencies.sh
   - pip install tox
-  - tox -e travisdeps
-  - cp /usr/lib/python2.7/dist-packages/libvirt* ~/build/2gis/vmmaster/.tox/lib/python2.7/site-packages/
-script: PYTHONPATH=`pwd` tox -e travisci
+script: tox -e unit
