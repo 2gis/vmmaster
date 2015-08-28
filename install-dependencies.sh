@@ -14,3 +14,6 @@ sudo apt-get -y install libvirt-dev
 
 # install openstack dependencies
 sudo apt-get -y install libssl-dev libffi-dev
+
+# install postgres dependencies
+sudo apt-get install libpq-dev

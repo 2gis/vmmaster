@@ -8,16 +8,16 @@ class Config(object):
     # PostgreSQL dbname
     DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb"
 
-    CLONES_DIR = BASEDIR + "/vmmaster/clones"
-    ORIGINS_DIR = BASEDIR + "/vmmaster/origins"
-    SESSION_DIR = BASEDIR + "/vmmaster/session"
+    CLONES_DIR = os.sep.join([BASEDIR, "clones"])
+    ORIGINS_DIR = os.sep.join([BASEDIR, "origins"])
+    SESSION_DIR = os.sep.join([BASEDIR, "session"])
 
     # screenshots
-    SCREENSHOTS_DIR = BASEDIR + "/vmmaster/screenshots"
+    SCREENSHOTS_DIR = os.sep.join([BASEDIR, "screenshots"])
     SCREENSHOTS_DAYS = 7
 
     # logging
-    LOG_DIR = BASEDIR + "/logs"
+    LOG_DIR = os.sep.join([BASEDIR, "logs"])
     LOG_SIZE = 5242880
 
     # kvm
@@ -63,7 +63,7 @@ class Config(object):
     VM_POOL_HOST = 'localhost'
 
     # additional logging
-    # sending logs into graylog2 or logstash (Graylog Extended Log Format, GELF)
+    # sending logs with (Graylog Extended Log Format, GELF)
     # GRAYLOG = ('logserver', 12201)
 
     # graphite
