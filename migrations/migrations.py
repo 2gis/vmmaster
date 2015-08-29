@@ -8,7 +8,7 @@ import alembic.util
 from alembic.config import Config
 from alembic import command
 from alembic.script import ScriptDirectory
-from vmmaster.core.utils.init import home_dir
+from core.utils.init import home_dir
 
 alembic_cfg = Config("%s/migrations/alembic.ini" % home_dir())
 script = ScriptDirectory.from_config(alembic_cfg)
