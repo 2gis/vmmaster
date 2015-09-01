@@ -79,6 +79,14 @@ class Database(object):
             closed=False, timeouted=False, status='running').all()
 
     @transaction
+    def get_all_active_sessions(self, dbsession=None):
+        from core.sessions import Session as WrappedSession
+        sessions = dbsession.query(WrappedSession).filter_by(
+            closed=False, timeouted=False).all()
+        return [session for session in sessions
+                if session.status in ('running', 'waiting')]
+
+    @transaction
     def get_queue(self, dbsession=None):
         from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).filter_by(
