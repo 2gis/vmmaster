@@ -22,13 +22,10 @@ class TestApi(BaseTestCase):
                 patch('core.sessions.SessionWorker', Mock()):
 
             from vmmaster.server import create_app
-            from vmpool.app import app
             self.app = create_app()
-            self.vmpool = app()
 
         self.vmmaster_client = self.app.test_client()
-        self.vmpool_client = self.vmpool.test_client()
-        self.platforms = self.vmpool.platforms.platforms
+        self.platforms = self.app.platforms.platforms
         self.platform = sorted(self.platforms.keys())[0]
 
         self.desired_caps = {
@@ -41,9 +38,7 @@ class TestApi(BaseTestCase):
         with patch('core.db.database', Mock()) as db:
             db.update = Mock()
             self.app.cleanup()
-            self.vmpool.shutdown()
             del self.app
-            del self.vmpool
 
     @patch('core.endpoints.delete', new=Mock())
     @patch('core.db.database', new=Mock())
@@ -69,7 +64,7 @@ class TestApi(BaseTestCase):
         session.failed()
 
     def test_api_platforms(self):
-        response = self.vmpool_client.get('/api/platforms')
+        response = self.vmmaster_client.get('/api/platforms')
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
         platforms = body['result']['platforms']

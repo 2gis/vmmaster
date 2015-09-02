@@ -31,7 +31,6 @@ class TestServer(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
-        self.vmpool_address = ("localhost", 9999)
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -54,13 +53,10 @@ class TestServer(BaseTestCase):
             custom_auth.auth.login_required = empty_decorator
 
             from vmmaster.server import VMMasterServer
-            from vmpool.server import VMPool
             from nose.twistedtools import reactor
             self.vmmaster = VMMasterServer(reactor, self.address[1])
-            self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         server_is_up(self.address)
-        server_is_up(self.vmpool_address)
 
         # TODO: mock it via 'with patch'
         from core.utils import utils
@@ -75,9 +71,7 @@ class TestServer(BaseTestCase):
     def tearDown(self):
         with patch('core.db.database', Mock()):
             del self.vmmaster
-            del self.vmpool
             server_is_down(self.address)
-            server_is_down(self.vmpool_address)
 
     @patch.multiple('core.sessions.Session',
                     set_vm=Mock(),
@@ -326,8 +320,7 @@ class TestServer(BaseTestCase):
         response = new_session_request(self.address, desired_caps)
         error = json.loads(response.content).get('value').get('message')
 
-        self.assertIn('PlatformException: No such endpoint for your '
-                      'platform no_platform', error)
+        self.assertIn('PlatformException: No such platform no_platform', error)
 
 
 @patch('core.db.database', new=Mock())
@@ -370,7 +363,6 @@ class TestSessionStates(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
-        self.vmpool_address = ("localhost", 9999)
 
         with patch(
             'core.network.network.Network', Mock()
@@ -392,19 +384,16 @@ class TestSessionStates(BaseTestCase):
             custom_auth.auth.login_required = empty_decorator
 
             from vmmaster.server import VMMasterServer
-            from vmpool.server import VMPool
             from nose.twistedtools import reactor
             self.server = VMMasterServer(reactor, self.address[1])
-            self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmpool.app.platforms.platforms.keys()[0]
+                'platform': self.server.app.platforms.platforms.keys()[0]
             }
         }
 
         server_is_up(self.address)
-        server_is_up(self.vmpool_address)
 
         from vmpool.virtual_machines_pool import VirtualMachinesPool
         self.VirtualMachinesPool = VirtualMachinesPool
@@ -422,9 +411,7 @@ class TestSessionStates(BaseTestCase):
     def tearDown(self):
         with patch('core.db.database', Mock()):
             del self.server
-            del self.vmpool
             server_is_down(self.address)
-            server_is_down(self.vmpool_address)
 
     @patch('core.db.database', new=Mock())
     def test_server_delete_closed_session(self):
@@ -481,7 +468,6 @@ class TestServerShutdown(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
-        self.vmpool_address = ("localhost", 9999)
 
         with patch('core.network.network.Network', Mock()), \
             patch('core.connection.Virsh', Mock()), \
@@ -492,18 +478,15 @@ class TestServerShutdown(BaseTestCase):
                       Mock(return_value=Mock())), \
                 patch('core.sessions.SessionWorker', Mock()):
                 from vmmaster.server import VMMasterServer
-                from vmpool.server import VMPool
                 from nose.twistedtools import reactor
                 self.server = VMMasterServer(reactor, self.address[1])
-                self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmpool.app.platforms.platforms.keys()[0]
+                'platform': self.server.app.platforms.platforms.keys()[0]
             }
         }
         server_is_up(self.address)
-        server_is_up(self.vmpool_address)
 
     def test_server_shutdown(self):
         """
@@ -512,10 +495,8 @@ class TestServerShutdown(BaseTestCase):
         """
         with patch('core.db.database', new=Mock()):
             del self.server
-            del self.vmpool
             with self.assertRaises(RuntimeError):
                 server_is_up(self.address, wait=1)
-                server_is_up(self.vmpool_address, wait=1)
 
     @patch('core.db.database', new=Mock())
     def test_session_is_not_deleted_after_server_shutdown(self):
@@ -530,13 +511,11 @@ class TestServerShutdown(BaseTestCase):
         with patch('core.sessions.Sessions.get_session',
                    Mock(return_value=session)):
             del self.server
-            del self.vmpool
 
         self.assertFalse(session.is_closed())
         session.failed()
 
         server_is_down(self.address)
-        server_is_down(self.vmpool_address)
 
 
 def custom_wait(self, method):
@@ -560,14 +539,12 @@ class TestServerWithPreloadedVM(BaseTestCase):
     def setUp(self):
         setup_config('data/config_with_preloaded.py')
         self.address = ("localhost", 9001)
-        self.vmpool_address = ("localhost", 9999)
         self.desired_caps = {
             'desiredCapabilities': {
                 'platform': 'origin_1'
             }
         }
         self.server = None
-        self.vmpool = None
 
         mocked_image = Mock(id=1, status='active',
                             get=Mock(return_value='snapshot'), min_disk=20,
@@ -608,13 +585,10 @@ class TestServerWithPreloadedVM(BaseTestCase):
             custom_auth.auth.login_required = empty_decorator
 
             from vmmaster.server import VMMasterServer
-            from vmpool.server import VMPool
             from nose.twistedtools import reactor
             self.server = VMMasterServer(reactor, self.address[1])
-            self.vmpool = VMPool(reactor, self.vmpool_address[1])
 
         server_is_up(self.address)
-        server_is_up(self.vmpool_address)
 
         from vmpool.virtual_machines_pool import VirtualMachinesPool
         self.VirtualMachinesPool = VirtualMachinesPool
@@ -622,9 +596,7 @@ class TestServerWithPreloadedVM(BaseTestCase):
     def tearDown(self):
         with patch('core.db.database', Mock()):
             del self.server
-            del self.vmpool
             server_is_down(self.address)
-            server_is_down(self.vmpool_address)
 
     @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
         __name__='vm_has_created',

@@ -1,8 +1,12 @@
 # coding: utf-8
 
-from flask import Blueprint, jsonify
+import json
 import helpers
+
+from flask import Blueprint, jsonify, request
+from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
+from core.config import config
 
 api = Blueprint('api', __name__)
 
@@ -18,8 +22,37 @@ def render_json(result, code=200):
 def status():
     return render_json({
         'sessions': helpers.get_sessions(),
-        'queue': helpers.get_queue()
+        'queue': helpers.get_queue(),
+        'platforms': vmpool_helpers.get_platforms(),
+        'pool': vmpool_helpers.get_pool()
     })
+
+
+@api.route('/platforms')
+def platforms():
+    return render_json(result={'platforms': vmpool_helpers.get_platforms()})
+
+
+@api.route('/pool')
+def pool():
+    return render_json(result={'pool': vmpool_helpers.get_pool()})
+
+
+@api.route('/pool_queue')
+def queue():
+    return render_json(result={'queue': vmpool_helpers.get_queue()})
+
+
+@api.route('/config', methods=['GET', 'POST'])
+def _config():
+    if request.method == 'GET':
+        c = {key: value for key, value in iter(config.__dict__.items())
+             if not key.startswith("_")}
+        return render_json(result={'config': c})
+    else:
+        new_config = json.loads(request.get_data())
+        config.update(new_config)
+        return render_json(result="success")
 
 
 @api.route('/sessions')
