@@ -4,6 +4,11 @@ from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
 from core.sessions import Sessions, SessionWorker
 from core.logger import log
+from vmpool.platforms import Platforms
+from vmpool.vmqueue import q, QueueWorker
+from vmpool.virtual_machines_pool import pool
+from vmpool.virtual_machines_pool import VirtualMachinesPoolPreloader, \
+    VirtualMachineChecker
 
 
 class JSONEncoder(FlaskJSONEncoder):
@@ -18,6 +23,16 @@ class Vmmaster(Flask):
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
 
+        self.platforms = Platforms()
+        self.queue = q
+
+        self.preloader = VirtualMachinesPoolPreloader(pool)
+        self.preloader.start()
+        self.vmchecker = VirtualMachineChecker(pool)
+        self.vmchecker.start()
+        self.worker = QueueWorker(self.queue)
+        self.worker.start()
+
         self.sessions = Sessions()
         self.session_worker = SessionWorker()
         self.session_worker.start()
@@ -25,7 +40,11 @@ class Vmmaster(Flask):
 
     def cleanup(self):
         log.info("Shutting down...")
+        self.worker.stop()
+        self.preloader.stop()
+        self.vmchecker.stop()
         self.session_worker.stop()
+        pool.free()
         log.info("Server gracefully shut down.")
 
 

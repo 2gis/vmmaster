@@ -12,7 +12,9 @@ def get_platforms():
 
 
 def get_pool():
-    return pool.info
+    pool_info = pool.info
+    pool_info['pool_queue'] = q.info
+    return pool_info
 
 
 def get_queue():
