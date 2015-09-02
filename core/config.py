@@ -9,14 +9,15 @@ def full_path(path_to_config):
     else:
         curframe = inspect.currentframe()
         outerframes = inspect.getouterframes(curframe)
-        calpath = None
+        this_dir = os.path.dirname(__file__)
+        call_dir = None
         for (frame, filename, line_number,
              function_name, lines, index) in outerframes:
-            if filename != __file__:
-                calpath = filename
+            call_dir = os.path.dirname(filename)
+            if this_dir != call_dir:
                 break
         path_to_config = os.sep.join([
-            os.path.dirname(calpath), path_to_config
+            call_dir, path_to_config
         ])
     return path_to_config
 
