@@ -1,7 +1,9 @@
 # coding: utf-8
 
+import time
+from twisted.internet.threads import deferToThread
 from twisted.web.wsgi import WSGIResource
-from twisted.web.server import Site, NOT_DONE_YET
+from twisted.web.server import Site
 from twisted.internet import defer
 from app import create_app
 
@@ -27,35 +29,13 @@ def _block_on(d, timeout=None):
         return ret
 
 
-class VmmasterResource(WSGIResource):
-    isLeaf = True
-    waiting_requests = []
-
-    def notify_no_more_waiting(self):
-        if not self.waiting_requests:
-            return defer.succeed(None)
-        deffered_list = defer.gatherResults(self.waiting_requests,
-                                            consumeErrors=True)
-        log.info("Waiting for end %s request[s]." %
-                 len(deffered_list._deferredList))
-        return deffered_list.addBoth(lambda ign: None)
-
-    def render(self, request):
-        super(VmmasterResource, self).render(request)
-        d = request.notifyFinish()
-        self.waiting_requests.append(d)
-        d.addBoth(lambda ign: self.waiting_requests.remove(d))
-
-        return NOT_DONE_YET
-
-
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        self.resource = VmmasterResource(self.reactor,
-                                         self.reactor.getThreadPool(),
-                                         self.app)
+        self.resource = WSGIResource(self.reactor,
+                                     self.reactor.getThreadPool(),
+                                     self.app)
         site = Site(self.resource)
         self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
@@ -71,22 +51,28 @@ class VMMasterServer(object):
         _block_on(d, 20)
         self.app.cleanup()
 
-    def wait_for_writers(self):
-        d = defer.Deferred()
+    def wait_for_end_active_sessions(self):
+        from core.db import database
 
-        def check_writers(_self):
-            if len(_self.reactor.getWriters()) > 0:
-                _self.reactor.callLater(0.1, check_writers, _self)
-            else:
-                d.callback(None)
+        active_sessions = database.get_all_active_sessions()
 
-        check_writers(self)
+        def wait_for(_self):
+            while active_sessions:
+                for session in active_sessions:
+                    try:
+                        session_status = _self.app.sessions.get_session(session.id).status
+                    except Exception:
+                        session_status = None
+                    if session_status in ('failed', 'success', None):
+                        active_sessions.remove(session)
 
-        return d
+                time.sleep(1)
+                log.info("Wait for end %s session[s]" % len(active_sessions))
+
+        return deferToThread(wait_for, self).addBoth(lambda i: None)
 
     @defer.inlineCallbacks
     def before_shutdown(self):
         self.app.running = False
-        yield self.resource.notify_no_more_waiting()
-        yield self.wait_for_writers()
-        log.info("All active requests has been completed.")
+        yield self.wait_for_end_active_sessions()
+        log.info("All active sessions has been completed.")

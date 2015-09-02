@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, abort
 
 from vmmaster.webdriver import commands
 import helpers
@@ -110,18 +110,22 @@ def delete_session(session_id):
 @auth.login_required
 @helpers.threaded
 def create_session():
-    req = request.proxy.request
-    proxy = request.proxy
-    session = helpers.get_session(req)
-    proxy.session_id = session.id
+    if current_app.running:
+        req = request.proxy.request
+        proxy = request.proxy
+        session = helpers.get_session(req)
+        proxy.session_id = session.id
 
-    control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
-    session.add_session_step(control_line=control_line,
-                             body=str(req.body))
+        control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
+        session.add_session_step(control_line=control_line,
+                                 body=str(req.body))
 
-    status, headers, body = commands.start_session(req, session)
-    proxy.response = helpers.form_response(status, headers, body)
-    return send_response(proxy.response)
+        status, headers, body = commands.start_session(req, session)
+        proxy.response = helpers.form_response(status, headers, body)
+        return send_response(proxy.response)
+    else:
+        log.info("This request is aborted %s" % request)
+        abort(502)
 
 
 @webdriver.route("/session/<path:url>", methods=['GET', 'POST', 'DELETE'])
