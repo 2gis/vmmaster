@@ -151,4 +151,3 @@ def proxy_request(url):
             helpers.take_screenshot(session)
 
     return send_response(request.response)
-

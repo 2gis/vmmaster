@@ -94,7 +94,7 @@ def start_selenium_session(request, session, port):
             "Attempt %s. Starting selenium-server-standalone session for %s" %
             (attempt_start, session.id))
         log.info("with %s %s\n%s %s" % (request.method, request.path,
-                                    request.headers, request.data))
+                                        request.headers, request.data))
 
         status, headers, body = session.make_request(
             port,

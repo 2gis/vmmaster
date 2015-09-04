@@ -10,7 +10,7 @@ from Queue import Queue
 
 from flask import Response, current_app, request, copy_current_request_context
 
-from core.exceptions import ConnectionError, SessionException, \
+from core.exceptions import ConnectionError, \
     CreationException, PlatformException
 from core.config import config
 from core.logger import log
@@ -97,7 +97,9 @@ def transparent():
     swap_session(request, session.selenium_session)
     code, headers, response_body = session.make_request(
         config.SELENIUM_PORT,
-        RequestHelper(request.method, request.path, request.headers, request.data)
+        RequestHelper(
+            request.method, request.path, request.headers, request.data
+        )
     )
 
     swap_session(request, request.session_id)
