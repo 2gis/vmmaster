@@ -215,3 +215,15 @@ def make_request(request, host, port):
                 t.join(0.1)
 
         return response
+
+
+def remove_base64_screenshot(response_data):
+    content_json = to_json(response_data)
+
+    if content_json.get("screenshot", None):
+        content_json["screenshot"] = ""
+
+    if isinstance(content_json.get("value", None), dict):
+        content_json["value"]["screen"] = ""
+
+    return json.dumps(content_json)
