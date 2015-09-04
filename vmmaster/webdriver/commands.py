@@ -44,7 +44,7 @@ def start_session(request, session):
 
 
 def startup_script(session):
-    r = RequestHelper(method="POST", body=session.run_script)
+    r = RequestHelper(method="POST", data=session.run_script)
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)
@@ -93,13 +93,13 @@ def start_selenium_session(request, session, port):
         log.info(
             "Attempt %s. Starting selenium-server-standalone session for %s" %
             (attempt_start, session.id))
-        log.info("with %s %s %s %s" % (request.method, request.path,
-                                       request.headers, request.body))
+        log.info("with %s %s\n%s %s" % (request.method, request.path,
+                                    request.headers, request.data))
 
         status, headers, body = session.make_request(
             port,
             RequestHelper(request.method, request.path,
-                          request.headers, request.body))
+                          request.headers, request.data))
         if status == httplib.OK:
             log.info("SUCCESS start selenium-server-standalone status for %s" %
                      session.id)
@@ -149,19 +149,17 @@ def selenium_status(request, session, port):
 
 
 def replace_platform_with_any(request):
-        body = json.loads(request.body)
-        desired_capabilities = body["desiredCapabilities"]
+    body = json.loads(request.data)
+    desired_capabilities = body["desiredCapabilities"]
 
-        desired_capabilities["platform"] = u"ANY"
-        body["desiredCapabilities"] = desired_capabilities
+    desired_capabilities["platform"] = u"ANY"
+    body["desiredCapabilities"] = desired_capabilities
 
-        new_body = json.dumps(body)
-        request.body = new_body
-        request.headers["Content-Length"] = len(request.body)
+    request.data = json.dumps(body)
 
 
 def get_desired_capabilities(request):
-    body = json.loads(request.body)
+    body = json.loads(request.data)
     dc = body['desiredCapabilities']
     return dc
 
@@ -199,7 +197,7 @@ def set_path_session_id(path, session_id):
 def take_screenshot(session, port):
     status, headers, body = session.make_request(
         port, RequestHelper(method="GET", url="/takeScreenshot", headers={},
-                            body=""))
+                            data=""))
     if status == httplib.OK and body:
         json_response = json.loads(body)
         return json_response["screenshot"]
@@ -207,7 +205,7 @@ def take_screenshot(session, port):
         return None
 
 
-def run_script_through_websocket(request, session, host):
+def run_script_through_websocket(script, session, host):
     status_code = 200
     default_msg = json.dumps({"status": 0, "output": ""})
     sub_step = session.add_sub_step(
@@ -216,9 +214,9 @@ def run_script_through_websocket(request, session, host):
 
     def on_open(ws):
         def run(*args):
-            ws.send(request.body)
+            ws.send(script)
             log.info('RunScript: Open websocket and send message %s '
-                     'to vmmaster-agent on vm %s' % (request.body, host))
+                     'to vmmaster-agent on vm %s' % (script, host))
         thread.start_new_thread(run, ())
 
     def on_message(ws, message):
@@ -258,13 +256,13 @@ def run_script(request, session):
 
     session.add_sub_step(
         control_line="%s %s" % (request.method, '/runScript'),
-        body=request.body)
+        body=request.data)
 
-    return run_script_through_websocket(request, session, host)
+    return run_script_through_websocket(request.data, session, host)
 
 
 def vmmaster_label(request, session):
-    json_body = json.loads(request.body)
+    json_body = json.loads(request.data)
     return 200, {}, json.dumps({"sessionId": session.id, "status": 0,
                                 "value": json_body["label"]})
 
