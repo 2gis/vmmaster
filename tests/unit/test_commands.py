@@ -43,7 +43,7 @@ class CommonCommandsTestCase(BaseTestCase):
         cls.request.path = "/wd/hub/session"
         cls.request.headers = dict()
         cls.request.headers.update(session_request_headers)
-        cls.request.body = session_request_body
+        cls.request.data = session_request_body
 
         cls.webdriver_server = ServerMock(cls.host, get_free_port())
         cls.webdriver_server.start()
@@ -139,7 +139,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
             if key == 'server' or key == 'date':
                 continue
             self.assertDictContainsSubset({key: value}, request_headers)
-        self.assertEqual(body, request.body)
+        self.assertEqual(body, request.data)
 
     def test_session_response_fail(self):
         from vmmaster.webdriver import commands
@@ -270,7 +270,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertIsInstance(dc["platform"], unicode)
         self.assertEqual(self.body["desiredCapabilities"]["platform"],
@@ -286,7 +286,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
 
         dc = commands.get_desired_capabilities(self.request)
         self.assertIsInstance(dc["name"], unicode)
@@ -299,7 +299,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertEqual(dc.get("name", None), None)
 
@@ -313,7 +313,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertTrue(dc["takeScreenshot"])
 
@@ -327,7 +327,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertTrue(dc["takeScreenshot"])
 
@@ -341,7 +341,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
             'content-length': '%s' % len(self.body),
         }
         self.request.headers.update(self.session_request_headers)
-        self.request.body = json.dumps(self.body)
+        self.request.data = json.dumps(self.body)
         dc = commands.get_desired_capabilities(self.request)
         self.assertFalse(dc["takeScreenshot"])
 
@@ -377,7 +377,7 @@ class TestLabelCommands(CommonCommandsTestCase):
 
         request = copy.deepcopy(self.request)
         label = "step-label"
-        request.body = json.dumps({"label": label})
+        request.data = json.dumps({"label": label})
         status, headers, body = commands.vmmaster_label(request, self.session)
         self.assertEqual(status, 200)
         json_body = json.loads(body)

@@ -260,12 +260,13 @@ class TestServer(BaseTestCase):
         session = Session()
         session.id = 1
 
-        from vmmaster.webdriver.helpers import Request
-        with patch.object(Request, 'input_stream',
-                          return_result=Mock(_wrapped=Mock(closed=True))),\
-                patch('core.sessions.Sessions.get_session',
-                      Mock(return_value=session)),\
-                patch.object(Session, 'delete') as mock:
+        with patch(
+                'vmmaster.webdriver.helpers.is_request_closed',
+                Mock(return_result=True)
+        ), patch(
+                'core.sessions.Sessions.get_session',
+                Mock(return_value=session)
+        ), patch.object(Session, 'delete') as mock:
             get_session_request(self.address, session.id)
 
         self.assertTrue(mock.called)

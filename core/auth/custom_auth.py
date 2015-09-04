@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
+
 from flask.ext.httpauth import HTTPBasicAuth
 from functools import wraps
 from flask import request, make_response
@@ -36,11 +37,9 @@ def authentificate_failed():
 
 
 class DesiredCapabilitiesAuth(HTTPBasicAuth):
-
     def get_auth_from_caps(self):
-        req = request.proxy.request
         try:
-            body = loads(req.body)
+            body = loads(request.data)
         except ValueError:
             return anonymous
         try:

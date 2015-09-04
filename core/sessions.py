@@ -27,15 +27,19 @@ class RequestHelper(object):
     method = None
     url = None
     headers = None
-    body = None
+    data = None
 
-    def __init__(self, method, url="/", headers=None, body=""):
-        if headers is None:
-            headers = {}
+    def __init__(self, method, url="/", headers=None, data=""):
+        _headers = {}
+        if headers:
+            for key, value in headers.items():
+                if value:
+                    _headers[key] = value
+        _headers["Content-Length"] = len(data)
+        self.headers = _headers
         self.method = method
         self.url = url
-        self.headers = headers
-        self.body = body
+        self.data = data
 
     def __repr__(self):
         return "<RequestHelper method:%s url:%s headers:%s body:%s>" % (
@@ -60,9 +64,6 @@ class SimpleResponse:
 class Session(SessionModel):
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
-
-        log.info("New session %s (%s) for %s" %
-                 (str(self.id), self.name, str(dc)))
 
     @property
     def inactivity(self):
@@ -157,7 +158,7 @@ class Session(SessionModel):
 
         self.add_sub_step(
             control_line="%s %s" % (request.method, request.url),
-            body=request.body)
+            body=request.data)
 
         self.restart_timer()
         q = Queue()
@@ -166,7 +167,7 @@ class Session(SessionModel):
         req = lambda: requests.request(method=request.method,
                                        url=url,
                                        headers=request.headers,
-                                       data=request.body)
+                                       data=request.data)
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()

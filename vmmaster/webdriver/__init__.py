@@ -17,10 +17,10 @@ webdriver = Blueprint('webdriver', __name__)
 def handle_errors(error):
     tb = format_exc()
     log.error(tb)
-    if request.proxy.session_id:
+    if request.session_id:
         try:
             session = current_app.sessions.get_session(
-                request.proxy.session_id)
+                request.session_id)
         except SessionException:
             pass
         else:
@@ -39,28 +39,28 @@ def handle_errors(error):
 def log_request():
     log.debug('%s' % request)
 
-    request.proxy = helpers.SessionProxy()
-    proxy = request.proxy
-    req = request.proxy.request
-    session_id = proxy.session_id
+    session_id = commands.get_session_id(request.path)
+    request.session_id = session_id
 
     if session_id:
         session = current_app.sessions.get_session(session_id)
-        control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
+        control_line = "%s %s %s" % (
+            request.method, request.path,
+            request.headers.environ['SERVER_PROTOCOL']
+        )
         session.add_session_step(control_line=control_line,
-                                 body=str(req.body))
+                                 body=str(request.data))
 
 
 def send_response(response):
-    if request.proxy.request.closed:
+    if helpers.is_request_closed():
         raise ConnectionError("Session closed by user")
     return response
 
 
 @webdriver.after_request
 def log_response(response):
-    proxy = request.proxy
-    session_id = proxy.session_id
+    session_id = request.session_id
 
     if session_id:
         try:
@@ -91,19 +91,19 @@ def verify_token(username, client_token):
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
 @helpers.threaded
 def delete_session(session_id):
-    proxy = request.proxy
-    proxy.response = helpers.transparent(proxy)
-    session_id = proxy.session_id
+    request.response = helpers.transparent()
+    response = request.response
 
-    session = current_app.sessions.get_session(session_id)
-    session.add_session_step(control_line=proxy.response.status_code,
-                             body=proxy.response.data,
+    request.session_id = session_id
+    session = current_app.sessions.get_session(request.session_id)
+    session.add_session_step(control_line=response.status_code,
+                             body=request.response.data,
                              milestone=False)
     session.succeed()
 
     # Session is done, forget about it
-    proxy.session_id = None
-    return send_response(proxy.response)
+    request.session_id = None
+    return send_response(response)
 
 
 @webdriver.route('/session', methods=['POST'])
@@ -111,18 +111,17 @@ def delete_session(session_id):
 @helpers.threaded
 def create_session():
     if current_app.running:
-        req = request.proxy.request
-        proxy = request.proxy
-        session = helpers.get_session(req)
-        proxy.session_id = session.id
-
-        control_line = "%s %s %s" % (req.method, req.path, req.clientproto)
+        session = helpers.get_session()
+        control_line = "%s %s %s" % (
+            request.method, request.path,
+            request.headers.environ['SERVER_PROTOCOL']
+        )
         session.add_session_step(control_line=control_line,
-                                 body=str(req.body))
+                                 body=str(request.data))
 
-        status, headers, body = commands.start_session(req, session)
-        proxy.response = helpers.form_response(status, headers, body)
-        return send_response(proxy.response)
+        status, headers, body = commands.start_session(request, session)
+        request.response = helpers.form_response(status, headers, body)
+        return send_response(request.response)
     else:
         log.info("This request is aborted %s" % request)
         abort(502)
@@ -131,29 +130,24 @@ def create_session():
 @webdriver.route("/session/<path:url>", methods=['GET', 'POST', 'DELETE'])
 @helpers.threaded
 def proxy_request(url):
-    req = request.proxy.request
-    proxy = request.proxy
+    request.session_id = url.split("/")[0]
+
     last = url.split("/")[-1]
     if last in commands.AgentCommands:
-        proxy.response = helpers.vmmaster_agent(
-            commands.AgentCommands[last], proxy)
+        request.response = helpers.vmmaster_agent(
+            commands.AgentCommands[last])
     elif last in commands.InternalCommands:
-        proxy.response = helpers.internal_exec(
-            commands.InternalCommands[last], proxy)
+        request.response = helpers.internal_exec(
+            commands.InternalCommands[last])
     else:
-        proxy.response = helpers.transparent(proxy)
+        request.response = helpers.transparent()
 
     words = ["url", "click", "execute", "keys", "value"]
-    parts = req.path.split("/")
+    parts = request.path.split("/")
+    if set(words) & set(parts) or parts[-1] == "session":
+        session_id = request.session_id
+        session = current_app.sessions.get_session(session_id)
+        if session.take_screenshot:
+            helpers.take_screenshot(session)
 
-    session = current_app.sessions.get_session(proxy.session_id)
-    log_step = session.get_milestone_step()
-    # TODO: move all this stuff into the helper take_screenshot
-    if log_step:
-        screenshot = None
-        if set(words) & set(parts) or parts[-1] == "session":
-            screenshot = helpers.take_screenshot(proxy)
-        if screenshot:
-            log_step.screenshot = screenshot
-            log_step.save()
-    return send_response(proxy.response)
+    return send_response(request.response)
