@@ -7,7 +7,6 @@ import commands
 from functools import wraps
 from threading import Thread
 from Queue import Queue
-
 from flask import Response, current_app, request, copy_current_request_context
 
 from core.exceptions import ConnectionError, \
@@ -71,7 +70,8 @@ def take_screenshot(session):
         path = config.SCREENSHOTS_DIR + "/" + str(session.id) + \
             "/" + str(log_step.id) + ".png"
         utils.write_file(path, base64.b64decode(screenshot))
-        log_step.screenshot = screenshot
+        log_step.screenshot = path
+        log_step.save()
 
 
 def form_response(code, headers, body):
