@@ -37,15 +37,6 @@ def runserver():
 
 
 @manager.command
-def vmpool():
-    """
-    Run virtual machine pool
-    """
-    from vmpool.server import VMPool
-    VMPool(reactor, config.VM_POOL_PORT).run()
-
-
-@manager.command
 def cleanup():
     """
     Run cleanup
