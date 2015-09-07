@@ -103,3 +103,24 @@ def regenerate_token(user_id):
                            % updated_user.username, 200)
     else:
         return render_json("User %s not found" % user_id, 404)
+
+
+@api.route('/session/<string:session_id>/screenshots', methods=['GET'])
+def get_screenshots(session_id):
+    return render_json({'screenshots': helpers.get_screenshots(session_id)})
+
+
+@api.route('/session/<string:session_id>/step/<string:log_step_id>/screenshots',
+           methods=['GET'])
+def get_screenshot_for_log_step(session_id, log_step_id):
+    return render_json({
+        'screenshots': helpers.get_screenshots(session_id, log_step_id)
+    })
+
+
+@api.route('/session/<int:session_id>/label/<int:label_id>/screenshots',
+           methods=['GET'])
+def get_screenshots_for_label(session_id, label_id):
+    return render_json({
+        'screenshots': helpers.get_screenshots_for_label(session_id, label_id)
+    })
