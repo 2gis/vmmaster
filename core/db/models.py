@@ -1,12 +1,11 @@
 # coding: utf-8
 
-import time
 import json
 from uuid import uuid4
 from datetime import datetime
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Sequence, String, Float, Enum, \
+from sqlalchemy import Column, Integer, Sequence, String, Enum, \
     ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship, backref
 
@@ -31,11 +30,14 @@ class SessionLogSubStep(Base, FeaturesMixin):
     __tablename__ = 'sub_steps'
 
     id = Column(Integer, Sequence('sub_steps_id_seq'), primary_key=True)
-    session_log_step_id = Column(Integer, ForeignKey(
-        'session_log_steps.id', ondelete='CASCADE'))
+    session_log_step_id = Column(
+        Integer, ForeignKey(
+            'session_log_steps.id', ondelete='CASCADE'),
+        index=True
+    )
     control_line = Column(String)
     body = Column(String)
-    time_created = Column(Float, default=time.time)
+    created = Column(DateTime, default=datetime.now)
 
     def __init__(self, control_line, body=None, parent_id=None):
         self.control_line = control_line
@@ -50,11 +52,13 @@ class SessionLogStep(Base, FeaturesMixin):
 
     id = Column(Integer, Sequence('session_log_steps_id_seq'),
                 primary_key=True)
-    session_id = Column(Integer, ForeignKey('sessions.id', ondelete='CASCADE'))
+    session_id = Column(
+        Integer, ForeignKey('sessions.id', ondelete='CASCADE'), index=True
+    )
     control_line = Column(String)
     body = Column(String)
     screenshot = Column(String)
-    time_created = Column(Float, default=time.time)
+    created = Column(DateTime, default=datetime.now)
     milestone = Column(Boolean)
 
     # Relationships
@@ -90,8 +94,8 @@ class Session(Base, FeaturesMixin):
     selenium_session = Column(String)
     take_screenshot = Column(Boolean)
     run_script = Column(String)
-    time_created = Column(Float, default=time.time)
-    time_modified = Column(Float, default=time.time)
+    created = Column(DateTime, default=datetime.now)
+    modified = Column(DateTime, default=datetime.now)
 
     # State
     status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
@@ -198,13 +202,13 @@ class VirtualMachine(Base, FeaturesMixin):
     ip = Column(String)
     mac = Column(String)
     platform = Column(String)
-    time_created = Column(Float, default=time.time)
-    time_deleted = Column(Float)
+    created = Column(DateTime, default=datetime.now)
+    deleted = Column(DateTime)
 
     # State
     ready = Column(Boolean, default=False)
     checking = Column(Boolean, default=False)
-    deleted = Column(Boolean, default=False)
+    done = Column(Boolean, default=False)
 
     def __init__(self, name, platform):
         self.name = name

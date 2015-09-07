@@ -2,6 +2,7 @@
 
 import time
 import json
+from datetime import datetime
 from Queue import Queue
 from threading import Thread
 
@@ -67,11 +68,11 @@ class Session(SessionModel):
 
     @property
     def inactivity(self):
-        return time.time() - self.time_modified
+        return (datetime.now() - self.modified).total_seconds()
 
     @property
     def duration(self):
-        return time.time() - self.time_created
+        return (datetime.now() - self.created).total_seconds()
 
     def is_timeouted(self):
         self.refresh()
@@ -102,7 +103,7 @@ class Session(SessionModel):
         return stat
 
     def restart_timer(self):
-        self.time_modified = time.time()
+        self.modified = datetime.now()
 
     def delete(self, message=""):
         from core import endpoints

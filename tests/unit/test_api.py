@@ -1,7 +1,7 @@
 # coding: utf-8
 
-import time
 import json
+from datetime import datetime
 from mock import Mock, patch
 from helpers import BaseTestCase, fake_home_dir
 
@@ -48,7 +48,7 @@ class TestApi(BaseTestCase):
         session.id = 1
         session.name = "session1"
         session.platform = 'test_origin_1'
-        session.time_created = session.time_modified = time.time()
+        session.created = session.modified = datetime.now()
 
         with patch('core.db.database.get_sessions',
                    Mock(return_value=[session])):

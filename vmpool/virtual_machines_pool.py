@@ -67,7 +67,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def get_by_platform(cls, platform=None):
         if platform:
-            for vm in sorted(cls.pool, key=lambda v: v.time_created,
+            for vm in sorted(cls.pool, key=lambda v: v.created,
                              reverse=True):
                 log.info("Got VM %s (id=%s, ready=%s, checking="
                          "%s)" % (vm.name, vm.id, vm.ready, vm.checking))
@@ -156,7 +156,7 @@ class VirtualMachinesPool(object):
         def print_view(lst):
             return [{"name": l.name, "ip": l.ip, "id": l.id,
                      "ready": l.ready, "checking": l.checking,
-                     "time_created": l.time_created} for l in lst]
+                     "created": l.created} for l in lst]
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
