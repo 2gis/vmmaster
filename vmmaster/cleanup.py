@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import os
-import time
+from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -34,19 +34,19 @@ def transaction(func):
 
 
 def old():
-    d = time.time() - 60 * 60 * 24 * config.SCREENSHOTS_DAYS
-    return d
+    expired = datetime.now() - timedelta(days=config.SCREENSHOTS_DAYS)
+    return expired
 
 
 @transaction
 def old_sessions(dbsession=None):
-    return dbsession.query(Session).filter(Session.time_created < old()).all()
+    return dbsession.query(Session).filter(Session.created < old()).all()
 
 
 @transaction
 def old_endpoints(dbsession=None):
     return dbsession.query(VirtualMachine)\
-        .filter(VirtualMachine.time_created < old()).all()
+        .filter(VirtualMachine.created < old()).all()
 
 
 def delete_files(session=None):
@@ -81,7 +81,6 @@ def delete_endpoints(endpoints=None, dbsession=None):
 
 @transaction
 def delete_session_data(sessions=None, dbsession=None):
-    from datetime import datetime, timedelta
     sessions_count = len(sessions)
 
     log.info("Got %s sessions. " % str(sessions_count))

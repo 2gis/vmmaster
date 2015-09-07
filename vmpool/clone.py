@@ -128,7 +128,6 @@ class KVMClone(Clone):
         self.define_clone(self.dumpxml_file)
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
-        self.deleted = False
         self.ready = True
         self.save()
         log.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
