@@ -2,6 +2,7 @@
 
 import os
 import unittest
+from datetime import datetime, timedelta
 from mock import Mock, patch
 
 from core.utils import system_utils
@@ -56,15 +57,14 @@ class TestCleanup(unittest.TestCase):
             'core.logger.setup_logging', Mock(return_value=Mock())
         ):
             from vmmaster import cleanup
-        from time import time
         from core.sessions import Session
 
         session = Session()
         session.status = 'unknown'
         session.closed = True
         session.name = '__test_outdated_sessions'
-        session.time_created = \
-            (time() - 60 * 60 * 24 * config.SCREENSHOTS_DAYS - 1)
+        session.created = \
+            datetime.now() - timedelta(days=config.SCREENSHOTS_DAYS, seconds=1)
         session.save()
 
         outdated_sessions = cleanup.old_sessions()
