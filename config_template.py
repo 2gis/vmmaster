@@ -59,8 +59,6 @@ class Config(object):
 
     # vm pool
     GET_VM_TIMEOUT = 180
-    VM_POOL_PORT = 9999
-    VM_POOL_HOST = 'localhost'
 
     # additional logging
     # sending logs with (Graylog Extended Log Format, GELF)
