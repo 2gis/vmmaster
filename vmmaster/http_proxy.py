@@ -105,7 +105,9 @@ class ProxyResource(Resource):
                 "Could'nt parse request uri, "
                 "make sure you request uri has "
                 "/proxy/session/<session_id>/port/<port_number>/<destination>")
-        session = self.app.sessions.get_session(session_id)
+
+        with self.app.app_context():
+            session = self.app.sessions.get_session(session_id)
 
         host = session.endpoint_ip
         client_factory = ClientFactory(request, dest)

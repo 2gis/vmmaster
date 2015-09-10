@@ -13,9 +13,9 @@ class TestVirtualMachinePool(BaseTestCase):
         self.platform = "test_origin_1"
 
         with patch('core.connection.Virsh', Mock()), \
-                patch('core.network.network.Network', Mock()):
+                patch('core.network.Network', Mock()):
             from vmpool.platforms import Platforms
-            from core.network.network import Network
+            from core.network import Network
             Platforms()
             self.network = Network()
 
@@ -34,7 +34,7 @@ class TestVirtualMachinePool(BaseTestCase):
 
     def tearDown(self):
         with patch('core.db.database', Mock()), \
-                patch('core.utils.utils.delete_file', Mock()):
+                patch('core.utils.delete_file', Mock()):
             self.pool.free()
 
     def test_pool_count(self):
@@ -81,7 +81,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(1, len(self.pool.pool))
 
         vm = self.pool.get_by_platform(self.platform)
-        with patch('core.utils.utils.delete_file', Mock()):
+        with patch('core.utils.delete_file', Mock()):
             vm.delete()
 
         self.assertEqual(0, self.pool.count())

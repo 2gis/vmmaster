@@ -1,12 +1,14 @@
+# coding: utf-8
+
 import subprocess
 import crypt
 import os
 
-from .print_utils import cout, FAIL
+from core.utils.print_utils import cout, FAIL
 
 from vmmaster import package_dir
-from .system_utils import run_command
-from .utils import change_user_vmmaster
+from core.utils.system_utils import run_command
+from core.utils import change_user_vmmaster
 
 
 def files(path):

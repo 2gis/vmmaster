@@ -11,14 +11,21 @@ from core.config import setup_config, config
 
 class TestCleanup(unittest.TestCase):
     @classmethod
-    def setUp(cls):
+    def setUpClass(cls):
         setup_config('data/config.py')
 
+        from flask import Flask
+        cls.app = Flask(__name__)
+
         from core import db
-        db.database = db.Database(config.DATABASE)
+        cls.app.database = db.Database(config.DATABASE)
+
+    def setUp(self):
+        self.ctx = self.app.app_context()
+        self.ctx.push()
 
     def tearDown(self):
-        pass
+        self.ctx.pop()
 
     def test_file_deletion(self):
         with patch(

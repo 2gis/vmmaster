@@ -9,21 +9,20 @@ from sqlalchemy import Column, Integer, Sequence, String, Enum, \
     ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship, backref
 
+from flask import current_app
+
 Base = declarative_base()
 
 
 class FeaturesMixin(object):
     def add(self):
-        from core.db import database
-        database.add(self)
+        current_app.database.add(self)
 
     def save(self):
-        from core.db import database
-        database.update(self)
+        current_app.database.update(self)
 
     def refresh(self):
-        from core.db import database
-        database.refresh(self)
+        current_app.database.refresh(self)
 
 
 class SessionLogSubStep(Base, FeaturesMixin):
@@ -85,7 +84,6 @@ class Session(Base, FeaturesMixin):
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
-    endpoint_id = Column(Integer)
     endpoint_ip = Column(String)
     endpoint_name = Column(String)
     name = Column(String)
@@ -109,8 +107,7 @@ class Session(Base, FeaturesMixin):
         SessionLogStep, backref=backref("session", enable_typechecks=False))
 
     def set_user(self, username):
-        from core.db import database
-        self.user = database.get_user(username=username)
+        self.user = current_app.database.get_user(username=username)
 
     def __init__(self, name=None, dc=None):
         if name:
@@ -146,8 +143,7 @@ class Session(Base, FeaturesMixin):
         Find last session log step marked as milestone for sub_step
         :return: SessionLogStep object
         """
-        from core.db import database
-        return database.get_last_step(self)
+        return current_app.database.get_last_step(self)
 
 
 class User(Base, FeaturesMixin):
@@ -192,37 +188,3 @@ class UserGroup(Base):
 
     # Relationships
     users = relationship(User, backref="group", passive_deletes=True)
-
-
-class VirtualMachine(Base, FeaturesMixin):
-    __tablename__ = 'virtual_machines'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    ip = Column(String)
-    mac = Column(String)
-    platform = Column(String)
-    created = Column(DateTime, default=datetime.now)
-    deleted = Column(DateTime)
-
-    # State
-    ready = Column(Boolean, default=False)
-    checking = Column(Boolean, default=False)
-    done = Column(Boolean, default=False)
-
-    def __init__(self, name, platform):
-        self.name = name
-        self.platform = platform
-        self.add()
-
-    def is_preloaded(self):
-        return 'preloaded' in self.name
-
-    @property
-    def info(self):
-        return {
-            "id": str(self.id),
-            "name": str(self.name),
-            "ip": str(self.ip),
-            "platform": str(self.platform)
-        }

@@ -2,9 +2,9 @@
 
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
-from .models import SessionLogStep, User, \
-    VirtualMachine
-from core.utils.utils import to_thread
+
+from core.db.models import SessionLogStep, User
+from core.utils import to_thread
 
 
 def threaded_transaction(func):
@@ -77,10 +77,6 @@ class Database(object):
         return dbsession.query(SessionLogStep).filter_by(
             session_id=session.id, milestone=True).order_by(
                 desc(SessionLogStep.id)).first()
-
-    @transaction
-    def get_vm(self, vm_id, dbsession=None):
-        return dbsession.query(VirtualMachine).get(vm_id)
 
     @transaction
     def get_sessions(self, dbsession=None):

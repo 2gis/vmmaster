@@ -7,7 +7,8 @@ from functools import partial, wraps
 import websocket
 import thread
 
-from core.utils import network_utils, utils
+from core.utils import network_utils
+from core import utils
 from vmmaster.webdriver.helpers import check_to_exist_ip
 from core.config import config
 from core.logger import log

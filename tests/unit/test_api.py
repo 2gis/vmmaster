@@ -12,16 +12,19 @@ class TestApi(BaseTestCase):
         from core.config import setup_config
         setup_config('data/config.py')
 
-        with patch('core.network.network.Network',
-                   Mock(name='Network')), \
-                patch('core.connection.Virsh', Mock(name='Virsh')), \
-                patch('core.db.database', Mock()), \
-                patch('core.utils.init.home_dir',
-                      Mock(return_value=fake_home_dir())), \
-                patch('core.logger.setup_logging',
-                      Mock(return_value=Mock())),\
-                patch('core.sessions.SessionWorker', Mock()):
-
+        with patch(
+            'core.network.Network', Mock(name='Network')
+        ), patch(
+            'core.connection.Virsh', Mock(name='Virsh')
+        ), patch(
+            'core.db.database', Mock()
+        ), patch(
+            'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
+        ), patch(
+            'core.logger.setup_logging', Mock(return_value=Mock())
+        ), patch(
+            'core.sessions.SessionWorker', Mock()
+        ):
             from vmmaster.server import create_app
             self.app = create_app()
 
@@ -35,14 +38,16 @@ class TestApi(BaseTestCase):
             }
         }
 
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+
     def tearDown(self):
+        self.ctx.pop()
         with patch('core.db.database', Mock()) as db:
             db.update = Mock()
             self.app.cleanup()
             del self.app
 
-    @patch('core.endpoints.delete', new=Mock())
-    @patch('core.db.database', new=Mock())
     def test_api_sessions(self):
         from core.sessions import Session
         session = Session()
@@ -51,7 +56,7 @@ class TestApi(BaseTestCase):
         session.platform = 'test_origin_1'
         session.created = session.modified = datetime.now()
 
-        with patch('core.db.database.get_sessions',
+        with patch('flask.current_app.database.get_sessions',
                    Mock(return_value=[session])):
             response = self.vmmaster_client.get('/api/sessions')
         body = json.loads(response.data)
@@ -62,7 +67,8 @@ class TestApi(BaseTestCase):
         self.assertEqual(self.platform, sessions[0]['platform'])
         self.assertEqual(200, body['metacode'])
 
-        session.failed()
+        with patch('vmpool.api.endpoint.delete_vm', new=Mock()):
+            session.failed()
 
     def test_api_platforms(self):
         response = self.vmmaster_client.get('/api/platforms')
@@ -74,21 +80,23 @@ class TestApi(BaseTestCase):
         self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])
 
-    @patch('core.endpoints.delete', new=Mock())
-    @patch('core.db.database', Mock())
     def test_api_stop_session(self):
         from core.sessions import Session
         session = Session()
         session.id = 1
         session.failed = Mock()
 
-        with patch('core.db.database.get_session',
-                   Mock(return_value=session)):
+        with patch(
+            'flask.current_app.database.get_session',
+            Mock(return_value=session)
+        ):
             response = self.vmmaster_client.post("/api/session/%s/stop"
                                                  % session.id)
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
-        session.failed.assert_any_call()
+
+        with patch('vmpool.api.endpoint.delete_vm', new=Mock()):
+            session.failed.assert_any_call()
 
     @patch('core.db.database', Mock())
     def test_get_screenshots(self):

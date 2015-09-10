@@ -2,35 +2,70 @@
 
 import json
 import time
-from mock import Mock, patch, PropertyMock
 
+from mock import Mock, patch, PropertyMock
 from uuid import uuid4
 from flask import Response
+from threading import Thread
+from multiprocessing.pool import ThreadPool
 from core.config import setup_config, config
-from helpers import server_is_up, server_is_down, \
+from tests.unit.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
-    vmmaster_label, run_script, request_with_drop, fake_home_dir, BaseTestCase
+    vmmaster_label, run_script, request_with_drop, BaseTestCase
 
 
-def empty_decorator(f):
-    return f
+from nose.twistedtools import reactor
 
 
-@patch('vmmaster.webdriver.commands.start_selenium_session', new=Mock(
-    __name__="start_selenium_session",
-    return_value=(200, {}, json.dumps({'sessionId': "1"})))
+class BaseTestServer(BaseTestCase):
+    def setUp(self):
+        with patch(
+            'core.connection.Virsh', Mock(),
+        ), patch(
+            'core.network.Network', Mock()
+        ), patch(
+            'core.db.database', Mock(get_sessions=Mock(return_value=[]))
+        ):
+            from vmmaster.server import VMMasterServer
+
+        self.vmmaster = VMMasterServer(reactor, self.address[1])
+        self.pool = self.vmmaster.app.pool
+
+        server_is_up(self.address)
+
+
+@patch.multiple(
+    "vmpool.clone.KVMClone",
+    clone_origin=Mock(),
+    define_clone=Mock(),
+    start_virtual_machine=Mock(),
+    drive_path=Mock()
 )
-@patch('vmmaster.webdriver.commands.ping_vm', new=Mock(
-    __name__="check_vm_online", return_value=True))
-@patch('vmmaster.webdriver.commands.selenium_status', new=Mock(
-    __name__="selenium_status",
-    return_value=(200, {}, json.dumps({'status': 0})))
+@patch(
+    'vmmaster.webdriver.commands.ping_vm',
+    new=Mock(__name__="check_vm_online", return_value=True)
 )
-@patch('core.db.database', new=Mock())
-class TestServer(BaseTestCase):
+@patch(
+    'vmmaster.webdriver.commands.selenium_status',
+    new=Mock(
+        __name__="selenium_status",
+        return_value=(200, {}, json.dumps({'status': 0}))
+    )
+)
+@patch(
+    'vmmaster.webdriver.commands.start_selenium_session',
+    new=Mock(
+        __name__="start_selenium_session",
+        return_value=(200, {}, json.dumps({'sessionId': "1"}))
+    )
+)
+class TestServer(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
+
         self.address = ("localhost", 9001)
+
+        super(TestServer, self).setUp()
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -38,80 +73,40 @@ class TestServer(BaseTestCase):
             }
         }
 
-        with patch('core.network.network.Network', Mock(
-                return_value=Mock(get_ip=Mock(return_value='0')))), \
-            patch('core.connection.Virsh', Mock()), \
-                patch('core.db.database', Mock()), \
-                patch('core.utils.init.home_dir',
-                      Mock(return_value=fake_home_dir())), \
-                patch('core.logger.setup_logging',
-                      Mock(return_value=Mock())),\
-                patch('core.sessions.SessionWorker', Mock()):
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
 
-            from core.auth import custom_auth
-            custom_auth.user_exists = empty_decorator
-            custom_auth.auth.login_required = empty_decorator
-
-            from vmmaster.server import VMMasterServer
-            from nose.twistedtools import reactor
-            self.vmmaster = VMMasterServer(reactor, self.address[1])
-
-        server_is_up(self.address)
-
-        # TODO: mock it via 'with patch'
-        from core.utils import utils
-        utils.delete_file = Mock()
-        from vmpool.clone import KVMClone
-        KVMClone.clone_origin = Mock()
-        KVMClone.define_clone = Mock()
-        KVMClone.start_virtual_machine = Mock()
-        KVMClone.drive_path = Mock()
-        KVMClone.id = 1
-
+    @patch('core.utils.delete_file', Mock())
     def tearDown(self):
-        with patch('core.db.database', Mock()):
-            del self.vmmaster
-            server_is_down(self.address)
+        self.ctx.pop()
+        del self.vmmaster
+        server_is_down(self.address)
 
-    @patch.multiple('core.sessions.Session',
-                    set_vm=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'))
     def test_server_create_new_session(self):
-        with patch('core.sessions.Session.run_script',
-                   PropertyMock(return_value=False)):
-            response = new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
 
-        from vmpool.virtual_machines_pool import pool
-        vm_count = len(pool.using)
+        vm_count = len(self.pool.using)
 
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
 
-    @patch.multiple(
-        'core.sessions.Session',
-        set_vm=Mock(),
-        endpoint_name=Mock(return_value='some_machine')
-    )
     def test_server_creating_a_few_parallel_sessions(self):
-        from multiprocessing.pool import ThreadPool
         tpool = ThreadPool(3)
-        with patch('core.sessions.Session.run_script',
-                   PropertyMock(return_value=False)):
-            deffered1 = tpool.apply_async(new_session_request, args=(
-                self.address, self.desired_caps))
-            deffered2 = tpool.apply_async(new_session_request, args=(
-                self.address, self.desired_caps))
-            deffered3 = tpool.apply_async(new_session_request, args=(
-                self.address, self.desired_caps))
-            deffered1.wait()
-            deffered2.wait()
-            deffered3.wait()
-            result1 = deffered1.get()
-            result2 = deffered2.get()
-            result3 = deffered3.get()
 
-        from vmpool.virtual_machines_pool import pool
-        vm_count = len(pool.using)
+        deffered1 = tpool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered2 = tpool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered3 = tpool.apply_async(new_session_request, args=(
+            self.address, self.desired_caps))
+        deffered1.wait()
+        deffered2.wait()
+        deffered3.wait()
+        result1 = deffered1.get()
+        result2 = deffered2.get()
+        result3 = deffered3.get()
+
+        vm_count = len(self.pool.using)
 
         self.assertTrue(
             200 in (result1.status, result2.status, result3.status))
@@ -119,11 +114,7 @@ class TestServer(BaseTestCase):
             500 in (result1.status, result2.status, result3.status))
         self.assertEqual(2, vm_count)
 
-    @patch.multiple('core.sessions.Session',
-                    set_vm=Mock(),
-                    set_user=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'),
-                    run_script=PropertyMock(return_value=False))
+    @patch('core.sessions.Session.set_user', Mock())
     def test_server_create_new_session_with_user_and_token(self):
         """
         - pass user and token via desired capabilities
@@ -135,8 +126,7 @@ class TestServer(BaseTestCase):
 
         response = new_session_request(self.address, _desired_caps)
 
-        from vmpool.virtual_machines_pool import pool
-        vm_count = len(pool.using)
+        vm_count = len(self.pool.using)
 
         self.assertEqual(200, response.status)
         self.assertEqual(1, vm_count)
@@ -147,24 +137,28 @@ class TestServer(BaseTestCase):
         - try to create new session
         Expected: thread with new session is alive
         """
-        from threading import Thread
 
-        from vmpool.virtual_machines_pool import pool
-        pool.add('test_origin_1')
-        pool.add('test_origin_1')
-        with patch('core.sessions.Session.run_script',
-                   PropertyMock(return_value=False)):
-            t = Thread(target=new_session_request, args=(self.address,
-                                                         self.desired_caps))
+        self.pool.add('test_origin_1')
+        self.pool.add('test_origin_1')
+
+        t = Thread(
+            target=new_session_request,
+            args=(self.address, self.desired_caps)
+        )
         t.daemon = True
         t.start()
-        self.assertEqual(2, len(pool.using))
+        self.assertEqual(2, len(self.pool.using))
         self.assertTrue(t.isAlive())
         t.join(0.1)
 
-    @patch.multiple('core.sessions.Session',
-                    set_vm=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'))
+    @patch(
+        'core.sessions.Session.make_request',
+        Mock(side_effect=Mock(return_value=(200, {}, None)))
+    )
+    @patch(
+        'vmmaster.webdriver.helpers.transparent',
+        Mock(return_value=Response(status=200, headers={}, response=None))
+    )
     def test_delete_session(self):
         """
         - create new session
@@ -173,22 +167,25 @@ class TestServer(BaseTestCase):
         Expected: session deleted
         """
         from core.sessions import Session
-        with patch.object(Session, 'make_request', side_effect=Mock(
-                return_value=(200, {}, None))), \
-                patch('vmmaster.webdriver.helpers.transparent',
-                      Mock(return_value=Response(
-                           status=200, headers={}, response=None))):
-            session = Session()
-            session.id = 1
-            session.succeed = Mock()
-            session.add_session_step = Mock()
+        session = Session()
+        session.id = 1
+        session.succeed = Mock()
+        session.add_session_step = Mock()
 
-            with patch('core.sessions.Sessions.get_session',
-                       Mock(return_value=session)):
-                response = delete_session_request(self.address, session.id)
-                session.succeed.assert_called_once_with()
-            self.assertEqual(200, response.status)
+        with patch('core.sessions.Sessions.get_session',
+                   Mock(return_value=session)):
+            response = delete_session_request(self.address, session.id)
+            session.succeed.assert_called_once_with()
+        self.assertEqual(200, response.status)
 
+    @patch(
+        'core.sessions.Session.make_request',
+        Mock(side_effect=Mock(return_value=(200, {}, None)))
+    )
+    @patch(
+        'vmmaster.webdriver.helpers.transparent',
+        Mock(return_value=Response(status=200, headers={}, response=None))
+    )
     def test_delete_session_if_got_session_but_session_not_exist(self):
         """
         - create new session
@@ -199,56 +196,46 @@ class TestServer(BaseTestCase):
         Expected: session deleted
         """
         from core.sessions import Session
-        with patch.object(Session, 'make_request', side_effect=Mock(
-                return_value=(200, {}, None))), \
-                patch('vmmaster.webdriver.helpers.transparent',
-                      Mock(return_value=Response(
-                           status=200, headers={}, response=None))):
+        session = Session()
+        session.id = 1
+        session.succeed = Mock()
+        session.add_session_step = Mock()
 
-            session = Session()
-            session.id = 1
-            session.succeed = Mock()
-            session.add_session_step = Mock()
+        with patch(
+            'core.sessions.Sessions.get_session',
+            Mock(return_value=session)
+        ):
+            response = delete_session_request(self.address, session.id)
+            self.assertEqual(200, response.status)
+            response2 = delete_session_request(self.address, session.id)
+            self.assertEqual(200, response2.status)
 
-            with patch('core.sessions.Sessions.get_session',
-                       Mock(return_value=session)):
-                response = delete_session_request(self.address, session.id)
-                self.assertEqual(200, response.status)
-                response2 = delete_session_request(self.address, session.id)
-                self.assertEqual(200, response2.status)
-
+    @patch('flask.current_app.database.get_session', Mock(return_value=None))
     def test_delete_none_existing_session(self):
         """
         - try to delete session from empty pool
         Expected: exception
         """
         session = uuid4()
-        with patch('core.db.database.get_session', Mock(
-                return_value=None)):
-            response = delete_session_request(self.address, session)
+        response = delete_session_request(self.address, session)
         self.assertTrue("SessionException: There is no active session %s" %
                         session in response.content)
 
+    @patch('flask.current_app.database.get_session', Mock(return_value=None))
     def test_get_none_existing_session(self):
         """
         - try to get session from empty pool
         Expected: exception
         """
         session = uuid4()
-        with patch('core.db.database.get_session', Mock(
-                return_value=None)):
-            response = get_session_request(self.address, session)
+        response = get_session_request(self.address, session)
         self.assertTrue("SessionException: There is no active session %s" %
                         session in response.content)
 
-    @patch('vmmaster.webdriver.helpers.transparent', new=Mock(
-        return_value=Response(status=200, headers={}, response=None))
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_result=True)
     )
-    @patch.multiple('core.sessions.Session',
-                    make_request=Mock(
-                        side_effect=Mock(return_value=(200, {}, None))),
-                    set_vm=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'))
     def test_server_deleting_session_on_client_connection_drop(self):
         """
         - create vmmaster session
@@ -261,16 +248,20 @@ class TestServer(BaseTestCase):
         session.id = 1
 
         with patch(
-                'vmmaster.webdriver.helpers.is_request_closed',
-                Mock(return_result=True)
-        ), patch(
-                'core.sessions.Sessions.get_session',
-                Mock(return_value=session)
-        ), patch.object(Session, 'delete') as mock:
+            'core.sessions.Sessions.get_session',
+            Mock(return_value=session)
+        ), patch.object(
+            Session, 'delete'
+        ) as mock:
             get_session_request(self.address, session.id)
 
         self.assertTrue(mock.called)
 
+    @patch(
+        'vmmaster.webdriver.commands.AgentCommands',
+        {'runScript': Mock(
+            return_value=(200, {}, json.dumps({"output": "hello world\n"})))}
+    )
     def test_run_script(self):
         """
         - create vmmaster session
@@ -283,34 +274,32 @@ class TestServer(BaseTestCase):
         session.selenium_session = '1'
         output = json.dumps({"output": "hello world\n"})
 
-        from vmmaster.webdriver import commands
-        with patch.object(
-                commands, 'AgentCommands',
-                {'runScript': Mock(return_value=(200, {}, output))}),\
-                patch('core.sessions.Sessions.get_session',
-                      Mock(return_value=session)):
+        with patch(
+            'core.sessions.Sessions.get_session',
+            Mock(return_value=session)
+        ):
             response = run_script(
                 self.address, session.id, "echo 'hello world'")
 
         self.assertEqual(200, response.status)
         self.assertEqual(output, response.content)
 
+    @patch(
+        'vmmaster.webdriver.commands.InternalCommands',
+        {'vmmasterLabel': Mock(
+            return_value=(200, {}, json.dumps({"value": "step-label"})))}
+    )
     def test_vmmaster_label(self):
         from core.sessions import Session
         session = Session()
         session.id = 1
-        output = json.dumps({"value": "step-label"})
-
-        from vmmaster.webdriver import commands
-        with patch.object(commands, 'InternalCommands',
-                          {'vmmasterLabel':
-                           Mock(return_value=(200, {}, output))}),\
-            patch('core.sessions.Sessions.get_session',
-                  Mock(return_value=session)):
+        with patch(
+            'core.sessions.Sessions.get_session', Mock(return_value=session)
+        ):
             response = vmmaster_label(self.address, session.id, "step-label")
 
         self.assertEqual(200, response.status)
-        self.assertEqual(output, response.content)
+        self.assertEqual(json.dumps({"value": "step-label"}), response.content)
 
     def test_vmmaster_no_such_platform(self):
         desired_caps = {
@@ -324,16 +313,19 @@ class TestServer(BaseTestCase):
         self.assertIn('PlatformException: No such platform no_platform', error)
 
 
-@patch('core.db.database', new=Mock())
 class TestSessionWorker(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
 
+        from flask import Flask
+        self.app = Flask(__name__)
+
         from core.sessions import SessionWorker
-        self.worker = SessionWorker()
+        self.worker = SessionWorker(self.app)
 
     def tearDown(self):
         self.worker.stop()
+        del self.app
 
     def test_server_timeouted_session(self):
         """
@@ -343,76 +335,39 @@ class TestSessionWorker(BaseTestCase):
         """
 
         too_long = config.SESSION_TIMEOUT + 1
-        with patch(
-            'core.sessions.Session.inactivity',
-            PropertyMock(return_value=too_long)
-        ), patch(
-            'core.sessions.Session.timeout', Mock()
-        ):
-            from core.sessions import Session
-            session = Session()
-            session.id = 1
-            session.selenium_session = '1'
+        session = Mock()
+        session.timeout = Mock()
+        session.inactivity = too_long
 
-            self.worker.active_sessions = Mock(return_value=[session])
-            self.worker.start()
+        self.worker.active_sessions = Mock(return_value=[session])
+        self.worker.start()
 
-            session.timeout.assert_any_call()
+        session.timeout.assert_any_call()
 
 
-class TestSessionStates(BaseTestCase):
+class TestSessionStates(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
 
-        with patch(
-            'core.network.network.Network', Mock()
-        ), patch(
-            'core.connection.Virsh', Mock()
-        ), patch(
-            'core.db.database', Mock(
-                get_sessions=Mock(return_value=[])
-            )
-        ), patch(
-            'core.utils.init.home_dir',
-            Mock(return_value=fake_home_dir())
-        ), patch(
-            'core.logger.setup_logging',
-            Mock(return_value=Mock())
-        ):
-            from core.auth import custom_auth
-            custom_auth.user_exists = empty_decorator
-            custom_auth.auth.login_required = empty_decorator
+        super(TestSessionStates, self).setUp()
 
-            from vmmaster.server import VMMasterServer
-            from nose.twistedtools import reactor
-            self.server = VMMasterServer(reactor, self.address[1])
+        self.pool = self.vmmaster.app.pool
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.app.platforms.platforms.keys()[0]
+                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
             }
         }
 
-        server_is_up(self.address)
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
 
-        from vmpool.virtual_machines_pool import VirtualMachinesPool
-        self.VirtualMachinesPool = VirtualMachinesPool
-
-        # TODO: fix it similar to OpenstackClone mocks
-        from core.utils import utils
-        utils.delete_file = Mock()
-        from vmpool.clone import KVMClone
-        KVMClone.clone_origin = Mock()
-        KVMClone.define_clone = Mock()
-        KVMClone.start_virtual_machine = Mock()
-        KVMClone.drive_path = Mock()
-        KVMClone.id = 1
-
+    @patch('core.utils.delete_file', Mock())
     def tearDown(self):
-        with patch('core.db.database', Mock()):
-            del self.server
-            server_is_down(self.address)
+        self.ctx.pop()
+        del self.vmmaster
+        server_is_down(self.address)
 
     @patch('core.db.database', new=Mock())
     def test_server_delete_closed_session(self):
@@ -442,14 +397,14 @@ class TestSessionStates(BaseTestCase):
             time.sleep(2)
             return Mock()
 
-        self.assertEqual(0, self.VirtualMachinesPool.count())
+        self.assertEqual(0, self.pool.count())
 
         import vmpool.virtual_machines_pool as vmp
         with patch.object(vmp, 'pool', Mock()) as p:
             p.has = Mock(side_effect=pool_fake_return)
             request_with_drop(self.address, self.desired_caps, None)
 
-        self.assertEqual(0, self.VirtualMachinesPool.count())
+        self.assertEqual(0, self.pool.count())
 
     def test_req_closed_when_request_append_to_queue(self):
         """
@@ -462,44 +417,38 @@ class TestSessionStates(BaseTestCase):
             p.can_produce = Mock(return_value=False)
             request_with_drop(self.address, self.desired_caps, None)
 
-        self.assertEqual(0, self.VirtualMachinesPool.count())
+        self.assertEqual(0, self.pool.count())
 
 
-class TestServerShutdown(BaseTestCase):
+class TestServerShutdown(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
+
         self.address = ("localhost", 9001)
 
-        with patch('core.network.network.Network', Mock()), \
-            patch('core.connection.Virsh', Mock()), \
-                patch('core.db.database', Mock()), \
-                patch('core.utils.init.home_dir',
-                      Mock(return_value=fake_home_dir())), \
-                patch('core.logger.setup_logging',
-                      Mock(return_value=Mock())), \
-                patch('core.sessions.SessionWorker', Mock()):
-                from vmmaster.server import VMMasterServer
-                from nose.twistedtools import reactor
-                self.server = VMMasterServer(reactor, self.address[1])
+        super(TestServerShutdown, self).setUp()
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.server.app.platforms.platforms.keys()[0]
+                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
             }
         }
-        server_is_up(self.address)
+
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
+
+    def tearDown(self):
+        self.ctx.pop()
 
     def test_server_shutdown(self):
         """
         - shutdown current instance
         Expected: server is down
         """
-        with patch('core.db.database', new=Mock()):
-            del self.server
-            with self.assertRaises(RuntimeError):
-                server_is_up(self.address, wait=1)
+        del self.vmmaster
+        with self.assertRaises(RuntimeError):
+            server_is_up(self.address, wait=1)
 
-    @patch('core.db.database', new=Mock())
     def test_session_is_not_deleted_after_server_shutdown(self):
         """
         - delete server with active session
@@ -511,7 +460,7 @@ class TestServerShutdown(BaseTestCase):
 
         with patch('core.sessions.Sessions.get_session',
                    Mock(return_value=session)):
-            del self.server
+            del self.vmmaster
 
         self.assertFalse(session.is_closed())
         session.failed()
@@ -524,80 +473,80 @@ def custom_wait(self, method):
     self.checking = False
 
 
-@patch('vmmaster.webdriver.commands.start_selenium_session', new=Mock(
-    __name__="start_selenium_session",
-    return_value=(200, {}, json.dumps({'sessionId': "1"})))
+@patch(
+    'vmmaster.webdriver.commands.ping_vm',
+    new=Mock(__name__="check_vm_online", return_value=True)
 )
-@patch('vmmaster.webdriver.commands.ping_vm', new=Mock(
-    __name__="check_vm_online"
-))
-@patch('vmmaster.webdriver.commands.selenium_status', new=Mock(
-    __name__="selenium_status",
-    return_value=(200, {}, json.dumps({'status': 0})))
+@patch(
+    'vmmaster.webdriver.commands.selenium_status',
+    new=Mock(
+        __name__="selenium_status",
+        return_value=(200, {}, json.dumps({'status': 0}))
+    )
 )
-@patch('core.db.database', new=Mock())
+@patch(
+    'vmmaster.webdriver.commands.start_selenium_session',
+    new=Mock(
+        __name__="start_selenium_session",
+        return_value=(200, {}, json.dumps({'sessionId': "1"}))
+    )
+)
 class TestServerWithPreloadedVM(BaseTestCase):
     def setUp(self):
         setup_config('data/config_with_preloaded.py')
+
         self.address = ("localhost", 9001)
+
         self.desired_caps = {
             'desiredCapabilities': {
                 'platform': 'origin_1'
             }
         }
-        self.server = None
 
-        mocked_image = Mock(id=1, status='active',
-                            get=Mock(return_value='snapshot'), min_disk=20,
-                            min_ram=2, instance_type_flavorid=1)
+        mocked_image = Mock(
+            id=1, status='active',
+            get=Mock(return_value='snapshot'), min_disk=20,
+            min_ram=2, instance_type_flavorid=1
+        )
         type(mocked_image).name = PropertyMock(return_value='test_origin_1')
 
-        with patch('core.network.network.Network', Mock()), \
-            patch('core.connection.Virsh', Mock()), \
-            patch('core.db.database', Mock()), \
-            patch('core.sessions.SessionWorker', Mock()), \
-            patch.multiple(
-                'core.utils.openstack_utils',
-                neutron_client=Mock(return_value=Mock()),
-                glance_client=Mock(return_value=Mock()),
-                nova_client=Mock(return_value=Mock())), \
-            patch.multiple(
-                'vmpool.clone.OpenstackClone',
-                _wait_for_activated_service=custom_wait,
-                get_network_id=Mock(return_value=1),
-                get_network_name=Mock(return_value='Local-Net')), \
-            patch.multiple(
-                'vmpool.platforms.OpenstackPlatforms',
-                images=Mock(return_value=[mocked_image]),
-                flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
-                limits=Mock(return_value={'maxTotalCores': 10,
-                                          'maxTotalInstances': 10,
-                                          'maxTotalRAMSize': 100,
-                                          'totalCoresUsed': 0,
-                                          'totalInstancesUsed': 0,
-                                          'totalRAMUsed': 0})), \
-            patch('core.utils.init.home_dir',
-                  Mock(return_value=fake_home_dir())), \
-                patch('core.logger.setup_logging',
-                      Mock(return_value=Mock())):
-
-            from core.auth import custom_auth
-            custom_auth.user_exists = empty_decorator
-            custom_auth.auth.login_required = empty_decorator
-
+        with patch(
+            'core.connection.Virsh', Mock(),
+        ), patch(
+            'core.network.Network', Mock()
+        ), patch(
+            'core.db.database', Mock(get_sessions=Mock(return_value=[]))
+        ), patch.multiple(
+            'core.utils.openstack_utils',
+            neutron_client=Mock(return_value=Mock()),
+            glance_client=Mock(return_value=Mock()),
+            nova_client=Mock(return_value=Mock())
+        ), patch.multiple(
+            'vmpool.clone.OpenstackClone',
+            _wait_for_activated_service=custom_wait,
+            get_network_id=Mock(return_value=1),
+            get_network_name=Mock(return_value='Local-Net')
+        ), patch.multiple(
+            'vmpool.platforms.OpenstackPlatforms',
+            images=Mock(return_value=[mocked_image]),
+            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
+            limits=Mock(return_value={
+                'maxTotalCores': 10, 'maxTotalInstances': 10,
+                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
+                'totalInstancesUsed': 0, 'totalRAMUsed': 0}
+            )
+        ):
             from vmmaster.server import VMMasterServer
-            from nose.twistedtools import reactor
-            self.server = VMMasterServer(reactor, self.address[1])
+            self.vmmaster = VMMasterServer(reactor, self.address[1])
+
+        self.pool = self.vmmaster.app.pool
 
         server_is_up(self.address)
 
-        from vmpool.virtual_machines_pool import VirtualMachinesPool
-        self.VirtualMachinesPool = VirtualMachinesPool
-
+    @patch('core.utils.delete_file', Mock())
     def tearDown(self):
-        with patch('core.db.database', Mock()):
-            del self.server
-            server_is_down(self.address)
+        del self.vmmaster
+        server_is_down(self.address)
 
     @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
         __name__='vm_has_created',
@@ -614,20 +563,13 @@ class TestServerWithPreloadedVM(BaseTestCase):
         Expected: session created
         """
         while True:
-            if self.VirtualMachinesPool.pool[0].ready is True:
+            if self.pool.pool[0].ready is True:
                 break
 
-        with patch('core.db.models.Session.add_session_step',
-                   Mock()),\
-                patch.multiple(
-                    'core.sessions.Session',
-                    set_vm=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'),
-                    run_script=PropertyMock(return_value=False)):
-            response = new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
 
         self.assertEqual(200, response.status)
-        self.assertEqual(1, self.VirtualMachinesPool.count())
+        self.assertEqual(1, self.pool.count())
 
     @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
         __name__='vm_has_created',
@@ -643,14 +585,7 @@ class TestServerWithPreloadedVM(BaseTestCase):
         - make new session request
         Expected: session created
         """
-        with patch('core.db.models.Session.add_session_step',
-                   Mock()),\
-                patch.multiple(
-                    'core.sessions.Session',
-                    set_vm=Mock(),
-                    endpoint_name=Mock(return_value='some_machine'),
-                    run_script=PropertyMock(return_value=False)):
-            response = new_session_request(self.address, self.desired_caps)
+        response = new_session_request(self.address, self.desired_caps)
 
         self.assertEqual(200, response.status)
-        self.assertEqual(1, self.VirtualMachinesPool.count())
+        self.assertEqual(1, self.pool.count())

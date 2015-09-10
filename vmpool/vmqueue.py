@@ -1,8 +1,10 @@
 # coding: utf-8
+
 from threading import Thread
 from time import sleep
 
 from core.logger import log
+from vmpool.virtual_machines_pool import pool
 
 
 class DelayedVirtualMachine(object):
@@ -40,7 +42,6 @@ class QueueWorker(Thread):
         self.queue = queue
 
     def run(self):
-        from vmpool.virtual_machines_pool import pool
         while self.running:
             for delayed_vm in list(self.queue):
                 platform = delayed_vm.dc.get('platform', '')

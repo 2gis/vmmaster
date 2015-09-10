@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from mock import Mock, patch
 from core.config import setup_config
 
@@ -17,6 +19,9 @@ class TestHttpProxy(BaseTestCase):
         self.free_port = get_free_port()
         self.connection_props = self.address + (self.free_port,)
 
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
+
         with patch('core.db.database', Mock()):
             from core.sessions import Session
             self.session = Session()
@@ -24,6 +29,7 @@ class TestHttpProxy(BaseTestCase):
             self.session.endpoint_ip = "localhost"
 
     def tearDown(self):
+        self.ctx.pop()
         with patch('core.db.database', Mock()):
             del self.vmmaster
             server_is_down(self.address)

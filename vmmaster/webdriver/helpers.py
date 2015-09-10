@@ -14,9 +14,9 @@ from core.exceptions import ConnectionError, \
     CreationException, PlatformException
 from core.config import config
 from core.logger import log
-from core.utils import utils
-from core import endpoints
+from vmpool.api.endpoint import new_vm, delete_vm
 from core.sessions import Session
+from core import utils
 
 
 class BucketThread(Thread):
@@ -188,16 +188,17 @@ def get_session():
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
 
+    log.info("Session %s waiting for endpoint (%s)..." % (session.id, str(dc)))
     try:
-        endpoint = endpoints.get(dc)
+        endpoint = new_vm(dc)
     except Exception as e:
         error_message = '%s' % str(e.message)
         session.failed(error_message)
         raise PlatformException(error_message)
-
+    log.info('Session %s got new endpoint (%s)' % (session.id, endpoint))
     if is_request_closed() or session.is_closed():
         if endpoint:
-            endpoints.delete(endpoint["id"])
+            delete_vm(endpoint["id"])
         raise ConnectionError(
             "Session was closed during creating selenium session"
         )

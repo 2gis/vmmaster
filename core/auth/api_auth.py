@@ -3,8 +3,7 @@
 from json import dumps
 from flask.ext.httpauth import HTTPBasicAuth
 from functools import wraps
-from flask import request, make_response
-import core.db as db
+from flask import request, make_response, current_app
 
 
 def account_is_locked():
@@ -41,7 +40,8 @@ class APIBasicAuth(HTTPBasicAuth):
             if request.method != 'OPTIONS':
                 if auth:
                     # Check user is active
-                    client = db.database.get_user(username=auth.username)
+                    client = current_app.database.get_user(
+                        username=auth.username)
                     if not client.is_active:
                         return account_is_locked()
                     # Check user access rights for resource
@@ -61,7 +61,7 @@ auth = APIBasicAuth()
 
 @auth.hash_password
 def get_password(username):
-    user = db.database.get_user(username=username)
+    user = current_app.database.get_user(username=username)
     if user:
         return user.password
     else:
