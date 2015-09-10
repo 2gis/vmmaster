@@ -8,6 +8,8 @@ import time
 import socket
 import unittest
 
+from mock import Mock, patch
+
 
 class TimeoutException(Exception):
     pass
@@ -155,7 +157,8 @@ class Handler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_reply(code, self.headers.dict, body=self.body)
 
     def do_GET(self):
-        raise NotImplemented
+        body = "ok"
+        self.send_reply(200, {"Content-Length": len(body)}, body)
 
     def log_error(self, format, *args):
         pass
@@ -188,3 +191,23 @@ class ServerMock(object):
 class BaseTestCase(unittest.TestCase):
     def shortDescription(self):
         return None
+
+
+def vmmaster_server_mock(port):
+    with patch(
+        'core.network.network.Network', Mock(
+            return_value=Mock(get_ip=Mock(return_value='0')))
+    ), patch(
+        'core.connection.Virsh', Mock()
+    ), patch(
+        'core.db.database', Mock()
+    ), patch(
+        'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
+    ), patch(
+        'core.logger.setup_logging', Mock(return_value=Mock())
+    ), patch(
+        'core.sessions.SessionWorker', Mock()
+    ):
+        from vmmaster.server import VMMasterServer
+        from nose.twistedtools import reactor
+        return VMMasterServer(reactor, port)

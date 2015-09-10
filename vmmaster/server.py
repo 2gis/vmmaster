@@ -4,10 +4,13 @@ import time
 from twisted.internet.threads import deferToThread
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
+from twisted.web.resource import Resource
 from twisted.internet import defer
 from app import create_app
 
+from http_proxy import ProxyResource, HTTPChannelWithClient
 from core.logger import log
+from core.exceptions import SessionException
 
 
 def _block_on(d, timeout=None):
@@ -29,14 +32,30 @@ def _block_on(d, timeout=None):
         return ret
 
 
+class RootResource(Resource):
+    def __init__(self, fallback_resource):
+        Resource.__init__(self)
+        self.fallback_resource = fallback_resource
+
+    def getChildWithDefault(self, path, request):
+        if path in self.children:
+            return self.children[path]
+
+        request.postpath.insert(0, path)
+        return self.fallback_resource
+
+
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        self.resource = WSGIResource(self.reactor,
+        wsgi_resource = WSGIResource(self.reactor,
                                      self.reactor.getThreadPool(),
                                      self.app)
-        site = Site(self.resource)
+        root_resource = RootResource(wsgi_resource)
+        root_resource.putChild("proxy", ProxyResource(self.app))
+        site = Site(root_resource)
+        site.protocol = HTTPChannelWithClient
         self.bind = self.reactor.listenTCP(port, site)
         log.info('Server is listening on %s ...' % port)
 
@@ -60,10 +79,13 @@ class VMMasterServer(object):
             while active_sessions:
                 for session in active_sessions:
                     try:
-                        session_status = _self.app.sessions.get_session(session.id).status
-                    except Exception:
-                        session_status = None
-                    if session_status in ('failed', 'success', None):
+                        _session = _self.app.sessions.get_session(session.id)
+                    except SessionException:
+                        _session = None
+                    if _session:
+                        if _session.status in ('failed', 'success'):
+                            active_sessions.remove(session)
+                    else:
                         active_sessions.remove(session)
 
                 time.sleep(1)
