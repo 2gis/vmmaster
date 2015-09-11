@@ -15,6 +15,7 @@ from core.db.models import Session as SessionModel
 from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
+from core.utils import utils
 
 
 def getresponse(req, q):
@@ -203,17 +204,7 @@ class Session(SessionModel):
                 elif t is not None:
                     t.join(0.1)
 
-        try:
-            content_json = json.loads(response.content)
-        except ValueError:
-            content_json = {}
-            log.info("Couldn't parse response content <%s>" %
-                     repr(response.content))
-
-        if "screenshot" in content_json.keys():
-            content_to_log = ""
-        else:
-            content_to_log = response.content
+        content_to_log = utils.remove_base64_screenshot(response.content)
 
         self.add_sub_step(
             control_line=str(response.status_code),

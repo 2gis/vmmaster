@@ -9,6 +9,7 @@ from core.db import database
 from core.logger import log
 from core.exceptions import SessionException, ConnectionError
 from core.auth.custom_auth import auth, anonymous
+from core.utils import utils
 
 webdriver = Blueprint('webdriver', __name__)
 
@@ -68,8 +69,9 @@ def log_response(response):
         except SessionException:
             session = None
         if session:
+            response_data = utils.remove_base64_screenshot(response.data)
             session.add_session_step(control_line=response.status_code,
-                                     body=response.data,
+                                     body=response_data,
                                      milestone=False)
     log.debug('Response %s %s' % (response.data, response.status_code))
     return response
@@ -143,11 +145,14 @@ def proxy_request(url):
         request.response = helpers.transparent()
 
     words = ["url", "click", "execute", "keys", "value"]
+    only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
+    session_id = request.session_id
+    session = current_app.sessions.get_session(session_id)
     if set(words) & set(parts) or parts[-1] == "session":
-        session_id = request.session_id
-        session = current_app.sessions.get_session(session_id)
-        if session.take_screenshot:
-            helpers.take_screenshot(session)
+        utils.to_thread(helpers.save_screenshot(session))
+    elif set(only_screenshots) & set(parts) \
+            and request.response.status_code == 500:
+        utils.to_thread(helpers.save_screenshot(session))
 
     return send_response(request.response)

@@ -3,6 +3,7 @@
 import base64
 import sys
 import commands
+import json
 
 from functools import wraps
 from threading import Thread
@@ -63,8 +64,21 @@ def threaded(func):
     return wrapper
 
 
-def take_screenshot(session):
-    screenshot = commands.take_screenshot(session, config.VMMASTER_AGENT_PORT)
+def save_screenshot(session):
+    screenshot = None
+
+    if request.response.status_code == 500:
+        data = json.loads(request.response.data)
+        try:
+            screenshot = data.get('value', {}).get('screen', None)
+        except AttributeError:
+            log.debug('Screenshot not found in webdriver '
+                      'response for session %s' % session.id)
+    else:
+        if session.take_screenshot:
+            screenshot = commands.take_screenshot(session,
+                                                  config.VMMASTER_AGENT_PORT)
+
     if screenshot:
         log_step = session.get_milestone_step()
         path = config.SCREENSHOTS_DIR + "/" + str(session.id) + \
@@ -72,6 +86,35 @@ def take_screenshot(session):
         utils.write_file(path, base64.b64decode(screenshot))
         log_step.screenshot = path
         log_step.save()
+        make_thumbnail_for_screenshot(path)
+
+
+def make_thumbnail_for_screenshot(screenshot_path):
+    screenshot_resize(screenshot_path, 128, postfix="_thumb")
+
+
+def screenshot_resize(screenshot_path, width, height=None, postfix=None):
+    from PIL import Image
+
+    try:
+        img = Image.open(screenshot_path)
+
+        if height:
+            size = width, height
+        else:
+            wpercent = (width / float(img.size[0]))
+            size = width, int((float(img.size[1]) * float(wpercent)))
+
+        if postfix:
+            postfix = "%s.png" % postfix
+        else:
+            postfix = "%sx%s.png" % size
+
+        new_file_path = screenshot_path.split('.png')[0] + postfix
+        img = img.resize(size, Image.ANTIALIAS)
+        img.save(new_file_path, "PNG")
+    except IOError:
+        log.debug("Can\'t resize image '%s'" % screenshot_path)
 
 
 def form_response(code, headers, body):
