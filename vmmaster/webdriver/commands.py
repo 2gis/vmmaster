@@ -3,17 +3,37 @@
 import json
 import httplib
 import time
-from functools import partial
+from functools import partial, wraps
 import websocket
 import thread
 
-from core.utils import network_utils
+from core.utils import network_utils, utils
 from vmmaster.webdriver.helpers import check_to_exist_ip
 from core.config import config
 from core.logger import log
 from core.exceptions import CreationException
 from core.sessions import RequestHelper, update_log_step
 from core.utils.graphite import graphite, send_metrics
+
+
+def add_sub_step(session, func):
+    @wraps(func)
+    def wrapper(port, request, *args, **kwargs):
+        session.add_sub_step(
+            control_line="%s %s" % (request.method, request.url),
+            body=request.data)
+
+        status, headers, body = func(port, request, *args, **kwargs)
+
+        content_to_log = utils.remove_base64_screenshot(body)
+
+        session.add_sub_step(
+            control_line=str(status),
+            body=content_to_log)
+
+        return status, headers, body
+
+    return wrapper
 
 
 def start_session(request, session):
@@ -96,7 +116,7 @@ def start_selenium_session(request, session, port):
         log.info("with %s %s\n%s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
-        status, headers, body = session.make_request(
+        status, headers, body = add_sub_step(session, session.make_request)(
             port,
             RequestHelper(request.method, request.path,
                           request.headers, request.data))
@@ -129,7 +149,7 @@ def selenium_status(request, session, port):
         log.info("Attempt %s. Getting selenium-server-standalone status "
                  "for %s" % (attempt, session.id))
 
-        status, headers, body = session.make_request(
+        status, headers, body = add_sub_step(session, session.make_request)(
             port, RequestHelper("GET", status_cmd))
         selenium_status_code = json.loads(body).get("status", None)
 

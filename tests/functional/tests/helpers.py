@@ -31,3 +31,6 @@ class TestCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.driver.quit()
+
+    def setUp(self):
+        self.vmmaster.label(self.__dict__['_testMethodName'])
