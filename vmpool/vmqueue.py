@@ -12,6 +12,11 @@ class DelayedVirtualMachine(object):
         self.dc = dc
         self.vm = None
 
+    def delete(self):
+        log.info("Deleting request for getting vm from "
+                 "queue with desired capabilities: %s" % self.dc)
+        q.dequeue(self)
+
 
 class VMPoolQueue(list):
     def enqueue(self, desired_capabilities):
@@ -45,14 +50,18 @@ class QueueWorker(Thread):
         while self.running:
             for delayed_vm in list(self.queue):
                 platform = delayed_vm.dc.get('platform', '')
+                vm = None
                 if pool.has(platform):
                     vm = pool.get_by_platform(platform)
-                    self.queue.dequeue(delayed_vm)
-                    delayed_vm.vm = vm
                 elif pool.can_produce(platform):
                     vm = pool.add(platform)
-                    self.queue.dequeue(delayed_vm)
-                    delayed_vm.vm = vm
+                if vm:
+                    try:
+                        self.queue.dequeue(delayed_vm)
+                    except ValueError:
+                        vm.delete()
+                    else:
+                        delayed_vm.vm = vm
             sleep(0.1)
 
     def stop(self):

@@ -7,7 +7,7 @@ from vmmaster.webdriver import commands
 import helpers
 
 from core.logger import log
-from core.exceptions import SessionException, ConnectionError
+from core.exceptions import SessionException
 from core.auth.custom_auth import auth, anonymous
 from core import utils
 
@@ -18,14 +18,12 @@ webdriver = Blueprint('webdriver', __name__)
 def handle_errors(error):
     tb = format_exc()
     log.error(tb)
-    if request.session_id:
-        try:
-            session = current_app.sessions.get_session(
-                request.session_id)
-        except SessionException:
-            pass
-        else:
-            session.failed(tb)
+        # try:
+            #
+        # except SessionException:
+            # pass
+        # else:
+    request.session.failed(tb)
 
     error_context = {
         'status': 13,
@@ -51,12 +49,6 @@ def log_request():
         )
         session.add_session_step(control_line=control_line,
                                  body=str(request.data))
-
-
-def send_response(response):
-    if helpers.is_request_closed():
-        raise ConnectionError("Session closed by user")
-    return response
 
 
 @webdriver.after_request
@@ -91,29 +83,35 @@ def verify_token(username, client_token):
 
 
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
-@helpers.threaded
+@helpers.response_generator
 def delete_session(session_id):
-    request.response = helpers.transparent()
-    response = request.response
+    request.session = current_app.sessions.get_session(session_id)
+    for status, headers, body in helpers.transparent():
+        yield status, headers, body
 
     request.session_id = session_id
     session = current_app.sessions.get_session(request.session_id)
-    session.add_session_step(control_line=response.status_code,
-                             body=request.response.data,
+    session.add_session_step(control_line=status,
+                             body=body,
                              milestone=False)
     session.succeed()
 
     # Session is done, forget about it
     request.session_id = None
-    return send_response(response)
+    yield helpers.form_response(status, headers, body)
 
 
 @webdriver.route('/session', methods=['POST'])
 @auth.login_required
-@helpers.threaded
+@helpers.response_generator
 def create_session():
     if current_app.running:
-        session = helpers.get_session()
+        session_generator = helpers.get_session()
+        session = next(session_generator)
+        request.session = session
+        request.session_id = session.id
+        for session in session_generator:
+            yield session
         control_line = "%s %s %s" % (
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
@@ -121,28 +119,30 @@ def create_session():
         session.add_session_step(control_line=control_line,
                                  body=str(request.data))
 
-        status, headers, body = commands.start_session(request, session)
-        request.response = helpers.form_response(status, headers, body)
-        return send_response(request.response)
+
+        commands.replace_platform_with_any(request)
+        for status, headers, body in commands.start_session(request, session):
+            yield status, headers, body
+        yield helpers.form_response(status, headers, body)
     else:
         log.info("This request is aborted %s" % request)
         abort(502)
 
 
-@webdriver.route("/session/<path:url>", methods=['GET', 'POST', 'DELETE'])
-@helpers.threaded
-def proxy_request(url):
-    request.session_id = url.split("/")[0]
-
+@webdriver.route("/session/<session_id>/<path:url>", methods=['GET', 'POST', 'DELETE'])
+@helpers.response_generator
+def proxy_request(session_id, url):
+    request.session = current_app.sessions.get_session(session_id)
     last = url.split("/")[-1]
     if last in commands.AgentCommands:
-        request.response = helpers.vmmaster_agent(
+        status, headers, body = helpers.vmmaster_agent(
             commands.AgentCommands[last])
     elif last in commands.InternalCommands:
-        request.response = helpers.internal_exec(
+        status, headers, body = helpers.internal_exec(
             commands.InternalCommands[last])
     else:
-        request.response = helpers.transparent()
+        for status, headers, body in helpers.transparent():
+            yield status, headers, body
 
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
@@ -154,5 +154,7 @@ def proxy_request(url):
     elif set(only_screenshots) & set(parts) \
             and request.response.status_code == 500:
         utils.to_thread(helpers.save_screenshot(session))
+        if session.take_screenshot:
+            helpers.take_screenshot(request.session)
 
-    return send_response(request.response)
+    yield helpers.form_response(status, headers, body)

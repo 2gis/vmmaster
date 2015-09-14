@@ -14,6 +14,7 @@ from core.db.models import Session as SessionModel
 from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
+from vmpool.endpoint import delete_vm
 
 from flask import current_app
 
@@ -117,12 +118,11 @@ class Session(SessionModel):
         self.save()
 
     def delete(self, message=""):
-        self.refresh()
-        if self.endpoint_name:
+        if hasattr(self, "endpoint"):
             log.info("Deleting VM for session: %s" % self.id)
-
-            from vmpool.api.endpoint import delete_vm
-            delete_vm(self.endpoint_name)
+            self.endpoint.delete()
+        else:
+            delete_vm(self.endpoint_id)
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
@@ -139,8 +139,8 @@ class Session(SessionModel):
         self.delete(tb)
 
     def set_vm(self, endpoint):
-        self.endpoint_ip = endpoint.get('ip', None)
-        self.endpoint_name = endpoint.get('name', None)
+        self.endpoint_ip = endpoint.ip
+        self.endpoint_name = endpoint.name
 
     def run(self, endpoint):
         self.restart_timer()
@@ -180,36 +180,14 @@ class Session(SessionModel):
         t.start()
 
         response = None
-        while not response:
-            if self.timeouted:
-                response = SimpleResponse(
-                    status_code=500,
-                    headers={},
-                    content='{"status": 1, "value": "Session timeouted"}'
-                )
-            elif self.closed:
-                response = SimpleResponse(
-                    status_code=500,
-                    headers={},
-                    content='{"status": 1, "value": "Session closed"}'
-                )
-            else:
-                if not t.isAlive():
-                    response = q.get()
-                    del q
-                    del t
-                    if isinstance(response, Exception):
-                        raise response
-                    response = SimpleResponse(
-                        status_code=response.status_code,
-                        headers=response.headers,
-                        content=response.content
-                    )
-                    t = None
-                elif t is not None:
-                    t.join(0.1)
+        while t.isAlive():
+            yield None, None, None
 
-        return response.status_code, response.headers, response.content
+        response = q.get()
+        if isinstance(response, Exception):
+            raise response
+
+        yield response.status_code, response.headers, response.content
 
 
 class SessionWorker(Thread):
