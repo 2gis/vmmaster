@@ -105,6 +105,7 @@ class Session(SessionModel):
 
     def restart_timer(self):
         self.modified = datetime.now()
+        self.save()
 
     def delete(self, message=""):
         from core import endpoints
