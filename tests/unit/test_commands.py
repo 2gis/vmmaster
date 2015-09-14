@@ -90,6 +90,7 @@ class TestStartSessionCommands(CommonCommandsTestCase):
 
     def test_start_session_when_selenium_status_failed(self):
         with patch('core.sessions.Session.make_request',
+                    __name__="make_request",
                    side_effect=Mock(
                        __name__="make_request",
                        return_value=(200, {}, json.dumps({'status': 1})))):

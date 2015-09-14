@@ -159,10 +159,6 @@ class Session(SessionModel):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        self.add_sub_step(
-            control_line="%s %s" % (request.method, request.url),
-            body=request.data)
-
         self.restart_timer()
         q = Queue()
         url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
@@ -204,12 +200,6 @@ class Session(SessionModel):
                     t = None
                 elif t is not None:
                     t.join(0.1)
-
-        content_to_log = utils.remove_base64_screenshot(response.content)
-
-        self.add_sub_step(
-            control_line=str(response.status_code),
-            body=content_to_log)
 
         return response.status_code, response.headers, response.content
 
