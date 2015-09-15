@@ -18,12 +18,8 @@ webdriver = Blueprint('webdriver', __name__)
 def handle_errors(error):
     tb = format_exc()
     log.error(tb)
-        # try:
-            #
-        # except SessionException:
-            # pass
-        # else:
-    request.session.failed(tb)
+    if hasattr(request.session):
+        request.session.failed(tb)
 
     error_context = {
         'status': 13,
@@ -119,7 +115,6 @@ def create_session():
         session.add_session_step(control_line=control_line,
                                  body=str(request.data))
 
-
         commands.replace_platform_with_any(request)
         for status, headers, body in commands.start_session(request, session):
             yield status, headers, body
@@ -129,7 +124,8 @@ def create_session():
         abort(502)
 
 
-@webdriver.route("/session/<session_id>/<path:url>", methods=['GET', 'POST', 'DELETE'])
+@webdriver.route("/session/<session_id>/<path:url>",
+                 methods=['GET', 'POST', 'DELETE'])
 @helpers.response_generator
 def proxy_request(session_id, url):
     request.session = current_app.sessions.get_session(session_id)
@@ -147,14 +143,12 @@ def proxy_request(session_id, url):
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
-    session_id = request.session_id
-    session = current_app.sessions.get_session(session_id)
     if set(words) & set(parts) or parts[-1] == "session":
-        utils.to_thread(helpers.save_screenshot(session))
-    elif set(only_screenshots) & set(parts) \
-            and request.response.status_code == 500:
-        utils.to_thread(helpers.save_screenshot(session))
-        if session.take_screenshot:
-            helpers.take_screenshot(request.session)
+        log.info("prepare to take session screenshot")
+        utils.to_thread(
+            helpers.take_screenshot_from_session(request.session))
+    elif set(only_screenshots) & set(parts) and status == 500:
+        utils.to_thread(
+            helpers.take_screenshot_from_response(request.session, body))
 
     yield helpers.form_response(status, headers, body)

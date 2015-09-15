@@ -75,13 +75,9 @@ def ping_vm(session):
     ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
 
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
-    log.info(0)
     _ping = partial(network_utils.ping, ip)
-    log.info(1)
     check = lambda: all(map(_ping, ports))
-    log.info(2)
     for condition in generator_wait_for(check, config.PING_TIMEOUT):
-        log.info(123)
         yield False
 
     result = map(_ping, ports)
@@ -203,14 +199,16 @@ def set_path_session_id(path, session_id):
 
 
 def take_screenshot(session, port):
-    status, headers, body = session.make_request(
-        port, RequestHelper(method="GET", url="/takeScreenshot", headers={},
-                            data=""))
+    for status, headers, body in session.make_request(
+        port,
+        RequestHelper(method="GET", url="/takeScreenshot")
+    ):
+        yield None
     if status == httplib.OK and body:
         json_response = json.loads(body)
-        return json_response["screenshot"]
+        yield json_response["screenshot"]
     else:
-        return None
+        yield None
 
 
 def run_script_through_websocket(script, session, host):
@@ -277,16 +275,10 @@ def vmmaster_label(request, session):
                                 "labelId": label.id})
 
 
-def reserve_session():
-    pass
-
-
 AgentCommands = {
     "runScript": run_script
 }
 
 InternalCommands = {
     "vmmasterLabel": vmmaster_label,
-    "reserveSession": reserve_session,
-    "startSession": vmmaster_label,
 }

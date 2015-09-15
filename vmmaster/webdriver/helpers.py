@@ -36,21 +36,7 @@ def response_generator(func):
     return wrapper
 
 
-def save_screenshot(session):
-    screenshot = None
-
-    if request.response.status_code == 500:
-        data = json.loads(request.response.data)
-        try:
-            screenshot = data.get('value', {}).get('screen', None)
-        except AttributeError:
-            log.debug('Screenshot not found in webdriver '
-                      'response for session %s' % session.id)
-    else:
-        if session.take_screenshot:
-            screenshot = commands.take_screenshot(session,
-                                                  config.VMMASTER_AGENT_PORT)
-
+def save_screenshot(session, screenshot):
     if screenshot:
         log_step = session.get_milestone_step()
         path = config.SCREENSHOTS_DIR + "/" + str(session.id) + \
@@ -59,6 +45,29 @@ def save_screenshot(session):
         log_step.screenshot = path
         log_step.save()
         make_thumbnail_for_screenshot(path)
+
+
+def take_screenshot_from_response(session, body):
+    data = json.loads(body)
+    try:
+        screenshot = data.get('value', {}).get('screen', None)
+    except AttributeError:
+        log.debug('Screenshot not found in webdriver '
+                  'response for session %s' % session.id)
+        screenshot = None
+
+    save_screenshot(session, screenshot)
+
+
+def take_screenshot_from_session(session):
+    if session.take_screenshot:
+        for screenshot in commands.take_screenshot(session,
+                                                   config.VMMASTER_AGENT_PORT):
+            pass
+    else:
+        screenshot = None
+
+    save_screenshot(session, screenshot)
 
 
 def make_thumbnail_for_screenshot(screenshot_path):
