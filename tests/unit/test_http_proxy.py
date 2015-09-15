@@ -53,3 +53,19 @@ class TestHttpProxy(BaseTestCase):
             "Request forwarding failed:\n"
             "Connection was refused by other side: 111: Connection refused.",
             response.content)
+
+    def test_proxy_to_session_that_doesnt_exist(self):
+        response = requests.get(
+            "http://%s:%s/proxy/session/1/port/%s/" % self.connection_props
+        )
+        self.assertEqual("There is no active session 1", response.content)
+
+    def test_proxy_with_wrong_path(self):
+        response = requests.get(
+            "http://%s:%s/proxy/asdf/%s/" % self.connection_props
+        )
+        self.assertEqual(
+            "Could'nt parse request uri, "
+            "make sure you request uri has "
+            "/proxy/session/<session_id>/port/<port_number>/<destination>",
+            response.content)

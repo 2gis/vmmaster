@@ -87,19 +87,36 @@ class ProxyResource(Resource):
 
     isLeaf = True
 
-    def render(self, request):
-        parts = request.uri.split("/")
+    def _parse_uri(self, uri):
+        parts = uri.split("/")
         session_id = int(parts[parts.index("session") + 1])
         port = int(parts[parts.index("port") + 1])
-        rest = parts[parts.index("port") + 2:]
-        rest = "/".join(rest)
-        if not rest.endswith("/"):
-            rest += "/"
+        dest = parts[parts.index("port") + 2:]
+        dest = "/".join(dest)
+        if not dest.endswith("/"):
+            dest += "/"
+        return session_id, port, dest
+
+    def process(self, request):
+        try:
+            session_id, port, dest = self._parse_uri(request.uri)
+        except:
+            raise Exception(
+                "Could'nt parse request uri, "
+                "make sure you request uri has "
+                "/proxy/session/<session_id>/port/<port_number>/<destination>")
         session = self.app.sessions.get_session(session_id)
+
         host = session.endpoint_ip
-
-        client_factory = ClientFactory(request, rest)
+        client_factory = ClientFactory(request, dest)
         client_factory.server = request.channel
-
         reactor.connectTCP(host, port, client_factory)
+
         return NOT_DONE_YET
+
+    def render(self, request):
+        try:
+            return self.process(request)
+        except Exception as e:
+            request.setResponseCode(500)
+            return e.message
