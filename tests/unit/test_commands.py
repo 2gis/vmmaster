@@ -378,8 +378,14 @@ class TestLabelCommands(CommonCommandsTestCase):
 
         request = copy.deepcopy(self.request)
         label = "step-label"
+        label_id = 1
         request.data = json.dumps({"label": label})
-        status, headers, body = commands.vmmaster_label(request, self.session)
+        with patch('core.sessions.Session.get_milestone_step',
+                   Mock(return_value=Mock(id=label_id))):
+            status, headers, body = commands.vmmaster_label(request,
+                                                            self.session)
+
         self.assertEqual(status, 200)
         json_body = json.loads(body)
         self.assertEqual(json_body["value"], label)
+        self.assertEqual(json_body["labelId"], label_id)

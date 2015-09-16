@@ -63,6 +63,16 @@ class Database(object):
         return dbsession.query(WrappedSession).get(session_id)
 
     @transaction
+    def get_log_steps_for_session(self, session_id, dbsession=None):
+        return dbsession.query(SessionLogStep).filter_by(
+            session_id=session_id).order_by(
+                desc(SessionLogStep.id)).all()
+
+    @transaction
+    def get_step_by_id(self, log_step_id, dbsession=None):
+        return dbsession.query(SessionLogStep).get(log_step_id)
+
+    @transaction
     def get_last_step(self, session, dbsession=None):
         return dbsession.query(SessionLogStep).filter_by(
             session_id=session.id, milestone=True).order_by(

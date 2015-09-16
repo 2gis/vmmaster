@@ -283,8 +283,10 @@ def run_script(request, session):
 
 def vmmaster_label(request, session):
     json_body = json.loads(request.data)
+    label = session.get_milestone_step()
     return 200, {}, json.dumps({"sessionId": session.id, "status": 0,
-                                "value": json_body["label"]})
+                                "value": json_body["label"],
+                                "labelId": label.id})
 
 
 def reserve_session():
