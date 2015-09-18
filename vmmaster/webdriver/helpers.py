@@ -8,7 +8,7 @@ import time
 from functools import wraps
 from flask import Response, current_app, request
 
-from core.exceptions import CreationException
+from core.exceptions import CreationException, ConnectionError
 from core.config import config
 from core.logger import log
 
@@ -31,7 +31,7 @@ def response_generator(func):
                 pass
 
             if is_request_closed():
-                raise Exception("Client diconnected")
+                raise ConnectionError("Client has disconnected")
             time.sleep(0)
     return wrapper
 

@@ -5,6 +5,7 @@ from time import sleep
 
 from core.logger import log
 from vmpool.virtual_machines_pool import pool
+from core.exceptions import QueueItemNotFound
 
 
 class DelayedVirtualMachine(object):
@@ -28,7 +29,10 @@ class VMPoolQueue(list):
     def dequeue(self, item=None):
         index = 0
         if item:
-            index = self.index(item)
+            try:
+                index = self.index(item)
+            except ValueError:
+                raise QueueItemNotFound("Item %s not found" % item)
         return self.pop(index)
 
     @property

@@ -103,9 +103,12 @@ def start_selenium_session(request, session, port):
         log.info("with %s %s\n%s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
-        for status, headers, body in session.make_request(
-                port, RequestHelper(request.method, request.path,
-                                    request.headers, request.data)):
+        wrapped_make_request = add_sub_step(session, session.make_request)
+        for status, headers, body in wrapped_make_request(
+            port, RequestHelper(
+                request.method, request.path, request.headers, request.data
+            )
+        ):
             yield status, headers, body
         if status == httplib.OK:
             log.info("SUCCESS start selenium-server-standalone status for %s" %
@@ -132,8 +135,10 @@ def selenium_status(request, session, port):
         log.info("Attempt %s. Getting selenium-server-standalone status "
                  "for %s" % (attempt, session.id))
 
-        for status, headers, body in session.make_request(
-                port, RequestHelper("GET", status_cmd)):
+        wrapped_make_request = add_sub_step(session, session.make_request)
+        for status, headers, body in wrapped_make_request(
+            port, RequestHelper("GET", status_cmd)
+        ):
             yield status, headers, body
         selenium_status_code = json.loads(body).get("status", None)
 
