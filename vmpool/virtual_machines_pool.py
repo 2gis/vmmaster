@@ -3,10 +3,14 @@
 import time
 from threading import Thread
 from collections import defaultdict
+
 from core.exceptions import CreationException
 from core.config import config
 from core.logger import log
-from core.network.network import Network
+from core.network import Network
+
+from platforms import Platforms
+from flask import current_app
 
 
 class VirtualMachinesPool(object):
@@ -54,8 +58,12 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls, platform):
-        from platforms import Platforms
-        return Platforms.can_produce(platform)
+        if cls.count() >= Platforms.can_produce(platform):
+            log.info('Can\'t produce new virtual machine with platform %s: '
+                     'not enough Instances resources' % platform)
+            return False
+        else:
+            return True
 
     @classmethod
     def has(cls, platform):
@@ -69,8 +77,8 @@ class VirtualMachinesPool(object):
         if platform:
             for vm in sorted(cls.pool, key=lambda v: v.created,
                              reverse=True):
-                log.info("Got VM %s (id=%s, ready=%s, checking="
-                         "%s)" % (vm.name, vm.id, vm.ready, vm.checking))
+                log.info("Got VM %s (ip=%s, ready=%s, checking="
+                         "%s)" % (vm.name, vm.ip, vm.ready, vm.checking))
                 if vm.platform == platform and vm.ready and not vm.checking:
                     if vm.ping_vm():
                         cls.pool.remove(vm)
@@ -81,11 +89,11 @@ class VirtualMachinesPool(object):
                         vm.delete()
 
     @classmethod
-    def get_by_id(cls, _id=None):
-        if _id:
-            log.debug('Getting VM by ID: %s' % _id)
+    def get_by_name(cls, _name=None):
+        if _name:
+            log.debug('Getting VM: %s' % _name)
             for vm in cls.pool + cls.using:
-                if vm.ready and isinstance(vm.id, int) and vm.id == int(_id):
+                if vm.ready and vm.name == _name:
                     return vm
 
     @classmethod
@@ -106,8 +114,6 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def add(cls, platform, prefix=None, to=None):
-        from platforms import Platforms
-
         if not cls.can_produce(platform):
             raise CreationException(
                 "Maximum count of virtual machines already running")
@@ -151,10 +157,8 @@ class VirtualMachinesPool(object):
 
     @property
     def info(self):
-        from flask import current_app
-
         def print_view(lst):
-            return [{"name": l.name, "ip": l.ip, "id": l.id,
+            return [{"name": l.name, "ip": l.ip,
                      "ready": l.ready, "checking": l.checking,
                      "created": l.created} for l in lst]
         return {
@@ -229,7 +233,6 @@ class VirtualMachineChecker(Thread):
     def fix_broken_vm(self):
         for vm in self.pool.pool:
             vm.checking = True
-            vm.save()
             log.info("Checking {clone} with {ip}:{port}...".format(
                 clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
@@ -241,7 +244,6 @@ class VirtualMachineChecker(Thread):
                         vm.delete()
                         self.pool.remove(vm)
             vm.checking = False
-            vm.save()
 
     def stop(self):
         self.running = False

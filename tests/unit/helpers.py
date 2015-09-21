@@ -195,7 +195,7 @@ class BaseTestCase(unittest.TestCase):
 
 def vmmaster_server_mock(port):
     with patch(
-        'core.network.network.Network', Mock(
+        'core.network.Network', Mock(
             return_value=Mock(get_ip=Mock(return_value='0')))
     ), patch(
         'core.connection.Virsh', Mock()

@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import time
-import json
 from datetime import datetime
 from Queue import Queue
 from threading import Thread
@@ -15,7 +14,8 @@ from core.db.models import Session as SessionModel
 from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
-from core.utils import utils
+
+from flask import current_app
 
 
 def getresponse(req, q):
@@ -95,25 +95,34 @@ class Session(SessionModel):
             "inactivity": self.inactivity,
         }
 
-        if self.endpoint_id:
+        if self.endpoint_name:
             stat["endpoint"] = {
-                "id": self.endpoint_id,
                 "ip": self.endpoint_ip,
                 "name": self.endpoint_name
             }
         return stat
+
+    def get_milestone_step(self):
+        """
+        Find last session log step marked as milestone for sub_step
+        :return: SessionLogStep object
+        """
+        return current_app.database.get_last_step(self)
+
+    def set_user(self, username):
+        self.user = current_app.database.get_user(username=username)
 
     def restart_timer(self):
         self.modified = datetime.now()
         self.save()
 
     def delete(self, message=""):
-        from core import endpoints
-
         self.refresh()
-        if self.endpoint_id:
+        if self.endpoint_name:
             log.info("Deleting VM for session: %s" % self.id)
-            endpoints.delete(self.endpoint_id)
+
+            from vmpool.api.endpoint import delete_vm
+            delete_vm(self.endpoint_name)
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
@@ -130,7 +139,6 @@ class Session(SessionModel):
         self.delete(tb)
 
     def set_vm(self, endpoint):
-        self.endpoint_id = endpoint.get('id', None)
         self.endpoint_ip = endpoint.get('ip', None)
         self.endpoint_name = endpoint.get('name', None)
 
@@ -205,22 +213,22 @@ class Session(SessionModel):
 
 
 class SessionWorker(Thread):
-    def __init__(self):
+    def __init__(self, app):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
+        self.app = app
 
-    @staticmethod
-    def active_sessions():
-        from core.db import database
-        return database.get_sessions()
+    def active_sessions(self):
+        return self.app.database.get_sessions()
 
     def run(self):
-        while self.running:
-            for session in self.active_sessions():
-                if session.inactivity > config.SESSION_TIMEOUT:
-                    session.timeout()
-            time.sleep(1)
+        with self.app.app_context():
+            while self.running:
+                for session in self.active_sessions():
+                    if session.inactivity > config.SESSION_TIMEOUT:
+                        session.timeout()
+                time.sleep(1)
 
     def stop(self):
         self.running = False
@@ -231,8 +239,7 @@ class SessionWorker(Thread):
 class Sessions(object):
     @staticmethod
     def get_session(session_id):
-        from core.db import database
-        session = database.get_session(session_id)
+        session = current_app.database.get_session(session_id)
 
         if not session or session.is_closed():
             raise SessionException("There is no active session %s" %

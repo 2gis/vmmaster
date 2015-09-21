@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from flask import Flask
 
 from twisted.internet import reactor
@@ -16,7 +18,7 @@ except AttributeError:
     config = None
     db.database = None
 
-from core.utils.utils import change_user_vmmaster
+from core.utils import change_user_vmmaster
 
 app = Flask(__name__)
 manager = Manager(app)

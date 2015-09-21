@@ -5,11 +5,11 @@ from flask import Blueprint, current_app, request, jsonify, abort
 
 from vmmaster.webdriver import commands
 import helpers
-from core.db import database
+
 from core.logger import log
 from core.exceptions import SessionException, ConnectionError
 from core.auth.custom_auth import auth, anonymous
-from core.utils import utils
+from core import utils
 
 webdriver = Blueprint('webdriver', __name__)
 
@@ -82,7 +82,7 @@ def get_token(username):
     if username == anonymous.username:
         return anonymous.password
     else:
-        return database.get_user(username=username).token
+        return current_app.database.get_user(username=username).token
 
 
 @auth.verify_password

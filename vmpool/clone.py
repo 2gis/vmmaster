@@ -10,17 +10,14 @@ from xml.dom import minidom
 from uuid import uuid4
 from threading import Thread
 
-from . import VirtualMachine
+from vmpool import VirtualMachine
 from virtual_machines_pool import pool
 
-from core.dumpxml import dumpxml
-from core.connection import Virsh
+from core import dumpxml
 from core.logger import log
-from core.utils import utils
-from core.utils import openstack_utils
+from core import utils
 from core.exceptions import libvirtError, CreationException
 from core.config import config
-from core.network.network import Network
 from core.utils import network_utils
 
 
@@ -46,7 +43,6 @@ class Clone(VirtualMachine):
             platform=origin.name, prefix=self.prefix, uuid=self.uuid)
 
         super(Clone, self).__init__(name=name, platform=origin.name)
-        self.save()
 
     def __str__(self):
         return "{name}({ip})".format(name=self.name, ip=self.ip)
@@ -94,13 +90,12 @@ class KVMClone(Clone):
     def __init__(self, origin, prefix):
         super(KVMClone, self).__init__(origin, prefix)
 
-        self.conn = Virsh()
-        self.network = Network()
+        self.network = pool.network
+        self.conn = self.network.conn
 
     def delete(self):
         log.info("Deleting kvm clone: {}".format(self.name))
         self.ready = False
-        self.save()
 
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
@@ -129,7 +124,6 @@ class KVMClone(Clone):
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
         self.ready = True
-        self.save()
         log.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
             clone=self.name, ip=self.ip, mac=self.mac)
         )
@@ -137,7 +131,7 @@ class KVMClone(Clone):
 
     def rebuild(self):
         log.info("Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
-            clone=self.name, ip=self.id, platform=self.platform)
+            clone=self.name, ip=self.ip, platform=self.platform)
         )
         pool.remove_vm(self)
         self.delete()
@@ -226,8 +220,11 @@ class OpenstackClone(Clone):
     def __init__(self, origin, prefix):
         super(OpenstackClone, self).__init__(origin, prefix)
         self.platform = origin.short_name
+
+        from core.utils import openstack_utils
         self.nova_client = openstack_utils.nova_client()
         self.network_client = openstack_utils.neutron_client()
+
         self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
 
@@ -263,7 +260,6 @@ class OpenstackClone(Clone):
                     if ip is not None:
                         self.ip = ip
 
-                    self.save()
                     log.info("Created openstack {clone} with ip {ip}"
                              " and mac {mac}".format(clone=self.name,
                                                      ip=self.ip,
@@ -309,7 +305,6 @@ class OpenstackClone(Clone):
                     method()
                 if self.ping_vm():
                     self.ready = True
-                    self.save()
                     break
                 if ping_retry > config_ping_retry_count:
                     p = config_ping_retry_count * config_ping_timeout
@@ -395,7 +390,6 @@ class OpenstackClone(Clone):
 
     def delete(self):
         self.ready = False
-        self.save()
         pool.remove_vm(self)
         if self.check_vm_exist(self.name):
             try:
@@ -409,7 +403,6 @@ class OpenstackClone(Clone):
             log.info("VM {clone} can not be removed because "
                      "it does not exist".format(clone=self.name))
         VirtualMachine.delete(self)
-        self.save()
 
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))

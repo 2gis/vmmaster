@@ -1,12 +1,13 @@
 # coding: utf-8
+
 import time
 import socket
 import logging
 
 from functools import wraps
 
-from .utils import to_thread
-from ..config import config
+from core.utils import to_thread
+from core.config import config
 
 log = logging.getLogger('GRAPHITE')
 

@@ -2,16 +2,15 @@
 
 from flask.ext.httpauth import HTTPBasicAuth
 from functools import wraps
-from flask import request, make_response
+from flask import request, make_response, current_app
 from json import loads, dumps
 from werkzeug.datastructures import Authorization
-import core.db as db
 
 anonymous = Authorization('basic', {'username': 'anonymous', 'password': None})
 
 
 def user_exists(username):
-    return db.database.get_user(username=username)
+    return current_app.database.get_user(username=username)
 
 
 def user_not_found():

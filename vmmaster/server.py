@@ -71,9 +71,7 @@ class VMMasterServer(object):
         self.app.cleanup()
 
     def wait_for_end_active_sessions(self):
-        from core.db import database
-
-        active_sessions = database.get_all_active_sessions()
+        active_sessions = self.app.database.get_all_active_sessions()
 
         def wait_for(_self):
             while active_sessions:
@@ -97,4 +95,4 @@ class VMMasterServer(object):
     def before_shutdown(self):
         self.app.running = False
         yield self.wait_for_end_active_sessions()
-        log.info("All active sessions has been completed.")
+        log.info("All active sessions has been completed")

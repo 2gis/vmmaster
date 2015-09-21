@@ -2,13 +2,20 @@
 
 from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
+
 from core.sessions import Sessions, SessionWorker
 from core.logger import log
+
+from core.db import database
+
 from vmpool.platforms import Platforms
+
+from vmpool.virtual_machines_pool import pool, \
+    VirtualMachinesPoolPreloader, VirtualMachineChecker
+
 from vmpool.vmqueue import q, QueueWorker
-from vmpool.virtual_machines_pool import pool
-from vmpool.virtual_machines_pool import VirtualMachinesPoolPreloader, \
-    VirtualMachineChecker
+
+from core.config import config
 
 
 class JSONEncoder(FlaskJSONEncoder):
@@ -23,19 +30,24 @@ class Vmmaster(Flask):
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
 
+        self.database = database
+        self.pool = pool
         self.platforms = Platforms()
         self.queue = q
 
-        self.preloader = VirtualMachinesPoolPreloader(pool)
+        self.preloader = VirtualMachinesPoolPreloader(self.pool)
         self.preloader.start()
-        self.vmchecker = VirtualMachineChecker(pool)
+
+        self.vmchecker = VirtualMachineChecker(self.pool)
         self.vmchecker.start()
+
         self.worker = QueueWorker(self.queue)
         self.worker.start()
 
         self.sessions = Sessions()
-        self.session_worker = SessionWorker()
+        self.session_worker = SessionWorker(app=self)
         self.session_worker.start()
+
         self.json_encoder = JSONEncoder
 
     def cleanup(self):
@@ -44,7 +56,8 @@ class Vmmaster(Flask):
         self.preloader.stop()
         self.vmchecker.stop()
         self.session_worker.stop()
-        pool.free()
+        self.pool.free()
+        self.platforms.cleanup()
         log.info("Server gracefully shut down.")
 
 
@@ -56,9 +69,6 @@ def register_blueprints(app):
 
 
 def create_app():
-    from core.config import config
-    from core.db import database
-
     if config is None:
         raise Exception("Need to setup config.py in application directory")
     if database is None:
