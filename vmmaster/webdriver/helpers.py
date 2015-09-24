@@ -8,7 +8,8 @@ import time
 from functools import wraps
 from flask import Response, current_app, request
 
-from core.exceptions import CreationException, ConnectionError
+from core.exceptions import CreationException, ConnectionError, \
+    TimeoutException, SessionException
 from core.config import config
 from core.logger import log
 
@@ -21,18 +22,33 @@ def is_request_closed():
     return request.input_stream._wrapped.closed
 
 
-def response_generator(func):
+def is_session_timeouted():
+    if hasattr(request, 'session'):
+        return request.session.timeouted
+    return False
+
+
+def is_session_closed():
+    if hasattr(request, 'session'):
+        return request.session.closed
+    return False
+
+
+def connection_watcher(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         for value in func(*args, **kwargs):
-            if isinstance(value, Response):
-                return value
-            else:
-                pass
-
             if is_request_closed():
                 raise ConnectionError("Client has disconnected")
+
+            elif is_session_timeouted():
+                raise TimeoutException("Session timeouted")
+
+            elif is_session_closed():
+                raise SessionException("Session closed")
+
             time.sleep(0)
+        return value
     return wrapper
 
 
@@ -114,16 +130,18 @@ def swap_session(req, desired_session):
     req.path = commands.set_path_session_id(req.path, desired_session)
 
 
+@connection_watcher
 def transparent():
     from core.sessions import RequestHelper
 
     status, headers, body = None, None, None
     swap_session(request, request.session.selenium_session)
     for status, headers, body in request.session.make_request(
-            config.SELENIUM_PORT,
-            RequestHelper(
-                request.method, request.path, request.headers, request.data
-            )):
+        config.SELENIUM_PORT,
+        RequestHelper(
+            request.method, request.path, request.headers, request.data
+        )
+    ):
         yield status, headers, body
 
     swap_session(request, str(request.session.id))
@@ -160,10 +178,12 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             sleep(timeout)
 
 
+@connection_watcher
 def get_session():
     dc = commands.get_desired_capabilities(request)
 
     session = Session(dc=dc)
+    request.session = session
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
 
@@ -173,5 +193,4 @@ def get_session():
         yield session
 
     session.run(session.endpoint)
-    print(session.endpoint)
     yield session

@@ -9,7 +9,6 @@ from helpers import (vmmaster_server_mock, server_is_up, server_is_down,
 import requests
 
 
-@patch('core.db.database', new=Mock())
 class TestHttpProxy(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
@@ -22,13 +21,12 @@ class TestHttpProxy(BaseTestCase):
         self.ctx = self.vmmaster.app.app_context()
         self.ctx.push()
 
-        with patch('core.db.database', Mock()):
-            from core.sessions import Session
-            self.session = Session()
-            self.session.id = 1
-            self.session.endpoint_ip = "localhost"
+        from core.sessions import Session
+        self.session = Session()
+        self.session.endpoint_ip = "localhost"
 
     def tearDown(self):
+        self.session.delete()
         self.ctx.pop()
         with patch('core.db.database', Mock()):
             del self.vmmaster
@@ -71,7 +69,7 @@ class TestHttpProxy(BaseTestCase):
             "http://%s:%s/proxy/asdf/%s/" % self.connection_props
         )
         self.assertEqual(
-            "Could'nt parse request uri, "
+            "Couldn't parse request uri, "
             "make sure you request uri has "
             "/proxy/session/<session_id>/port/<port_number>/<destination>",
             response.content)

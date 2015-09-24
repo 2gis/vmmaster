@@ -10,7 +10,8 @@ from core import utils
 from core.utils import network_utils
 from core.utils import generator_wait_for
 
-from vmmaster.webdriver.helpers import check_to_exist_ip
+from vmmaster.webdriver.helpers import check_to_exist_ip, connection_watcher
+
 from core.config import config
 from core.logger import log
 from core.exceptions import CreationException
@@ -24,7 +25,8 @@ def add_sub_step(session, func):
             control_line="%s %s" % (request.method, request.url),
             body=request.data)
 
-        status, headers, body = func(port, request, *args, **kwargs)
+        for status, headers, body in func(port, request, *args, **kwargs):
+            yield status, headers, body
 
         content_to_log = utils.remove_base64_screenshot(body)
 
@@ -32,22 +34,27 @@ def add_sub_step(session, func):
             control_line=str(status),
             body=content_to_log)
 
-        return status, headers, body
+        yield status, headers, body
 
     return wrapper
 
 
+@connection_watcher
 def start_session(request, session):
     status, headers, body = None, None, None
-    for result in ping_vm(session):
-        yield status, headers, body
-    for result in selenium_status(request, session, config.SELENIUM_PORT):
-        yield status, headers, body
+
+    ping_vm(session)
+    yield status, headers, body
+
+    selenium_status(request, session, config.SELENIUM_PORT)
+    yield status, headers, body
+
     if session.run_script:
         startup_script(session)
-    for status, headers, body in start_selenium_session(
-            request, session, config.SELENIUM_PORT):
-        yield status, headers, body
+
+    status, headers, body = start_selenium_session(
+        request, session, config.SELENIUM_PORT
+    )
 
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
@@ -70,6 +77,7 @@ def startup_script(session):
             script_result.get("status"), script_result.get("output")))
 
 
+@connection_watcher
 def ping_vm(session):
     ip = check_to_exist_ip(session)
     ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
@@ -93,6 +101,7 @@ def ping_vm(session):
     yield True
 
 
+@connection_watcher
 def start_selenium_session(request, session, port):
     status, headers, body = None, None, None
 
@@ -125,6 +134,7 @@ def start_selenium_session(request, session, port):
     yield status, headers, body
 
 
+@connection_watcher
 def selenium_status(request, session, port):
     parts = request.path.split("/")
     parts[-1] = "status"
@@ -245,7 +255,7 @@ def run_script_through_websocket(script, session, host):
     def on_error(ws, message):
         global status_code
         status_code = 500
-        ws.output = message
+        ws.output = repr(message)
         log.debug("RunScript error: %s" % message)
 
     ws = websocket.WebSocketApp(host,

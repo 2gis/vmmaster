@@ -14,7 +14,7 @@ def get_session(session_id):
 
 def get_sessions():
     sessions = list()
-    for session in current_app.database.get_sessions():
+    for session in current_app.sessions.active():
         sessions.append(session.info)
     return sessions
 

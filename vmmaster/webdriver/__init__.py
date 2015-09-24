@@ -18,7 +18,7 @@ webdriver = Blueprint('webdriver', __name__)
 def handle_errors(error):
     tb = format_exc()
     log.error(tb)
-    if hasattr(request.session):
+    if hasattr(request, 'session'):
         request.session.failed(tb)
 
     error_context = {
@@ -35,10 +35,13 @@ def log_request():
     log.debug('%s' % request)
 
     session_id = commands.get_session_id(request.path)
-    request.session_id = session_id
 
-    if session_id:
+    try:
         session = current_app.sessions.get_session(session_id)
+    except SessionException:
+        session = None
+
+    if session:
         control_line = "%s %s %s" % (
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
@@ -49,19 +52,14 @@ def log_request():
 
 @webdriver.after_request
 def log_response(response):
-    session_id = request.session_id
-
-    if session_id:
-        try:
-            session = current_app.sessions.get_session(session_id)
-        except SessionException:
-            session = None
-        if session:
-            response_data = utils.remove_base64_screenshot(response.data)
-            session.add_session_step(control_line=response.status_code,
-                                     body=response_data,
-                                     milestone=False)
     log.debug('Response %s %s' % (response.data, response.status_code))
+
+    if hasattr(request, 'session'):
+        session = request.session
+        response_data = utils.remove_base64_screenshot(response.data)
+        session.add_session_step(control_line=response.status_code,
+                                 body=response_data,
+                                 milestone=False)
     return response
 
 
@@ -79,57 +77,54 @@ def verify_token(username, client_token):
 
 
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
-@helpers.response_generator
 def delete_session(session_id):
-    request.session = current_app.sessions.get_session(session_id)
-    for status, headers, body in helpers.transparent():
-        yield status, headers, body
+    session = current_app.sessions.get_session(session_id)
+    request.session = session
+    status, headers, body = helpers.transparent()
 
-    request.session_id = session_id
-    session = current_app.sessions.get_session(request.session_id)
     session.add_session_step(control_line=status,
                              body=body,
                              milestone=False)
     session.succeed()
 
     # Session is done, forget about it
-    request.session_id = None
-    yield helpers.form_response(status, headers, body)
+    del request.session
+    return helpers.form_response(status, headers, body)
 
 
 @webdriver.route('/session', methods=['POST'])
 @auth.login_required
-@helpers.response_generator
 def create_session():
     if current_app.running:
-        session_generator = helpers.get_session()
-        session = next(session_generator)
-        request.session = session
-        request.session_id = session.id
-        for session in session_generator:
-            yield session
+        session = helpers.get_session()
         control_line = "%s %s %s" % (
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
         )
-        session.add_session_step(control_line=control_line,
-                                 body=str(request.data))
-
+        session.add_session_step(
+            control_line=control_line,
+            body=str(request.data)
+        )
         commands.replace_platform_with_any(request)
-        for status, headers, body in commands.start_session(request, session):
-            yield status, headers, body
-        yield helpers.form_response(status, headers, body)
+        status, headers, body = commands.start_session(request, session)
+        return helpers.form_response(status, headers, body)
     else:
         log.info("This request is aborted %s" % request)
         abort(502)
 
 
-@webdriver.route("/session/<session_id>/<path:url>",
+@webdriver.route("/session/<string:session_id>", methods=['GET'])
+@webdriver.route("/session/<string:session_id>/<path:url>",
                  methods=['GET', 'POST', 'DELETE'])
-@helpers.response_generator
-def proxy_request(session_id, url):
-    request.session = current_app.sessions.get_session(session_id)
-    last = url.split("/")[-1]
+def proxy_request(session_id, url=None):
+    if not hasattr(request, 'session'):
+        request.session = current_app.sessions.get_session(session_id)
+
+    if url:
+        last = url.split("/")[-1]
+    else:
+        last = None
+
     if last in commands.AgentCommands:
         status, headers, body = helpers.vmmaster_agent(
             commands.AgentCommands[last])
@@ -137,18 +132,17 @@ def proxy_request(session_id, url):
         status, headers, body = helpers.internal_exec(
             commands.InternalCommands[last])
     else:
-        for status, headers, body in helpers.transparent():
-            yield status, headers, body
+        status, headers, body = helpers.transparent()
 
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
     if set(words) & set(parts) or parts[-1] == "session":
-        log.info("prepare to take session screenshot")
+        log.info("Prepare to take session screenshot")
         utils.to_thread(
             helpers.take_screenshot_from_session(request.session))
     elif set(only_screenshots) & set(parts) and status == 500:
         utils.to_thread(
             helpers.take_screenshot_from_response(request.session, body))
 
-    yield helpers.form_response(status, headers, body)
+    return helpers.form_response(status, headers, body)

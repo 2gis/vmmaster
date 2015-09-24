@@ -45,6 +45,7 @@ class Vmmaster(Flask):
         self.worker.start()
 
         self.sessions = Sessions()
+
         self.session_worker = SessionWorker(app=self)
         self.session_worker.start()
 

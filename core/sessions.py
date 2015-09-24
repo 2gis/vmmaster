@@ -67,6 +67,7 @@ class SimpleResponse:
 class Session(SessionModel):
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
+        current_app.sessions.put(self)
 
     @property
     def inactivity(self):
@@ -76,17 +77,8 @@ class Session(SessionModel):
     def duration(self):
         return (datetime.now() - self.created).total_seconds()
 
-    def is_timeouted(self):
-        self.refresh()
-        return self.timeouted
-
-    def is_closed(self):
-        self.refresh()
-        return self.closed
-
     @property
     def info(self):
-        self.refresh()
         stat = {
             "id": self.id,
             "name": self.name,
@@ -118,11 +110,12 @@ class Session(SessionModel):
         self.save()
 
     def delete(self, message=""):
+        current_app.sessions.remove(self)
         if hasattr(self, "endpoint"):
             log.info("Deleting VM for session: %s" % self.id)
             self.endpoint.delete()
         else:
-            delete_vm(self.endpoint_id)
+            delete_vm(self.endpoint_name)
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
@@ -150,9 +143,7 @@ class Session(SessionModel):
         log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
 
     def timeout(self):
-        self.refresh()
         self.timeouted = True
-        self.save()
         self.failed("Session timeout")
 
     def add_sub_step(self, control_line, body=None):
@@ -197,13 +188,10 @@ class SessionWorker(Thread):
         self.daemon = True
         self.app = app
 
-    def active_sessions(self):
-        return self.app.database.get_sessions()
-
     def run(self):
         with self.app.app_context():
             while self.running:
-                for session in self.active_sessions():
+                for session in self.app.sessions.active():
                     if session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
                 time.sleep(1)
@@ -215,13 +203,43 @@ class SessionWorker(Thread):
 
 
 class Sessions(object):
-    @staticmethod
-    def get_session(session_id):
-        session = current_app.database.get_session(session_id)
+    active_sessions = dict()
 
-        if not session or session.is_closed():
-            raise SessionException("There is no active session %s" %
-                                   session_id)
+    def put(self, session):
+        if str(session.id) not in self.active_sessions.keys():
+            self.active_sessions[str(session.id)] = session
+        else:
+            raise SessionException("Duplicate session id: %s" % session.id)
 
-        session.refresh()
+    def remove(self, session):
+        try:
+            del self.active_sessions[str(session.id)]
+        except KeyError:
+            pass
+
+    def active(self):
+        return self.active_sessions.values()
+
+    def kill_all(self):
+        for session in self.active_sessions.values():
+            session.delete()
+
+    def get_session(self, session_id):
+        try:
+            session = self.active_sessions[str(session_id)]
+        except KeyError:
+            raise SessionException(
+                "There is no active session %s" % session_id
+            )
+
+        if session.closed:
+            if session.timeouted:
+                raise SessionException(
+                    "Session %s timeouted" % session_id
+                )
+            else:
+                raise SessionException(
+                    "Session %s closed" % session_id
+                )
+
         return session
