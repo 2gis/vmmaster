@@ -62,7 +62,7 @@ class QueueWorker(Thread):
                 if vm:
                     try:
                         self.queue.dequeue(delayed_vm)
-                    except ValueError:
+                    except QueueItemNotFound:
                         vm.delete()
                     else:
                         delayed_vm.vm = vm

@@ -243,18 +243,19 @@ def run_script_through_websocket(script, session, host):
     def on_message(ws, message):
         ws.output += message
         if sub_step:
-            msg = json.dumps({"status": 0, "output": ws.output})
+            msg = json.dumps({"status": ws.status, "output": ws.output})
             update_log_step(sub_step, message=msg)
 
     def on_close(ws):
         if sub_step and ws.output:
-            msg = json.dumps({"status": 0, "output": ws.output})
+            msg = json.dumps({"status": ws.status, "output": ws.output})
             update_log_step(sub_step, message=msg)
         log.info("RunScript: Close websocket on vm %s" % host)
 
     def on_error(ws, message):
         global status_code
         status_code = 500
+        ws.status = 1
         ws.output = repr(message)
         log.debug("RunScript error: %s" % message)
 
