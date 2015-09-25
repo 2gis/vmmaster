@@ -14,8 +14,9 @@ from core.config import config
 from core.logger import log
 
 from core import utils
-from core.sessions import Session
+from core.sessions import Session, RequestHelper
 from vmpool import endpoint
+from PIL import Image
 
 
 def is_request_closed():
@@ -91,8 +92,6 @@ def make_thumbnail_for_screenshot(screenshot_path):
 
 
 def screenshot_resize(screenshot_path, width, height=None, postfix=None):
-    from PIL import Image
-
     try:
         img = Image.open(screenshot_path)
 
@@ -132,8 +131,6 @@ def swap_session(req, desired_session):
 
 @connection_watcher
 def transparent():
-    from core.sessions import RequestHelper
-
     status, headers, body = None, None, None
     swap_session(request, request.session.selenium_session)
     for status, headers, body in request.session.make_request(
@@ -163,7 +160,6 @@ def internal_exec(command):
 
 
 def check_to_exist_ip(session, tries=10, timeout=5):
-    from time import sleep
     i = 0
     while True:
         if session.endpoint_ip is not None:
@@ -175,7 +171,7 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             i += 1
             log.info('IP is %s for VM %s, wait for %ss. before next try...' %
                      (session.endpoint_ip, session.endpoint_name, timeout))
-            sleep(timeout)
+            time.sleep(timeout)
 
 
 @connection_watcher
