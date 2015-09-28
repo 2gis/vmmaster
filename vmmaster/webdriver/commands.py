@@ -2,19 +2,20 @@
 
 import json
 import httplib
-import time
 from functools import partial, wraps
 import websocket
 import thread
 
-from core.utils import network_utils
 from core import utils
-from vmmaster.webdriver.helpers import check_to_exist_ip
+from core.utils import network_utils
+from core.utils import generator_wait_for
+
+from vmmaster.webdriver.helpers import check_to_exist_ip, connection_watcher
+
 from core.config import config
 from core.logger import log
 from core.exceptions import CreationException
 from core.sessions import RequestHelper, update_log_step
-from core.utils.graphite import graphite, send_metrics
 
 
 def add_sub_step(session, func):
@@ -24,7 +25,8 @@ def add_sub_step(session, func):
             control_line="%s %s" % (request.method, request.url),
             body=request.data)
 
-        status, headers, body = func(port, request, *args, **kwargs)
+        for status, headers, body in func(port, request, *args, **kwargs):
+            yield status, headers, body
 
         content_to_log = utils.remove_base64_screenshot(body)
 
@@ -32,25 +34,27 @@ def add_sub_step(session, func):
             control_line=str(status),
             body=content_to_log)
 
-        return status, headers, body
+        yield status, headers, body
 
     return wrapper
 
 
+@connection_watcher
 def start_session(request, session):
-    notdot_platform = "".join(session.platform.split("."))
-    _start = time.time()
+    status, headers, body = None, None, None
 
-    graphite("%s.%s" % (notdot_platform, "ping_vm"))(ping_vm)(session)
-    graphite("%s.%s" % (notdot_platform, "selenium_status"))(selenium_status)(
-        request, session, config.SELENIUM_PORT)
+    ping_vm(session)
+    yield status, headers, body
+
+    selenium_status(request, session, config.SELENIUM_PORT)
+    yield status, headers, body
 
     if session.run_script:
         startup_script(session)
 
-    status, headers, body = graphite("%s.%s" % (
-        notdot_platform, "start_selenium_session"))(
-            start_selenium_session)(request, session, config.SELENIUM_PORT)
+    status, headers, body = start_selenium_session(
+        request, session, config.SELENIUM_PORT
+    )
 
     selenium_session = json.loads(body)["sessionId"]
     session.selenium_session = selenium_session
@@ -59,9 +63,7 @@ def start_session(request, session):
     body = set_body_session_id(body, session.id)
     headers["Content-Length"] = len(body)
 
-    send_metrics("%s.%s" % (notdot_platform, "creation_total"),
-                 time.time() - _start)
-    return status, headers, body
+    yield status, headers, body
 
 
 def startup_script(session):
@@ -75,20 +77,16 @@ def startup_script(session):
             script_result.get("status"), script_result.get("output")))
 
 
+@connection_watcher
 def ping_vm(session):
     ip = check_to_exist_ip(session)
     ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
-    timeout = config.PING_TIMEOUT
 
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
     _ping = partial(network_utils.ping, ip)
-    start = time.time()
-    while time.time() - start < timeout and not session.closed:
-        session.restart_timer()
-        result = map(_ping, ports)
-        if all(result):
-            break
-        time.sleep(0.1)
+    check = lambda: all(map(_ping, ports))
+    for condition in generator_wait_for(check, config.PING_TIMEOUT):
+        yield False
 
     result = map(_ping, ports)
     if not all(result):
@@ -100,27 +98,27 @@ def ping_vm(session):
 
     log.info("Ping successful: {ip}:{ports}".format(ip=ip, ports=str(ports)))
 
-    return True
+    yield True
 
 
+@connection_watcher
 def start_selenium_session(request, session, port):
     status, headers, body = None, None, None
 
     for attempt_start in range(3):
-        if session.closed:
-            raise CreationException(
-                "Session was closed while during starting selenium")
-
         log.info(
             "Attempt %s. Starting selenium-server-standalone session for %s" %
             (attempt_start, session.id))
         log.info("with %s %s\n%s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
-        status, headers, body = add_sub_step(session, session.make_request)(
-            port,
-            RequestHelper(request.method, request.path,
-                          request.headers, request.data))
+        wrapped_make_request = add_sub_step(session, session.make_request)
+        for status, headers, body in wrapped_make_request(
+            port, RequestHelper(
+                request.method, request.path, request.headers, request.data
+            )
+        ):
+            yield status, headers, body
         if status == httplib.OK:
             log.info("SUCCESS start selenium-server-standalone status for %s" %
                      session.id)
@@ -133,9 +131,10 @@ def start_selenium_session(request, session, port):
         log.info("FAILED start selenium-server-standalone status "
                  "for %s - %s : %s" % (session.id, status, body))
         raise CreationException("Failed to start selenium session: %s" % body)
-    return status, headers, body
+    yield status, headers, body
 
 
+@connection_watcher
 def selenium_status(request, session, port):
     parts = request.path.split("/")
     parts[-1] = "status"
@@ -143,15 +142,14 @@ def selenium_status(request, session, port):
     status, headers, body, selenium_status_code = None, None, None, None
 
     for attempt in range(3):
-        if session.closed:
-            raise CreationException(
-                "Session was closed while before getting selenium status")
-
         log.info("Attempt %s. Getting selenium-server-standalone status "
                  "for %s" % (attempt, session.id))
 
-        status, headers, body = add_sub_step(session, session.make_request)(
-            port, RequestHelper("GET", status_cmd))
+        wrapped_make_request = add_sub_step(session, session.make_request)
+        for status, headers, body in wrapped_make_request(
+            port, RequestHelper("GET", status_cmd)
+        ):
+            yield status, headers, body
         selenium_status_code = json.loads(body).get("status", None)
 
         if selenium_status_code == 0:
@@ -166,7 +164,7 @@ def selenium_status(request, session, port):
         log.info("FAIL get selenium-server-standalone status for %s" %
                  session.id)
         raise CreationException("Failed to get selenium status: %s" % body)
-    return status, headers, body
+    yield status, headers, body
 
 
 def replace_platform_with_any(request):
@@ -216,14 +214,16 @@ def set_path_session_id(path, session_id):
 
 
 def take_screenshot(session, port):
-    status, headers, body = session.make_request(
-        port, RequestHelper(method="GET", url="/takeScreenshot", headers={},
-                            data=""))
+    for status, headers, body in session.make_request(
+        port,
+        RequestHelper(method="GET", url="/takeScreenshot")
+    ):
+        yield None
     if status == httplib.OK and body:
         json_response = json.loads(body)
-        return json_response["screenshot"]
+        yield json_response["screenshot"]
     else:
-        return None
+        yield None
 
 
 def run_script_through_websocket(script, session, host):
@@ -243,19 +243,20 @@ def run_script_through_websocket(script, session, host):
     def on_message(ws, message):
         ws.output += message
         if sub_step:
-            msg = json.dumps({"status": 0, "output": ws.output})
+            msg = json.dumps({"status": ws.status, "output": ws.output})
             update_log_step(sub_step, message=msg)
 
     def on_close(ws):
         if sub_step and ws.output:
-            msg = json.dumps({"status": 0, "output": ws.output})
+            msg = json.dumps({"status": ws.status, "output": ws.output})
             update_log_step(sub_step, message=msg)
         log.info("RunScript: Close websocket on vm %s" % host)
 
     def on_error(ws, message):
         global status_code
         status_code = 500
-        ws.output = message
+        ws.status = 1
+        ws.output = repr(message)
         log.debug("RunScript error: %s" % message)
 
     ws = websocket.WebSocketApp(host,
@@ -290,16 +291,10 @@ def vmmaster_label(request, session):
                                 "labelId": label.id})
 
 
-def reserve_session():
-    pass
-
-
 AgentCommands = {
     "runScript": run_script
 }
 
 InternalCommands = {
     "vmmasterLabel": vmmaster_label,
-    "reserveSession": reserve_session,
-    "startSession": vmmaster_label,
 }

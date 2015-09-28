@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from libvirt import libvirtError  # NOQA
 
 
@@ -30,4 +32,8 @@ class ConnectionError(Exception):
 
 
 class NoSuchEndpoint(Exception):
+    pass
+
+
+class QueueItemNotFound(Exception):
     pass

@@ -102,7 +102,7 @@ class ProxyResource(Resource):
             session_id, port, dest = self._parse_uri(request.uri)
         except:
             raise Exception(
-                "Could'nt parse request uri, "
+                "Couldn't parse request uri, "
                 "make sure you request uri has "
                 "/proxy/session/<session_id>/port/<port_number>/<destination>")
 

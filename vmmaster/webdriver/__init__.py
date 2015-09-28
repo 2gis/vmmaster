@@ -7,7 +7,7 @@ from vmmaster.webdriver import commands
 import helpers
 
 from core.logger import log
-from core.exceptions import SessionException, ConnectionError
+from core.exceptions import SessionException
 from core.auth.custom_auth import auth, anonymous
 from core import utils
 
@@ -18,14 +18,8 @@ webdriver = Blueprint('webdriver', __name__)
 def handle_errors(error):
     tb = format_exc()
     log.error(tb)
-    if request.session_id:
-        try:
-            session = current_app.sessions.get_session(
-                request.session_id)
-        except SessionException:
-            pass
-        else:
-            session.failed(tb)
+    if hasattr(request, 'session'):
+        request.session.failed(tb)
 
     error_context = {
         'status': 13,
@@ -41,10 +35,13 @@ def log_request():
     log.debug('%s' % request)
 
     session_id = commands.get_session_id(request.path)
-    request.session_id = session_id
 
-    if session_id:
+    try:
         session = current_app.sessions.get_session(session_id)
+    except SessionException:
+        session = None
+
+    if session:
         control_line = "%s %s %s" % (
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
@@ -53,27 +50,16 @@ def log_request():
                                  body=str(request.data))
 
 
-def send_response(response):
-    if helpers.is_request_closed():
-        raise ConnectionError("Session closed by user")
-    return response
-
-
 @webdriver.after_request
 def log_response(response):
-    session_id = request.session_id
-
-    if session_id:
-        try:
-            session = current_app.sessions.get_session(session_id)
-        except SessionException:
-            session = None
-        if session:
-            response_data = utils.remove_base64_screenshot(response.data)
-            session.add_session_step(control_line=response.status_code,
-                                     body=response_data,
-                                     milestone=False)
     log.debug('Response %s %s' % (response.data, response.status_code))
+
+    if hasattr(request, 'session'):
+        session = request.session
+        response_data = utils.remove_base64_screenshot(response.data)
+        session.add_session_step(control_line=response.status_code,
+                                 body=response_data,
+                                 milestone=False)
     return response
 
 
@@ -91,26 +77,23 @@ def verify_token(username, client_token):
 
 
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
-@helpers.threaded
 def delete_session(session_id):
-    request.response = helpers.transparent()
-    response = request.response
+    session = current_app.sessions.get_session(session_id)
+    request.session = session
+    status, headers, body = helpers.transparent()
 
-    request.session_id = session_id
-    session = current_app.sessions.get_session(request.session_id)
-    session.add_session_step(control_line=response.status_code,
-                             body=request.response.data,
+    session.add_session_step(control_line=status,
+                             body=body,
                              milestone=False)
     session.succeed()
 
     # Session is done, forget about it
-    request.session_id = None
-    return send_response(response)
+    del request.session
+    return helpers.form_response(status, headers, body)
 
 
 @webdriver.route('/session', methods=['POST'])
 @auth.login_required
-@helpers.threaded
 def create_session():
     if current_app.running:
         session = helpers.get_session()
@@ -118,41 +101,48 @@ def create_session():
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
         )
-        session.add_session_step(control_line=control_line,
-                                 body=str(request.data))
-
+        session.add_session_step(
+            control_line=control_line,
+            body=str(request.data)
+        )
+        commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
-        request.response = helpers.form_response(status, headers, body)
-        return send_response(request.response)
+        return helpers.form_response(status, headers, body)
     else:
         log.info("This request is aborted %s" % request)
         abort(502)
 
 
-@webdriver.route("/session/<path:url>", methods=['GET', 'POST', 'DELETE'])
-@helpers.threaded
-def proxy_request(url):
-    request.session_id = url.split("/")[0]
+@webdriver.route("/session/<string:session_id>", methods=['GET'])
+@webdriver.route("/session/<string:session_id>/<path:url>",
+                 methods=['GET', 'POST', 'DELETE'])
+def proxy_request(session_id, url=None):
+    if not hasattr(request, 'session'):
+        request.session = current_app.sessions.get_session(session_id)
 
-    last = url.split("/")[-1]
+    if url:
+        last = url.split("/")[-1]
+    else:
+        last = None
+
     if last in commands.AgentCommands:
-        request.response = helpers.vmmaster_agent(
+        status, headers, body = helpers.vmmaster_agent(
             commands.AgentCommands[last])
     elif last in commands.InternalCommands:
-        request.response = helpers.internal_exec(
+        status, headers, body = helpers.internal_exec(
             commands.InternalCommands[last])
     else:
-        request.response = helpers.transparent()
+        status, headers, body = helpers.transparent()
 
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
-    session_id = request.session_id
-    session = current_app.sessions.get_session(session_id)
     if set(words) & set(parts) or parts[-1] == "session":
-        utils.to_thread(helpers.save_screenshot(session))
-    elif set(only_screenshots) & set(parts) \
-            and request.response.status_code == 500:
-        utils.to_thread(helpers.save_screenshot(session))
+        log.info("Prepare to take session screenshot")
+        utils.to_thread(
+            helpers.take_screenshot_from_session(request.session))
+    elif set(only_screenshots) & set(parts) and status == 500:
+        utils.to_thread(
+            helpers.take_screenshot_from_response(request.session, body))
 
-    return send_response(request.response)
+    return helpers.form_response(status, headers, body)

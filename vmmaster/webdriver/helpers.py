@@ -1,84 +1,58 @@
 # coding: utf-8
 
 import base64
-import sys
 import commands
 import json
+import time
 
 from functools import wraps
-from threading import Thread
-from Queue import Queue
-from flask import Response, current_app, request, copy_current_request_context
+from flask import Response, current_app, request
 
-from core.exceptions import ConnectionError, \
-    CreationException, PlatformException
+from core.exceptions import CreationException, ConnectionError, \
+    TimeoutException, SessionException
 from core.config import config
 from core.logger import log
-from vmpool.api.endpoint import new_vm, delete_vm
-from core.sessions import Session
+
 from core import utils
-
-
-class BucketThread(Thread):
-    def __init__(self, bucket, *args, **kwargs):
-        Thread.__init__(self, *args, **kwargs)
-        self.bucket = bucket
-
-    def run(self):
-        try:
-            super(BucketThread, self).run()
-        except:
-            self.bucket.put(sys.exc_info())
+from core.sessions import Session
+from vmpool import endpoint
 
 
 def is_request_closed():
     return request.input_stream._wrapped.closed
 
 
-def threaded(func):
+def is_session_timeouted():
+    if hasattr(request, 'session'):
+        return request.session.timeouted
+    return False
+
+
+def is_session_closed():
+    if hasattr(request, 'session'):
+        return request.session.closed
+    return False
+
+
+def connection_watcher(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        @copy_current_request_context
-        def thread_target():
-            return func(*args, **kwargs)
+        for value in func(*args, **kwargs):
+            if is_request_closed():
+                raise ConnectionError("Client has disconnected")
 
-        error_bucket = Queue()
-        tr = BucketThread(target=thread_target, bucket=error_bucket)
-        tr.daemon = True
-        tr.start()
+            elif is_session_timeouted():
+                raise TimeoutException("Session timeouted")
 
-        while tr.isAlive() and not is_request_closed():
-            tr.join(0.1)
+            elif is_session_closed():
+                raise SessionException("Session closed")
 
-        if is_request_closed():
-            if request.session_id:
-                session = current_app.sessions.get_session(request.session_id)
-                session.failed()
-            raise ConnectionError("Client has disconnected")
-        elif not error_bucket.empty():
-            error = error_bucket.get()
-            raise error[0], error[1], error[2]
-
-        return request.response
-
+            time.sleep(0)
+        return value
     return wrapper
 
 
-def save_screenshot(session):
-    screenshot = None
-
-    if request.response.status_code == 500:
-        data = json.loads(request.response.data)
-        try:
-            screenshot = data.get('value', {}).get('screen', None)
-        except AttributeError:
-            log.debug('Screenshot not found in webdriver '
-                      'response for session %s' % session.id)
-    else:
-        if session.take_screenshot:
-            screenshot = commands.take_screenshot(session,
-                                                  config.VMMASTER_AGENT_PORT)
-
+def save_screenshot(session, screenshot):
     if screenshot:
         log_step = session.get_milestone_step()
         path = config.SCREENSHOTS_DIR + "/" + str(session.id) + \
@@ -87,6 +61,29 @@ def save_screenshot(session):
         log_step.screenshot = path
         log_step.save()
         make_thumbnail_for_screenshot(path)
+
+
+def take_screenshot_from_response(session, body):
+    data = json.loads(body)
+    try:
+        screenshot = data.get('value', {}).get('screen', None)
+    except AttributeError:
+        log.debug('Screenshot not found in webdriver '
+                  'response for session %s' % session.id)
+        screenshot = None
+
+    save_screenshot(session, screenshot)
+
+
+def take_screenshot_from_session(session):
+    if session.take_screenshot:
+        for screenshot in commands.take_screenshot(session,
+                                                   config.VMMASTER_AGENT_PORT):
+            pass
+    else:
+        screenshot = None
+
+    save_screenshot(session, screenshot)
 
 
 def make_thumbnail_for_screenshot(screenshot_path):
@@ -133,34 +130,36 @@ def swap_session(req, desired_session):
     req.path = commands.set_path_session_id(req.path, desired_session)
 
 
+@connection_watcher
 def transparent():
     from core.sessions import RequestHelper
 
-    session = current_app.sessions.get_session(request.session_id)
-    swap_session(request, session.selenium_session)
-    code, headers, response_body = session.make_request(
+    status, headers, body = None, None, None
+    swap_session(request, request.session.selenium_session)
+    for status, headers, body in request.session.make_request(
         config.SELENIUM_PORT,
         RequestHelper(
             request.method, request.path, request.headers, request.data
         )
-    )
+    ):
+        yield status, headers, body
 
-    swap_session(request, request.session_id)
-    return form_response(code, headers, response_body)
+    swap_session(request, str(request.session.id))
+    yield status, headers, body
 
 
 def vmmaster_agent(command):
-    session = current_app.sessions.get_session(request.session_id)
+    session = current_app.sessions.get_session(request.session.id)
     swap_session(request, session.selenium_session)
     code, headers, body = command(request, session)
     swap_session(request, session.selenium_session)
-    return form_response(code, headers, body)
+    return code, headers, body
 
 
 def internal_exec(command):
-    session = current_app.sessions.get_session(request.session_id)
+    session = current_app.sessions.get_session(request.session.id)
     code, headers, body = command(request, session)
-    return form_response(code, headers, body)
+    return code, headers, body
 
 
 def check_to_exist_ip(session, tries=10, timeout=5):
@@ -179,29 +178,19 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             sleep(timeout)
 
 
+@connection_watcher
 def get_session():
     dc = commands.get_desired_capabilities(request)
-    commands.replace_platform_with_any(request)
 
     session = Session(dc=dc)
-    request.session_id = session.id
+    request.session = session
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
 
-    log.info("Session %s waiting for endpoint (%s)..." % (session.id, str(dc)))
-    try:
-        endpoint = new_vm(dc)
-    except Exception as e:
-        error_message = '%s' % str(e.message)
-        session.failed(error_message)
-        raise PlatformException(error_message)
-    log.info('Session %s got new endpoint (%s)' % (session.id, endpoint))
-    if is_request_closed() or session.is_closed():
-        if endpoint:
-            delete_vm(endpoint["id"])
-        raise ConnectionError(
-            "Session was closed during creating selenium session"
-        )
+    yield session
+    for vm in endpoint.new_vm(dc):
+        session.endpoint = vm
+        yield session
 
-    session.run(endpoint)
-    return session
+    session.run(session.endpoint)
+    yield session

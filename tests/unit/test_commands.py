@@ -5,9 +5,10 @@ import json
 
 from mock import Mock, patch
 from helpers import Handler, BaseTestCase
-from helpers import ServerMock, get_free_port
+from helpers import ServerMock, get_free_port, DatabaseMock
 
-from core.exceptions import CreationException
+from core.exceptions import CreationException, ConnectionError, \
+    SessionException, TimeoutException
 from core.config import setup_config, config
 from flask import Flask
 
@@ -53,13 +54,16 @@ class CommonCommandsTestCase(BaseTestCase):
 
         cls.app = Flask(__name__)
         cls.app.database = None
+        cls.app.sessions = None
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
 
         with patch(
-            'flask.current_app.database', Mock()
+            'flask.current_app.database', DatabaseMock()
+        ), patch(
+            'flask.current_app.sessions', Mock()
         ), patch(
             "core.network.Network", Mock()
         ), patch(
@@ -67,14 +71,12 @@ class CommonCommandsTestCase(BaseTestCase):
         ):
             from core.sessions import Session
             self.session = Session()
-            self.session.id = 1
             self.session.name = "session1"
             self.session.platform = "test_origin_1"
 
-            vm = {
-                'name': 'vm1',
-                'ip': self.host
-            }
+            vm = Mock()
+            vm.name = 'vm1'
+            vm.ip = self.host
 
             self.session.run(vm)
 
@@ -83,9 +85,9 @@ class CommonCommandsTestCase(BaseTestCase):
 
     def tearDown(self):
         with patch(
-            'flask.current_app.database', Mock()
+            'flask.current_app.sessions', Mock()
         ), patch(
-            'vmpool.api.endpoint.delete_vm', Mock()
+            'vmpool.endpoint.delete_vm', Mock()
         ):
             self.session.delete()
         self.ctx.pop()
@@ -97,12 +99,28 @@ class CommonCommandsTestCase(BaseTestCase):
         del cls.app
 
 
-@patch('core.utils.graphite.send_metrics', Mock())
-@patch('vmmaster.webdriver.commands.start_selenium_session', new=Mock(
-    __name__="start_selenium_session",
-    return_value=(200, {}, json.dumps({'sessionId': "1"})))
+def ping_vm_mock(arg):
+    yield None
+
+
+def selenium_status_mock(arg1, arg2, arg3):
+    yield None
+
+
+@patch(
+    'vmmaster.webdriver.commands.start_selenium_session', new=Mock(
+        __name__="start_selenium_session",
+        side_effect=selenium_status_mock
+    )
 )
-@patch('vmmaster.webdriver.commands.ping_vm', new=Mock(__name__="ping_vm"))
+@patch(
+    'vmmaster.webdriver.commands.ping_vm',
+    new=Mock(__name__="ping_vm", side_effect=ping_vm_mock)
+)
+@patch(
+    'vmmaster.webdriver.helpers.is_request_closed',
+    Mock(return_value=False)
+)
 @patch('flask.current_app.database', Mock())
 class TestStartSessionCommands(CommonCommandsTestCase):
     def setUp(self):
@@ -110,51 +128,65 @@ class TestStartSessionCommands(CommonCommandsTestCase):
         self.session.dc = Mock(__name__="dc")
 
     def test_start_session_when_selenium_status_failed(self):
+        request = copy.copy(self.request)
+
+        def make_request_mock(arg1, arg2):
+            yield 200, {}, json.dumps({'status': 1})
+
         with patch(
             'core.sessions.Session.make_request', Mock(
                 __name__="make_request",
-                side_effect=Mock(
-                    return_value=(200, {}, json.dumps({'status': 1}))))
+                side_effect=make_request_mock
+            )
         ):
-            request = copy.copy(self.request)
+            self.assertRaises(
+                CreationException, self.commands.start_session,
+                request, self.session
+            )
 
-            self.assertRaises(CreationException, self.commands.start_session,
-                              request, self.session)
-
+    @patch(
+        'vmmaster.webdriver.helpers.is_session_timeouted',
+        Mock(return_value=True)
+    )
+    @patch(
+        'requests.request', Mock(side_effect=Mock(
+            __name__="request",
+            return_value=(200, {}, json.dumps({'status': 0}))))
+    )
     def test_start_session_when_session_was_timeouted(self):
-        with patch(
-            'requests.request', side_effect=Mock(
-                __name__="request",
-                return_value=(200, {}, json.dumps({'status': 0})))
-        ):
-            self.session.timeouted = True
-            request = copy.copy(self.request)
+        request = copy.copy(self.request)
+        self.assertRaises(TimeoutException, self.commands.start_session,
+                          request, self.session)
 
-            self.assertRaises(CreationException, self.commands.start_session,
-                              request, self.session)
-
+    @patch(
+        'vmmaster.webdriver.helpers.is_session_closed',
+        Mock(return_value=True)
+    )
+    @patch(
+        'requests.request', Mock(side_effect=Mock(
+            __name__="request",
+            return_value=(200, {}, json.dumps({'status': 0}))))
+    )
     def test_start_session_when_session_was_closed(self):
-        with patch(
-            'requests.request', side_effect=Mock(
-                __name__="request",
-                return_value=(200, {}, json.dumps({'status': 0})))
-        ):
-            self.session.closed = True
-            request = copy.copy(self.request)
-
-            self.assertRaises(CreationException, self.commands.start_session,
-                              request, self.session)
+        request = copy.copy(self.request)
+        self.assertRaises(SessionException, self.commands.start_session,
+                          request, self.session)
 
 
-@patch('core.utils.graphite.send_metrics', Mock())
 @patch('flask.current_app.database', Mock())
 class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_value=False)
+    )
     def test_session_response_success(self):
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "200"})
-        status, headers, body = \
-            self.commands.start_selenium_session(
-                request, self.session, self.webdriver_server.port)
+
+        status, headers, body = self.commands.start_selenium_session(
+            request, self.session, self.webdriver_server.port
+        )
+
         self.assertEqual(status, 200)
 
         request_headers = dict((key.lower(), value) for key, value in
@@ -165,35 +197,80 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
             self.assertDictContainsSubset({key: value}, request_headers)
         self.assertEqual(body, request.data)
 
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_value=False)
+    )
     def test_session_response_fail(self):
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "500"})
-        self.assertRaises(CreationException,
-                          self.commands.start_selenium_session,
-                          request, self.session, self.webdriver_server.port)
 
+        def start_selenium_session(req):
+            for result in self.commands.start_selenium_session(
+                req, self.session, self.webdriver_server.port
+            ):
+                pass
+
+        self.assertRaises(CreationException, start_selenium_session, request)
+
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_value=True)
+    )
+    def test_start_selenium_session_when_connection_closed(self):
+        self.session.closed = True
+
+        request = copy.deepcopy(self.request)
+        request.headers.update({"reply": "200"})
+
+        self.assertRaises(
+            ConnectionError, self.commands.start_selenium_session,
+            request, self.session, self.webdriver_server.port
+        )
+
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_value=False)
+    )
+    @patch(
+        'vmmaster.webdriver.helpers.is_session_closed',
+        Mock(return_value=True)
+    )
     def test_start_selenium_session_when_session_closed(self):
         self.session.closed = True
 
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "200"})
 
-        self.assertRaises(CreationException,
-                          self.commands.start_selenium_session,
-                          request, self.session, self.webdriver_server.port)
+        self.assertRaises(
+            SessionException, self.commands.start_selenium_session,
+            request, self.session, self.webdriver_server.port
+        )
 
+    @patch(
+        'vmmaster.webdriver.helpers.is_request_closed',
+        Mock(return_value=False)
+    )
+    @patch(
+        'vmmaster.webdriver.helpers.is_session_timeouted',
+        Mock(return_value=True)
+    )
     def test_start_selenium_session_when_session_timeouted(self):
-        self.session.timeouted = True
+        self.session.closed = True
 
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "200"})
 
-        self.assertRaises(CreationException,
-                          self.commands.start_selenium_session,
-                          request, self.session, self.webdriver_server.port)
+        self.assertRaises(
+            TimeoutException, self.commands.start_selenium_session,
+            request, self.session, self.webdriver_server.port
+        )
 
 
-@patch('core.utils.graphite.send_metrics', Mock())
+@patch(
+    'vmmaster.webdriver.helpers.is_request_closed',
+    Mock(return_value=False)
+)
 @patch('flask.current_app.database', Mock())
 class TestCheckVmOnline(CommonCommandsTestCase):
     def setUp(self):
@@ -223,14 +300,18 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
     def test_check_vm_online_ping_failed_timeout(self):
         config.SELENIUM_PORT = get_free_port()
-        self.assertRaises(CreationException, self.commands.ping_vm,
-                          self.session)
+
+        self.assertRaises(
+            CreationException, self.commands.ping_vm, self.session
+        )
 
     def test_check_vm_online_ping_failed_when_session_closed(self):
         config.PING_TIMEOUT = 2
         self.session.closed = True
-        self.assertRaises(CreationException, self.commands.ping_vm,
-                          self.session)
+
+        self.assertRaises(
+            CreationException, self.commands.ping_vm, self.session
+        )
 
     def test_check_vm_online_status_failed(self):
         def do_GET(handler):
@@ -238,8 +319,14 @@ class TestCheckVmOnline(CommonCommandsTestCase):
                                body=self.response_body)
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
-        self.assertRaises(CreationException, self.commands.selenium_status,
-                          request, self.session, self.webdriver_server.port)
+
+        def selenium_status(req):
+            for result in self.commands.selenium_status(
+                req, self.session, self.webdriver_server.port
+            ):
+                pass
+
+        self.assertRaises(CreationException, selenium_status, request)
 
     def test_selenium_status_failed_when_session_closed(self):
         self.session.closed = True
@@ -251,8 +338,13 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         Handler.do_GET = do_GET
         request = copy.deepcopy(self.request)
 
-        self.assertRaises(CreationException, self.commands.selenium_status,
-                          request, self.session, self.webdriver_server.port)
+        def selenium_status(req):
+            for result in self.commands.selenium_status(
+                req, self.session, self.webdriver_server.port
+            ):
+                pass
+
+        self.assertRaises(CreationException, selenium_status, request)
 
 
 class TestGetDesiredCapabilities(BaseTestCase):
@@ -352,8 +444,6 @@ class TestGetDesiredCapabilities(BaseTestCase):
         self.assertFalse(dc["takeScreenshot"])
 
 
-@patch('core.utils.graphite.send_metrics', Mock())
-@patch('flask.current_app.database', Mock())
 class TestRunScript(CommonCommandsTestCase):
     def setUp(self):
         super(TestRunScript, self).setUp()
@@ -363,6 +453,7 @@ class TestRunScript(CommonCommandsTestCase):
     def tearDown(self):
         super(TestRunScript, self).tearDown()
 
+    @patch('flask.current_app.database', Mock())
     def test_run_script(self):
         def run_script_through_websocket_mock(*args, **kwargs):
             return 200, {}, 'some_body'

@@ -5,12 +5,18 @@ from time import sleep
 
 from core.logger import log
 from vmpool.virtual_machines_pool import pool
+from core.exceptions import QueueItemNotFound
 
 
 class DelayedVirtualMachine(object):
     def __init__(self, dc):
         self.dc = dc
         self.vm = None
+
+    def delete(self):
+        log.info("Deleting request for getting vm from "
+                 "queue with desired capabilities: %s" % self.dc)
+        q.dequeue(self)
 
 
 class VMPoolQueue(list):
@@ -23,7 +29,10 @@ class VMPoolQueue(list):
     def dequeue(self, item=None):
         index = 0
         if item:
-            index = self.index(item)
+            try:
+                index = self.index(item)
+            except ValueError:
+                raise QueueItemNotFound("Item %s not found" % item)
         return self.pop(index)
 
     @property
@@ -45,14 +54,18 @@ class QueueWorker(Thread):
         while self.running:
             for delayed_vm in list(self.queue):
                 platform = delayed_vm.dc.get('platform', '')
+                vm = None
                 if pool.has(platform):
                     vm = pool.get_by_platform(platform)
-                    self.queue.dequeue(delayed_vm)
-                    delayed_vm.vm = vm
                 elif pool.can_produce(platform):
                     vm = pool.add(platform)
-                    self.queue.dequeue(delayed_vm)
-                    delayed_vm.vm = vm
+                if vm:
+                    try:
+                        self.queue.dequeue(delayed_vm)
+                    except QueueItemNotFound:
+                        vm.delete()
+                    else:
+                        delayed_vm.vm = vm
             sleep(0.1)
 
     def stop(self):

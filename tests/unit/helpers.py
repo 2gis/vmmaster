@@ -193,6 +193,22 @@ class BaseTestCase(unittest.TestCase):
         return None
 
 
+primary_key_mock = 1
+
+
+def set_primary_key(_self):
+    global primary_key_mock
+    _self.id = primary_key_mock
+    primary_key_mock += 1
+    pass
+
+
+class DatabaseMock(Mock):
+    def __init__(self, *args, **kwargs):
+        super(DatabaseMock, self).__init__(*args, **kwargs)
+        self.add = Mock(side_effect=set_primary_key)
+
+
 def vmmaster_server_mock(port):
     with patch(
         'core.network.Network', Mock(
@@ -200,7 +216,7 @@ def vmmaster_server_mock(port):
     ), patch(
         'core.connection.Virsh', Mock()
     ), patch(
-        'core.db.database', Mock()
+        'core.db.database', DatabaseMock()
     ), patch(
         'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
     ), patch(

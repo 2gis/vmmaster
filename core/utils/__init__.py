@@ -156,6 +156,13 @@ def wait_for(condition, timeout=5):
 
     return condition()
 
+def generator_wait_for(condition, timeout=5):
+    start = time.time()
+    while not condition() and time.time() - start < timeout:
+        yield None
+
+    yield condition()
+
 
 class BucketThread(Thread):
     def __init__(self, bucket, *args, **kwargs):

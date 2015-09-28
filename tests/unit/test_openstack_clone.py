@@ -566,8 +566,7 @@ class TestNetworkGetting(BaseTestCase):
             self.pool = pool
 
     def tearDown(self):
-        with patch('core.db.database', new=Mock()):
-            self.pool.free()
+        self.pool.free()
         self.platforms.cleanup()
 
     @patch('netifaces.ifaddresses',

@@ -150,31 +150,18 @@ class KVMClone(Clone):
         return clone_dumpxml_file
 
     def create_dumpxml(self, clone_xml):
-        # setting clone name
         dumpxml.set_name(clone_xml, self.name)
-
-        # setting uuid
         dumpxml.set_uuid(clone_xml, uuid4())
-
-        # setting mac
         self.mac = self.network.get_free_mac()
         dumpxml.set_mac(clone_xml, self.mac)
-
-        # setting drive file
         dumpxml.set_disk_file(clone_xml, self.drive_path)
-
-        # setting interface
         dumpxml.set_interface_source(clone_xml, self.network.bridge_name)
-
         return clone_xml
 
     def define_clone(self, clone_dumpxml_file):
         log.info("Defining from {}".format(clone_dumpxml_file))
         file_handler = open(clone_dumpxml_file, "r")
         self.conn.defineXML(file_handler.read())
-
-    def list_virtual_machines(self):
-        pass
 
     def start_virtual_machine(self, machine):
         log.info("Starting {}".format(machine))

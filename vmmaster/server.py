@@ -10,7 +10,6 @@ from app import create_app
 
 from http_proxy import ProxyResource, HTTPChannelWithClient
 from core.logger import log
-from core.exceptions import SessionException
 
 
 def _block_on(d, timeout=None):
@@ -71,19 +70,12 @@ class VMMasterServer(object):
         self.app.cleanup()
 
     def wait_for_end_active_sessions(self):
-        active_sessions = self.app.database.get_all_active_sessions()
+        active_sessions = self.app.sessions.active()
 
         def wait_for(_self):
             while active_sessions:
                 for session in active_sessions:
-                    try:
-                        _session = _self.app.sessions.get_session(session.id)
-                    except SessionException:
-                        _session = None
-                    if _session:
-                        if _session.status in ('failed', 'success'):
-                            active_sessions.remove(session)
-                    else:
+                    if session.status in ('failed', 'success'):
                         active_sessions.remove(session)
 
                 time.sleep(1)
