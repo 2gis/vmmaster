@@ -138,7 +138,6 @@ def proxy_request(session_id, url=None):
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
     if set(words) & set(parts) or parts[-1] == "session":
-        log.info("Prepare to take session screenshot")
         utils.to_thread(
             helpers.take_screenshot_from_session(request.session))
     elif set(only_screenshots) & set(parts) and status == 500:
