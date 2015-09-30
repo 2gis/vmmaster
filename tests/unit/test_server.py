@@ -166,6 +166,65 @@ class TestServer(BaseTestServer):
         self.assertTrue(t.isAlive())
         t.join(0.1)
 
+    def test_get_non_existing_session(self):
+        """
+        - try to get session from empty pool
+        Expected: exception
+        """
+        session_id = uuid4()
+        with patch(
+            'flask.current_app.database.get_session', Mock(return_value=None)
+        ):
+            response = get_session_request(self.address, session_id)
+        self.assertTrue(
+            "SessionException: There is no active session %s (Unknown session)"
+            % session_id in response.content
+        )
+
+    def test_get_closed_session(self):
+        """
+        - succeed existing session
+        - try to get this session
+        Expected: session exception without any reason
+        """
+        from core.sessions import Session
+        session = Session()
+        session.selenium_session = '1'
+        session.succeed()
+
+        with patch(
+            'flask.current_app.database.get_session',
+            Mock(return_value=session)
+        ):
+            response = get_session_request(self.address, session.id)
+        self.assertIn(
+            "SessionException: There is no active session %s"
+            % session.id, response.content
+        )
+        session.delete()
+
+    def test_get_timeouted_session(self):
+        """
+        - timeout existing session
+        - try to get this session
+        Expected: session exception with reason 'Session timeout'
+        """
+        from core.sessions import Session
+        session = Session()
+        session.selenium_session = '1'
+        session.timeout()
+
+        with patch(
+            'flask.current_app.database.get_session',
+            Mock(return_value=session)
+        ):
+            response = get_session_request(self.address, session.id)
+        self.assertIn(
+            "SessionException: There is no active session %s (Session timeout)"
+            % session.id, response.content
+        )
+        session.delete()
+
     @patch(
         'core.sessions.Session.make_request',
         Mock(side_effect=Mock(return_value=(200, {}, None)))
@@ -226,25 +285,17 @@ class TestServer(BaseTestServer):
         session.delete()
 
     @patch('flask.current_app.database.get_session', Mock(return_value=None))
-    def test_delete_none_existing_session(self):
+    def test_delete_non_existing_session(self):
         """
         - try to delete session from empty pool
         Expected: exception
         """
         session_id = uuid4()
         response = delete_session_request(self.address, session_id)
-        self.assertTrue("SessionException: There is no active session %s" %
-                        session_id in response.content)
-
-    def test_get_none_existing_session(self):
-        """
-        - try to get session from empty pool
-        Expected: exception
-        """
-        session_id = uuid4()
-        response = get_session_request(self.address, session_id)
-        self.assertTrue("SessionException: There is no active session %s" %
-                        session_id in response.content)
+        self.assertTrue(
+            "SessionException: There is no active session %s (Unknown session)"
+            % session_id in response.content
+        )
 
     @patch(
         'vmmaster.webdriver.helpers.is_request_closed',
@@ -366,12 +417,12 @@ class TestSessionWorker(BaseTestCase):
         session.delete()
 
 
-class TestSessionStates(BaseTestServer):
+class TestConnectionClose(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
         self.address = ("localhost", 9001)
 
-        super(TestSessionStates, self).setUp()
+        super(TestConnectionClose, self).setUp()
 
         self.pool = self.vmmaster.app.pool
 
@@ -390,25 +441,6 @@ class TestSessionStates(BaseTestServer):
         self.ctx.pop()
         del self.vmmaster
         server_is_down(self.address)
-
-    def test_server_get_closed_session(self):
-        """
-        - close existing session
-        - try to get closed session
-        Expected: session exception
-        """
-        from core.sessions import Session
-        session = Session()
-        session.selenium_session = '1'
-        session.closed = True
-
-        with patch('flask.current_app.sessions.active',
-                   new=Mock(return_value=[session])):
-            response = get_session_request(self.address, session.id)
-
-        self.assertIn("SessionException: Session %s closed"
-                      % session.id, response.content)
-        session.delete()
 
     def test_req_closed_during_session_creating(self):
         """

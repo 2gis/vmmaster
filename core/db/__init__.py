@@ -6,6 +6,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from core.db.models import SessionLogStep, User
 from core.utils import to_thread
 
+from core.sessions import Session as WrappedSession
+
 
 def threaded_transaction(func):
     @to_thread
@@ -58,6 +60,12 @@ class Database(object):
         self.DBSession = scoped_session(self.session_maker)
 
     @transaction
+    def get_session(self, session_id, dbsession=None):
+        if not session_id:
+            return None
+        return dbsession.query(WrappedSession).get(session_id)
+
+    @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):
         return dbsession.query(SessionLogStep).filter_by(
             session_id=session_id).order_by(
@@ -69,7 +77,6 @@ class Database(object):
 
     @transaction
     def get_queue(self, dbsession=None):
-        from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).filter_by(
             status='waiting').all()
 

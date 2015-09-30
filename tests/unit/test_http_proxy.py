@@ -12,11 +12,12 @@ import requests
 class TestHttpProxy(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
-        self.address = ("localhost", 9001)
-        self.vmmaster = vmmaster_server_mock(self.address[1])
+        self.host = "localhost"
+        self.port = 9001
+        self.address = (self.host, self.port)
+        self.vmmaster = vmmaster_server_mock(self.port)
         server_is_up(self.address)
         self.free_port = get_free_port()
-        self.connection_props = self.address + (self.free_port,)
 
         self.ctx = self.vmmaster.app.app_context()
         self.ctx.push()
@@ -29,18 +30,20 @@ class TestHttpProxy(BaseTestCase):
         self.session.delete()
         self.ctx.pop()
         with patch('core.db.database', Mock()):
+            self.vmmaster.app.sessions.kill_all()
             del self.vmmaster
             server_is_down(self.address)
 
     def test_proxy_successful(self):
-        server = ServerMock(self.address[0], self.free_port)
+        server = ServerMock(self.host, self.free_port)
         server.start()
         with patch(
             'core.sessions.Sessions.get_session', Mock(
                 return_value=self.session)
         ):
             response = requests.get(
-                "http://%s:%s/proxy/session/1/port/%s/" % self.connection_props
+                "http://%s:%s/proxy/session/%s/port/%s/" %
+                (self.host, self.port, self.session.id, self.free_port)
             )
         server.stop()
         self.assertEqual("ok", response.content)
@@ -51,7 +54,8 @@ class TestHttpProxy(BaseTestCase):
                 return_value=self.session)
         ):
             response = requests.get(
-                "http://%s:%s/proxy/session/1/port/%s/" % self.connection_props
+                "http://%s:%s/proxy/session/%s/port/%s/" %
+                (self.host, self.port, self.session.id, self.free_port)
             )
         self.assertEqual(
             "Request forwarding failed:\n"
@@ -59,14 +63,24 @@ class TestHttpProxy(BaseTestCase):
             response.content)
 
     def test_proxy_to_session_that_doesnt_exist(self):
-        response = requests.get(
-            "http://%s:%s/proxy/session/1/port/%s/" % self.connection_props
+        self.session.succeed()
+        with patch(
+            'flask.current_app.database.get_session',
+            Mock(return_value=self.session)
+        ):
+            response = requests.get(
+                "http://%s:%s/proxy/session/%s/port/%s/" %
+                (self.host, self.port, self.session.id, self.free_port)
+            )
+        self.assertEqual(
+            "There is no active session %s" % self.session.id,
+            response.content
         )
-        self.assertEqual("There is no active session 1", response.content)
 
     def test_proxy_with_wrong_path(self):
         response = requests.get(
-            "http://%s:%s/proxy/asdf/%s/" % self.connection_props
+            "http://%s:%s/proxy/asdf/%s/" %
+            (self.host, self.port, self.free_port)
         )
         self.assertEqual(
             "Couldn't parse request uri, "
