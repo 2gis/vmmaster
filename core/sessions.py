@@ -65,6 +65,8 @@ class SimpleResponse:
 
 
 class Session(SessionModel):
+    current_log_step = None
+
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
         current_app.sessions.put(self)
@@ -94,13 +96,6 @@ class Session(SessionModel):
                 "name": self.endpoint_name
             }
         return stat
-
-    def get_milestone_step(self):
-        """
-        Find last session log step marked as milestone for sub_step
-        :return: SessionLogStep object
-        """
-        return current_app.database.get_last_step(self)
 
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
@@ -147,9 +142,14 @@ class Session(SessionModel):
         self.failed("Session timeout")
 
     def add_sub_step(self, control_line, body=None):
-        current_milestone_step = self.get_milestone_step()
-        if current_milestone_step:
-            return current_milestone_step.add_sub_step(control_line, body)
+        if self.current_log_step:
+            return self.current_log_step.add_sub_step(control_line, body)
+
+    def add_session_step(self, control_line, body=None):
+        step = super(Session, self).add_session_step(control_line, body)
+        self.current_log_step = step
+
+        return step
 
     def make_request(self, port, request):
         """ Make http request to some port in session

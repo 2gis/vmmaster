@@ -46,8 +46,10 @@ def log_request():
             request.method, request.path,
             request.headers.environ['SERVER_PROTOCOL']
         )
-        session.add_session_step(control_line=control_line,
-                                 body=str(request.data))
+        session.add_session_step(
+            control_line=control_line,
+            body=str(request.data)
+        )
 
 
 @webdriver.after_request
@@ -58,8 +60,7 @@ def log_response(response):
         session = request.session
         response_data = utils.remove_base64_screenshot(response.data)
         session.add_session_step(control_line=response.status_code,
-                                 body=response_data,
-                                 milestone=False)
+                                 body=response_data)
     return response
 
 
@@ -83,8 +84,7 @@ def delete_session(session_id):
     status, headers, body = helpers.transparent()
 
     session.add_session_step(control_line=status,
-                             body=body,
-                             milestone=False)
+                             body=body)
     session.succeed()
 
     # Session is done, forget about it

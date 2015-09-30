@@ -58,17 +58,14 @@ class SessionLogStep(Base, FeaturesMixin):
     body = Column(String)
     screenshot = Column(String)
     created = Column(DateTime, default=datetime.now)
-    milestone = Column(Boolean)
 
     # Relationships
     sub_steps = relationship(
         SessionLogSubStep, backref="session_log_step")
 
-    def __init__(self, control_line, body=None, session_id=None,
-                 milestone=True):
+    def __init__(self, control_line, body=None, session_id=None):
         self.control_line = control_line
         self.body = body
-        self.milestone = milestone
         if session_id:
             self.session_id = session_id
         self.add()
@@ -132,18 +129,10 @@ class Session(Base, FeaturesMixin):
             self.name = "Unnamed session " + str(self.id)
             self.save()
 
-    def add_session_step(self, control_line, body=None, milestone=True):
+    def add_session_step(self, control_line, body=None):
         return SessionLogStep(control_line=control_line,
                               body=body,
-                              milestone=milestone,
                               session_id=self.id)
-
-    def get_milestone_step(self):
-        """
-        Find last session log step marked as milestone for sub_step
-        :return: SessionLogStep object
-        """
-        return current_app.database.get_last_step(self)
 
 
 class User(Base, FeaturesMixin):

@@ -3,7 +3,7 @@
 import copy
 import json
 
-from mock import Mock, patch
+from mock import Mock, PropertyMock, patch
 from helpers import Handler, BaseTestCase
 from helpers import ServerMock, get_free_port, DatabaseMock
 
@@ -472,8 +472,8 @@ class TestLabelCommands(CommonCommandsTestCase):
         label = "step-label"
         label_id = 1
         request.data = json.dumps({"label": label})
-        with patch('core.sessions.Session.get_milestone_step',
-                   Mock(return_value=Mock(id=label_id))):
+        with patch('core.sessions.Session.current_log_step',
+                   PropertyMock(return_value=Mock(id=label_id))):
             status, headers, body = self.commands.vmmaster_label(
                 request, self.session
             )
