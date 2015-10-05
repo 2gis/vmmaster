@@ -112,16 +112,12 @@ class Session(Base, FeaturesMixin):
     def __init__(self, name=None, dc=None):
         if name:
             self.name = name
-        else:
-            self.name = str(self.id)
 
         if dc:
             self.dc = json.dumps(dc)
             self.platform = dc["platform"]
-            if dc.get("name", None):
+            if dc.get("name", None) and not self.name:
                 self.name = dc["name"]
-            else:
-                self.name = str(self.id)
 
             if dc.get("user", None):
                 self.set_user(dc["user"])
@@ -131,6 +127,10 @@ class Session(Base, FeaturesMixin):
                 self.run_script = json.dumps(dc["runScript"])
 
         self.add()
+
+        if not self.name:
+            self.name = "Unnamed session " + str(self.id)
+            self.save()
 
     def add_session_step(self, control_line, body=None, milestone=True):
         return SessionLogStep(control_line=control_line,
