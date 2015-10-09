@@ -68,12 +68,6 @@ class Database(object):
         return dbsession.query(SessionLogStep).get(log_step_id)
 
     @transaction
-    def get_last_step(self, session, dbsession=None):
-        return dbsession.query(SessionLogStep).filter_by(
-            session_id=session.id, milestone=True).order_by(
-                desc(SessionLogStep.id)).first()
-
-    @transaction
     def get_queue(self, dbsession=None):
         from core.sessions import Session as WrappedSession
         return dbsession.query(WrappedSession).filter_by(
@@ -86,13 +80,6 @@ class Database(object):
         elif username:
             return dbsession.query(User).filter_by(username=username).first()
         return None
-
-    @transaction
-    def complete_session(self, control_line, body=None, session_id=None,
-                         dbsession=None):
-        step = SessionLogStep(control_line, body, session_id)
-        step.save()
-        return step
 
     @transaction
     def add(self, obj, dbsession=None):

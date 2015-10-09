@@ -54,7 +54,7 @@ def connection_watcher(func):
 
 def save_screenshot(session, screenshot):
     if screenshot:
-        log_step = session.get_milestone_step()
+        log_step = session.current_log_step
         path = config.SCREENSHOTS_DIR + "/" + str(session.id) + \
             "/" + str(log_step.id) + ".png"
         utils.write_file(path, base64.b64decode(screenshot))
