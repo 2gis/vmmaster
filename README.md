@@ -20,20 +20,6 @@ user@machine: .tox/bin/python manage.py migrations
 user@machine: .tox/bin/python manage.py runserver
 ```
 
-#### run virtual machine pool
-```bash
-user@machine: chmod +x install_dependencies.sh
-user@machine: ./install_dependencies.sh
-user@machine: sudo pip install tox
-user@machine: tox
-user@machine: mv ./config_template.py config.py
-user@machine: .tox/bin/python manage.py vmpool
-```
-
-### ansible
-
-[how to install vmmaster using Ansible?](deploy/README.md)
-
 ## commands to create qcow2 VM's origins
 ### create qcow2 drive
 
