@@ -203,7 +203,7 @@ class SessionWorker(Thread):
 
 
 class Sessions(object):
-    active_sessions = dict()
+    active_sessions = {}
 
     def put(self, session):
         if str(session.id) not in self.active_sessions.keys():
@@ -228,18 +228,16 @@ class Sessions(object):
         try:
             session = self.active_sessions[str(session_id)]
         except KeyError:
-            raise SessionException(
-                "There is no active session %s" % session_id
-            )
-
-        if session.closed:
-            if session.timeouted:
-                raise SessionException(
-                    "Session %s timeouted" % session_id
-                )
+            session = current_app.database.get_session(session_id)
+            if session:
+                reason = session.error
             else:
-                raise SessionException(
-                    "Session %s closed" % session_id
-                )
+                reason = "Unknown session"
+
+            message = "There is no active session %s" % session_id
+            if reason:
+                message = "%s (%s)" % (message, reason)
+
+            raise SessionException(message)
 
         return session
