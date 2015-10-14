@@ -6,6 +6,7 @@ from functools import partial, wraps
 import websocket
 import thread
 
+from traceback import format_exc
 from core import utils
 from core.utils import network_utils
 from core.utils import generator_wait_for
@@ -25,16 +26,23 @@ def add_sub_step(session, func):
             control_line="%s %s" % (request.method, request.url),
             body=request.data)
 
-        for status, headers, body in func(port, request, *args, **kwargs):
+        try:
+            for status, headers, body in func(port, request, *args, **kwargs):
+                yield status, headers, body
+        except Exception as e:
+            session.add_sub_step(
+                control_line='500',
+                body=format_exc()
+            )
+            raise e
+        else:
+            content_to_log = utils.remove_base64_screenshot(body)
+
+            session.add_sub_step(
+                control_line=str(status),
+                body=content_to_log)
+
             yield status, headers, body
-
-        content_to_log = utils.remove_base64_screenshot(body)
-
-        session.add_sub_step(
-            control_line=str(status),
-            body=content_to_log)
-
-        yield status, headers, body
 
     return wrapper
 
