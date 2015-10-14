@@ -48,7 +48,7 @@ class RequestHelper(object):
 
     def __repr__(self):
         return "<RequestHelper method:%s url:%s headers:%s body:%s>" % (
-            self.method, self.url, self.headers, self.body)
+            self.method, self.url, self.headers, self.data)
 
 
 def update_log_step(log_step, message=None, control_line=None):

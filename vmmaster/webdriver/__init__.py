@@ -96,14 +96,6 @@ def delete_session(session_id):
 def create_session():
     if current_app.running:
         session = helpers.get_session()
-        control_line = "%s %s %s" % (
-            request.method, request.path,
-            request.headers.environ['SERVER_PROTOCOL']
-        )
-        session.add_session_step(
-            control_line=control_line,
-            body=str(request.data)
-        )
         commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
         return helpers.form_response(status, headers, body)
