@@ -79,15 +79,14 @@ def verify_token(username, client_token):
 
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
 def delete_session(session_id):
-    session = current_app.sessions.get_session(session_id)
-    request.session = session
+    request.session = current_app.sessions.get_session(session_id)
     status, headers, body = helpers.transparent()
 
-    session.add_session_step(control_line=status,
-                             body=body)
-    session.succeed()
+    request.session.add_session_step(
+        control_line=status, body=body
+    )
+    request.session.succeed()
 
-    # Session is done, forget about it
     del request.session
     return helpers.form_response(status, headers, body)
 
@@ -114,11 +113,16 @@ def create_session():
 
 
 @webdriver.route("/session/<string:session_id>", methods=['GET'])
+def get_session(session_id):
+    request.session = current_app.sessions.get_session(session_id)
+    status, headers, body = helpers.transparent()
+    return helpers.form_response(status, headers, body)
+
+
 @webdriver.route("/session/<string:session_id>/<path:url>",
                  methods=['GET', 'POST', 'DELETE'])
 def proxy_request(session_id, url=None):
-    if not hasattr(request, 'session'):
-        request.session = current_app.sessions.get_session(session_id)
+    request.session = current_app.sessions.get_session(session_id)
 
     if url:
         last = url.split("/")[-1]

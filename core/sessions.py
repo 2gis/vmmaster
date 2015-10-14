@@ -14,6 +14,7 @@ from core.db.models import Session as SessionModel
 from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
+
 from vmpool.endpoint import delete_vm
 from core.utils.vnc_recorder import VNCRecorder
 
