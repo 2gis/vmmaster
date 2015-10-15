@@ -115,6 +115,10 @@ class Session(SessionModel):
         if self.vnc_recorder:
             self.vnc_recorder.stop()
 
+        self.closed = True
+        self.deleted = datetime.now()
+        self.save()
+
         current_app.sessions.remove(self)
         if hasattr(self, "endpoint"):
             log.info("Deleting VM for session: %s" % self.id)
@@ -125,15 +129,11 @@ class Session(SessionModel):
 
     def succeed(self):
         self.status = "succeed"
-        self.closed = True
-        self.save()
         self.delete()
 
     def failed(self, tb="Session closed by user"):
         self.status = "failed"
-        self.closed = True
         self.error = tb
-        self.save()
         self.delete(tb)
 
     def set_vm(self, endpoint):

@@ -91,6 +91,7 @@ class Session(Base, FeaturesMixin):
     run_script = Column(String)
     created = Column(DateTime, default=datetime.now)
     modified = Column(DateTime, default=datetime.now)
+    deleted = Column(DateTime)
 
     # State
     status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
