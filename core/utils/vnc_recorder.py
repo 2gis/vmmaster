@@ -93,7 +93,7 @@ class VNCRecorder():
 
     def flv2webm(self):
         args = [
-            "/usr/bin/ffmpeg",
+            "/usr/bin/avconv",
             "-v", "quiet",
             "-i", "%s" % self.filepath,
             "%s.webm" % self.filepath.split(".flv")[0]
