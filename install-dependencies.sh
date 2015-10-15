@@ -19,5 +19,4 @@ sudo apt-get -y install libssl-dev libffi-dev
 sudo apt-get install libpq-dev
 
 # install vnc_recorder deps
-sudo add-apt-repository -y ppa:mc3man/trusty-media
-sudo apt-get install -y ffmpeg x264
+sudo apt-get install -y libav-tools
