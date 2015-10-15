@@ -643,3 +643,86 @@ class TestServerWithPreloadedVM(BaseTestCase):
 
         self.assertEqual(200, response.status)
         self.assertEqual(1, self.pool.count())
+
+
+class TestSessionSteps(BaseTestServer):
+    def setUp(self):
+        setup_config('data/config.py')
+
+        self.address = ("localhost", 9001)
+
+        super(TestSessionSteps, self).setUp()
+
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+            }
+        }
+
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
+
+    def tearDown(self):
+        del self.vmmaster
+        server_is_down(self.address)
+        self.ctx.pop()
+
+    def test_add_first_two_steps(self):
+        """
+        - exception while waiting endpoint
+        Expected: session was created, session_step was created
+        """
+
+        def raise_exception(dc):
+            raise Exception('something ugly happened in new_vm')
+
+        with patch(
+            'vmpool.endpoint.new_vm', Mock(side_effect=raise_exception)
+        ), patch(
+            'core.sessions.Session.add_session_step', Mock()
+        ) as add_step_mock:
+            response = new_session_request(self.address, self.desired_caps)
+
+        self.assertEqual(500, response.status)
+        self.assertIn('something ugly happened in new_vm', response.content)
+
+        self.assertEqual(add_step_mock.call_count, 2)
+
+    @patch(
+        'vmmaster.webdriver.commands.ping_vm',
+        new=Mock(side_effect=ping_vm_true_mock)
+    )
+    @patch(
+        'vmmaster.webdriver.commands.selenium_status',
+        new=Mock(
+            __name__="selenium_status",
+            return_value=(200, {}, json.dumps({'status': 0}))
+        )
+    )
+    def test_always_create_response_for_sub_step(self):
+        """
+        - exception while executing make_request
+        Expected: session failed, sub_steps was created
+        """
+
+        def raise_exception(*args, **kwargs):
+            raise Exception('something ugly happened in make_request')
+
+        def new_vm_mock(arg):
+            yield Mock(ip=1)
+
+        with patch(
+            'vmpool.endpoint.new_vm', Mock(side_effect=new_vm_mock)
+        ), patch(
+            'core.sessions.Session.make_request',
+            Mock(__name__="make_request", side_effect=raise_exception)
+        ), patch(
+            'core.sessions.Session.add_sub_step', Mock()
+        ) as add_sub_step_mock:
+            response = new_session_request(self.address, self.desired_caps)
+
+        self.assertEqual(500, response.status)
+        self.assertIn(
+            'something ugly happened in make_request', response.content)
+
+        self.assertEqual(add_sub_step_mock.call_count, 2)
