@@ -48,3 +48,6 @@ pip install -r requirements-dev.txt
 + .tox/bin/coverage run --source=vmmaster run_unittests.py
 + .tox/bin/coverage html
 + look for coverage/index.html
+
+## Documentation
+More [information](http://vmmaster.readthedocs.org)
