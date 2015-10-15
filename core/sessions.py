@@ -69,6 +69,7 @@ class SimpleResponse:
 class Session(SessionModel):
     current_log_step = None
     vnc_recorder = None
+    vnc_proxy = None
     take_screencast = None
 
     def __init__(self, name=None, dc=None):
@@ -114,6 +115,9 @@ class Session(SessionModel):
     def delete(self, message=""):
         if self.vnc_recorder:
             self.vnc_recorder.stop()
+
+        if self.vnc_proxy:
+            self.vnc_proxy.stop()
 
         self.closed = True
         self.deleted = datetime.now()

@@ -58,6 +58,15 @@ def get_socket(host, port):
     return s
 
 
+def get_free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
 def ping(ip, port):
     try:
         s = get_socket(ip, port)
