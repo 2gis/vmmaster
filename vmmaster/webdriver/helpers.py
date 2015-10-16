@@ -146,7 +146,7 @@ def transparent():
 
 
 def vmmaster_agent(command):
-    session = current_app.sessions.get_session(request.session.id)
+    session = request.session
     swap_session(request, session.selenium_session)
     code, headers, body = command(request, session)
     swap_session(request, session.selenium_session)
@@ -154,8 +154,7 @@ def vmmaster_agent(command):
 
 
 def internal_exec(command):
-    session = current_app.sessions.get_session(request.session.id)
-    code, headers, body = command(request, session)
+    code, headers, body = command(request, request.session)
     return code, headers, body
 
 
@@ -182,7 +181,14 @@ def get_session():
     request.session = session
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
-
+    control_line = "%s %s %s" % (
+        request.method, request.path,
+        request.headers.environ['SERVER_PROTOCOL']
+    )
+    session.add_session_step(
+        control_line=control_line,
+        body=str(request.data)
+    )
     yield session
     for vm in endpoint.new_vm(dc):
         session.endpoint = vm
