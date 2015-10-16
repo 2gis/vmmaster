@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
-from core.utils.vnc2ws import ProxyVNCServer
+from core.video import VNCVideoHelper
 
 api = Blueprint('api', __name__)
 
@@ -133,15 +133,14 @@ def get_vnc_info(session_id):
 
     _session = helpers.get_session(session_id)
     if _session and _session.endpoint_ip:
-        if _session.vnc_proxy:
+        if _session.vnc_helper.proxy:
             result, code = (
-                {'vnc_proxy_port': _session.vnc_proxy.proxy_port}, 200
+                {'vnc_proxy_port': _session.vnc_helper.get_proxy_port()}, 200
             )
         else:
-            _session.vnc_proxy = ProxyVNCServer(_session.endpoint_ip, 5900)
-            _session.vnc_proxy.start()
+            _session.vnc_helper.start_proxy()
             result, code = (
-                {'vnc_proxy_port': _session.vnc_proxy.proxy_port}, 200
+                {'vnc_proxy_port': _session.vnc_helper.get_proxy_port()}, 200
             )
 
     return render_json(result=result, code=code)

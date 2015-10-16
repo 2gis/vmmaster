@@ -5,52 +5,32 @@
 ##
 
 import multiprocessing
+import websockify
 
 from core.config import config
 from core.logger import log
 
 import sys, socket, os, os.path, subprocess, signal
 from vnc2flv import flv, rfb, video
+from core.utils.network_utils import get_free_port
 
 
-class VNCRecorder():
+class VNCVideoHelper():
     recorder = None
+    proxy = None
+    __proxy_port = None
+    __filepath = None
 
-    def __init__(self, host, filename, port=5900, framerate=5, size=(800, 600)):
+    def __init__(self, host, port=5900, logfilename=''):
         sys.stderr = sys.stdout = open(os.sep.join([
-            config.LOG_DIR, str(filename) + '_vnc_recorder.log'
+            config.LOG_DIR, str(logfilename) + '_vnc_video.log'
         ]), 'w')
-        debug = 0
-        verbose = 0
-        dir_path = os.sep.join([config.SCREENSHOTS_DIR, str(filename)])
+        self.host = host
+        self.port = port
 
-        if not os.path.isdir(dir_path):
-            os.mkdir(dir_path)
-        self.filepath = os.sep.join([dir_path, str(filename) + '.flv'])
-
-        if config.LOG_LEVEL == "DEBUG":
-            debug = 1
-            verbose = 1
-
-        args = (
-            self.filepath,
-            host,
-            port
-        )
-
-        kwargs = {
-            'framerate': framerate,
-            'clipping': video.str2clip("%sx%s+0-0" % (size[0], size[1])),
-            'debug': debug,
-            'verbose': verbose
-        }
-
-        self.recorder = multiprocessing.Process(target=self.flvrec,
-                                                args=args,
-                                                kwargs=kwargs)
 
     @staticmethod
-    def flvrec(filename, host='localhost', port=5900,
+    def _flvrec(filename, host='localhost', port=5900,
                framerate=12, keyframe=120,
                preferred_encoding=(0,),
                blocksize=32, clipping=None,
@@ -91,20 +71,59 @@ class VNCRecorder():
         fp.close()
         return retval
 
-    def flv2webm(self):
+    def _flv2webm(self):
         args = [
             "/usr/bin/avconv",
             "-v", "quiet",
-            "-i", "%s" % self.filepath,
-            "%s.webm" % self.filepath.split(".flv")[0]
+            "-i", "%s" % self.__filepath,
+            "%s.webm" % self.__filepath.split(".flv")[0]
         ]
         subprocess.Popen(args, stdin=subprocess.PIPE)
 
-    def start(self):
+    def start_proxy(self):
+        self.__proxy_port = get_free_port()
+        sys.argv = [
+            "--daemon",
+            "--wrap-mode=ignore",
+            "--record=%s/proxy_vnc_%s.log" % (config.LOG_DIR, self.port),
+            "0.0.0.0:%d" % self.__proxy_port,
+            "%s:%s" % (self.host, self.port)
+        ]
+
+        self.proxy = multiprocessing.Process(
+            target=websockify.websocketproxy.websockify_init
+        )
+
+        self.proxy.start()
+
+    def get_proxy_port(self):
+        return self.__proxy_port
+
+    def stop_proxy(self):
+        if self.proxy and self.proxy.is_alive():
+            self.proxy.terminate()
+
+    def start_recording(self, filename, framerate=5, size=(800, 600)):
+        dir_path = os.sep.join([config.SCREENSHOTS_DIR, str(filename)])
+        if not os.path.isdir(dir_path):
+            os.mkdir(dir_path)
+        self.__filepath = os.sep.join([dir_path, str(filename) + '.flv'])
+
+        kwargs = {
+            'framerate': framerate,
+            'clipping': video.str2clip("%sx%s+0-0" % (size[0], size[1])),
+            'debug': 1,
+            'verbose': 1
+        }
+        self.recorder = multiprocessing.Process(target=self._flvrec,
+                                                args=(self.__filepath,
+                                                      self.host,
+                                                      self.port),
+                                                kwargs=kwargs)
         self.recorder.start()
 
-    def stop(self):
-        if self.recorder.is_alive():
+    def stop_recording(self):
+        if self.recorder and self.recorder.is_alive():
             self.recorder.terminate()
 
-        self.flv2webm()
+            self._flv2webm()
