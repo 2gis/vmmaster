@@ -77,13 +77,13 @@ def get_session_request(address, session):
 
 def run_script(address, session, script):
     return request("%s:%s" % address, "POST",
-                   "/wd/hub/session/%s/runScript" % str(session),
+                   "/wd/hub/session/%s/vmmaster/runScript" % str(session),
                    body=json.dumps({"script": script}))
 
 
 def vmmaster_label(address, session, label=None):
     return request("%s:%s" % address, "POST",
-                   "/wd/hub/session/%s/vmmasterLabel" % str(session),
+                   "/wd/hub/session/%s/vmmaster/vmmasterLabel" % str(session),
                    body=json.dumps({"label": label}))
 
 from core.utils.network_utils import get_socket

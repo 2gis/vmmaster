@@ -111,25 +111,7 @@ def get_session(session_id):
     return helpers.form_response(status, headers, body)
 
 
-@webdriver.route("/session/<string:session_id>/<path:url>",
-                 methods=['GET', 'POST', 'DELETE'])
-def proxy_request(session_id, url=None):
-    request.session = current_app.sessions.get_session(session_id)
-
-    if url:
-        last = url.split("/")[-1]
-    else:
-        last = None
-
-    if last in commands.AgentCommands:
-        status, headers, body = helpers.vmmaster_agent(
-            commands.AgentCommands[last])
-    elif last in commands.InternalCommands:
-        status, headers, body = helpers.internal_exec(
-            commands.InternalCommands[last])
-    else:
-        status, headers, body = helpers.transparent()
-
+def take_screenshot(status, body):
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")
@@ -140,4 +122,39 @@ def proxy_request(session_id, url=None):
         utils.to_thread(
             helpers.take_screenshot_from_response(request.session, body))
 
+
+@webdriver.route(
+    "/session/<string:session_id>/vmmaster/runScript", methods=['POST']
+)
+def agent_command(session_id):
+    request.session = current_app.sessions.get_session(session_id)
+
+    status, headers, body = helpers.vmmaster_agent(
+        commands.AgentCommands['runScript'])
+
+    take_screenshot(status, body)
+    return helpers.form_response(status, headers, body)
+
+
+@webdriver.route(
+    "/session/<string:session_id>/vmmaster/vmmasterLabel", methods=['POST']
+)
+def vmmaster_command(session_id):
+    request.session = current_app.sessions.get_session(session_id)
+
+    status, headers, body = helpers.internal_exec(
+        commands.InternalCommands['vmmasterLabel'])
+
+    take_screenshot(status, body)
+    return helpers.form_response(status, headers, body)
+
+
+@webdriver.route("/session/<string:session_id>/<path:url>",
+                 methods=['GET', 'POST', 'DELETE'])
+def proxy_request(session_id, url=None):
+    request.session = current_app.sessions.get_session(session_id)
+
+    status, headers, body = helpers.transparent()
+
+    take_screenshot(status, body)
     return helpers.form_response(status, headers, body)
