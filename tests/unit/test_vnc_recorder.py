@@ -51,8 +51,6 @@ class TestVNCVideoHelper(BaseTestCase):
             "core.connection.Virsh", Mock()
         ), patch(
             'core.db.database', DatabaseMock()
-        ), patch(
-            'vmpool.endpoint.delete_vm', Mock()
         ):
             from core.sessions import Session
             self.session = Session(dc=dc)

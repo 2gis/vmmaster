@@ -97,7 +97,7 @@ class VirtualMachinesPool(object):
         if _name:
             log_pool.debug('Getting VM: %s' % _name)
             for vm in cls.pool + cls.using:
-                if vm.ready and vm.name == _name:
+                if vm.name == _name:
                     return vm
 
     @classmethod

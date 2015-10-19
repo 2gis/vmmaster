@@ -87,8 +87,6 @@ class CommonCommandsTestCase(BaseTestCase):
             'flask.current_app.sessions', Mock()
         ), patch(
             'flask.current_app.database', Mock()
-        ), patch(
-            'vmpool.endpoint.delete_vm', Mock()
         ):
             self.session.delete()
         self.ctx.pop()

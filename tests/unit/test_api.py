@@ -65,8 +65,7 @@ class TestApi(BaseTestCase):
         self.assertEqual(self.platform, session.platform)
         self.assertEqual(200, body['metacode'])
 
-        with patch('vmpool.endpoint.delete_vm', new=Mock()):
-            session.failed()
+        session.failed()
 
     def test_api_platforms(self):
         response = self.vmmaster_client.get('/api/platforms')
@@ -92,8 +91,7 @@ class TestApi(BaseTestCase):
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
 
-        with patch('vmpool.endpoint.delete_vm', new=Mock()):
-            session.failed.assert_any_call()
+        session.failed.assert_any_call()
 
     @patch('core.db.database', Mock())
     def test_get_screenshots(self):
@@ -235,3 +233,68 @@ class TestApi(BaseTestCase):
         vnc_proxy_port = body['result']
         self.assertDictEqual({}, vnc_proxy_port)
         self.assertEqual(500, body['metacode'])
+
+
+    @patch('core.db.database', Mock())
+    def test_api_success_delete_endpoint(self):
+        vm_for_delete = Mock(name='test_vm_1', delete=Mock())
+        success_answer = "Endpoint %s was deleted" % vm_for_delete.name
+
+        with patch(
+            'vmpool.virtual_machines_pool.pool.get_by_name',
+            Mock(return_value=vm_for_delete)
+        ):
+            response = self.vmmaster_client.delete("/api/pool/%s"
+                                                   % vm_for_delete.name)
+
+            body = json.loads(response.data)
+            self.assertEqual(200, body['metacode'])
+            self.assertEqual(success_answer, body['result'])
+
+
+    @patch('core.db.database', Mock())
+    def test_api_failed_delete_endpoint(self):
+        error = 'Failed'
+        vm_for_delete = Mock(name='test_vm_1', delete=Mock(side_effect=Exception(error)))
+        failed_answer = 'Got error during deleting vm %s. ' \
+                        '\n\n %s' % (vm_for_delete.name, error)
+
+        with patch(
+            'vmpool.virtual_machines_pool.pool.get_by_name',
+            Mock(return_value=vm_for_delete)
+        ):
+            response = self.vmmaster_client.delete("/api/pool/%s"
+                                                   % vm_for_delete.name)
+
+            body = json.loads(response.data)
+            self.assertEqual(200, body['metacode'])
+            self.assertEqual(failed_answer, body['result'])
+
+    @patch('core.db.database', Mock())
+    def test_api_success_and_failed_delete_all_endpoints(self):
+        vm_name_1 = "test_vm_1"
+        class VM():
+            def __repr__(self):
+                return "test_vm_1"
+
+            def __init__(self, name):
+                self.name = name
+
+            def delete(self): pass
+
+        fake_pool = [
+            VM(vm_name_1),
+            Mock(name='test_vm_2', delete=Mock(side_effect=Exception))
+        ]
+
+        with patch(
+            'vmpool.virtual_machines_pool.pool.pool', fake_pool
+        ), patch(
+            'vmpool.virtual_machines_pool.pool.using', []
+        ):
+            response = self.vmmaster_client.delete("/api/pool")
+
+            body = json.loads(response.data)
+            self.assertEqual(200, body['metacode'])
+            self.assertEqual("This endpoints were deleted from pool: "
+                             "[%s]" % vm_name_1, body['result'])
