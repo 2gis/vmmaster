@@ -120,9 +120,14 @@ class Session(SessionModel):
         self.save()
 
         current_app.sessions.remove(self)
+
+        if hasattr(self, "ws"):
+            self.ws.close()
+
         if hasattr(self, "endpoint") and self.endpoint:
             log.info("Deleting VM for session: %s" % self.id)
             self.endpoint.delete()
+
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):
