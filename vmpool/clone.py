@@ -58,8 +58,10 @@ class Clone(VirtualMachine):
 
     def ping_vm(self):
         ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
+        result = [False, False]
         timeout = config.PING_TIMEOUT
         start = time.time()
+
         log.info("Starting ping vm {clone}: {ip}:{port}".format(
             clone=self.name, ip=self.ip, port=ports))
         _ping = partial(network_utils.ping, self.ip)
@@ -72,7 +74,6 @@ class Clone(VirtualMachine):
                 break
             time.sleep(0.1)
 
-        result = map(_ping, ports)
         if not all(result):
             fails = [port for port, res in zip(ports, result) if res is False]
             log.info("Failed ping for {clone} with {ip}:{ports}".format(
