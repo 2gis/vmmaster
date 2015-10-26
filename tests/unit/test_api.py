@@ -184,10 +184,10 @@ class TestApi(BaseTestCase):
         vnc_proxy_port = body['result']['vnc_proxy_port']
         self.assertEqual(type(expected), type(vnc_proxy_port))
         self.assertEqual(200, body['metacode'])
-        self.assertTrue(isinstance(session.vnc_proxy.ws, Process))
+        self.assertTrue(isinstance(session.vnc_helper.proxy, Process))
 
         session.delete()
-        self.assertTrue(wait_for(lambda: not session.vnc_proxy.ws.is_alive()))
+        self.assertTrue(wait_for(lambda: not session.vnc_helper.proxy.is_alive()))
 
     @patch('core.db.database', Mock())
     def test_get_vnc_info_for_running_proxy(self):
@@ -197,8 +197,9 @@ class TestApi(BaseTestCase):
         session.name = "session1"
         session.platform = 'test_origin_1'
         session.created = session.modified = datetime.now()
-        session.vnc_proxy = Mock(proxy_port=5900)
         session.run(endpoint)
+        session.vnc_helper = Mock(proxy=Mock(),
+                                  get_proxy_port=Mock(return_value=5900))
 
         expected = {
             'vnc_proxy_port': 5900

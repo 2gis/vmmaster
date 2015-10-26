@@ -16,7 +16,7 @@ from core.logger import log
 from core.exceptions import SessionException
 
 from vmpool.endpoint import delete_vm
-from core.utils.vnc_recorder import VNCRecorder
+from core.video import VNCVideoHelper
 
 from flask import current_app
 
@@ -68,8 +68,7 @@ class SimpleResponse:
 
 class Session(SessionModel):
     current_log_step = None
-    vnc_recorder = None
-    vnc_proxy = None
+    vnc_helper = None
     take_screencast = None
 
     def __init__(self, name=None, dc=None):
@@ -113,11 +112,9 @@ class Session(SessionModel):
         self.save()
 
     def delete(self, message=""):
-        if self.vnc_recorder:
-            self.vnc_recorder.stop()
-
-        if self.vnc_proxy:
-            self.vnc_proxy.stop()
+        if self.vnc_helper:
+            self.vnc_helper.stop_recording()
+            self.vnc_helper.stop_proxy()
 
         self.closed = True
         self.deleted = datetime.now()
@@ -148,10 +145,10 @@ class Session(SessionModel):
         self.restart_timer()
         self.set_vm(endpoint)
         self.status = "running"
+        self.vnc_helper = VNCVideoHelper(self.endpoint_ip, logfilename=self.id)
 
         if self.take_screencast:
-            self.vnc_recorder = VNCRecorder(self.endpoint_ip, self.id)
-            self.vnc_recorder.start()
+            self.vnc_helper.start_recording(filename=self.id)
 
         log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
 

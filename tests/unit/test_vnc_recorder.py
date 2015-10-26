@@ -6,7 +6,7 @@ from tests.unit.helpers import BaseTestCase, DatabaseMock, wait_for
 from multiprocessing import Process
 
 
-class TestVNCRecorder(BaseTestCase):
+class TestVNCVideoHelper(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         from core.config import setup_config
@@ -59,12 +59,12 @@ class TestVNCRecorder(BaseTestCase):
             self.session.name = "session1"
             self.session.platform = "test_origin_1"
             with patch(
-                'core.utils.vnc_recorder.VNCRecorder.flvrec', Mock()
+                'core.video.VNCVideoHelper._flvrec', Mock()
             ), patch(
-                'core.utils.vnc_recorder.VNCRecorder.flv2webm', Mock()
+                'core.video.VNCVideoHelper._flv2webm', Mock()
             ):
                 self.session.run(endpoint=endpoint)
-                self.assertTrue(isinstance(self.session.vnc_recorder.recorder, Process))
+                self.assertTrue(isinstance(self.session.vnc_helper.recorder, Process))
 
                 self.session.delete()
-                self.assertTrue(wait_for(lambda: not self.session.vnc_recorder.recorder.is_alive()))
+                self.assertTrue(wait_for(lambda: not self.session.vnc_helper.recorder.is_alive()))
