@@ -16,7 +16,7 @@ sudo apt-get -y install libvirt-dev
 sudo apt-get -y install libssl-dev libffi-dev
 
 # install postgres dependencies
-sudo apt-get install libpq-dev
+sudo apt-get install -y libpq-dev
 
 # install vnc_recorder deps
 sudo apt-get install -y libav-tools
