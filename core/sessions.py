@@ -209,7 +209,7 @@ class SessionWorker(Thread):
     def run(self):
         with self.app.app_context():
             while self.running:
-                for session in self.app.sessions.active():
+                for session in self.app.sessions.running():
                     if session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
                 time.sleep(1)
@@ -237,6 +237,9 @@ class Sessions(object):
 
     def active(self):
         return self.active_sessions.values()
+
+    def running(self):
+        return [s for s in self.active() if s.status == "running"]
 
     def kill_all(self):
         for session in self.active_sessions.values():

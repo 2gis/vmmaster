@@ -410,7 +410,7 @@ class TestSessionWorker(BaseTestCase):
         session.timeout = Mock()
         session.inactivity = config.SESSION_TIMEOUT + 1
 
-        self.app.sessions.active = Mock(return_value=[session])
+        self.app.sessions.running = Mock(return_value=[session])
         self.worker.start()
         time.sleep(1)
         session.timeout.assert_any_call()
