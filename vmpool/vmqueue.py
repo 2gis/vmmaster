@@ -63,6 +63,10 @@ class QueueWorker(Thread):
                     try:
                         self.queue.dequeue(delayed_vm)
                     except QueueItemNotFound:
+                        log.info(
+                            "VM %s (%s) is no longer required" %
+                            (vm.name, vm.ip)
+                        )
                         vm.delete()
                     else:
                         delayed_vm.vm = vm

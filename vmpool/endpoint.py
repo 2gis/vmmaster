@@ -27,30 +27,38 @@ def new_vm(desired_caps):
         platform = platform.encode('utf-8')
 
     if not platform:
-        raise CreationException('Platform parameter for '
-                                 'new endpoint not found in dc')
+        raise CreationException(
+            'Platform parameter for new endpoint not found in dc'
+        )
 
     if not Platforms.check_platform(platform):
         raise PlatformException('No such platform %s' % platform)
 
     delayed_vm = q.enqueue(desired_caps)
+    yield delayed_vm
 
     for condition in generator_wait_for(
-        lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT):
+        lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT
+    ):
         yield delayed_vm
 
     if not delayed_vm.vm:
-        raise CreationException("Сouldn't create vm with platform %s" % platform)
+        raise CreationException(
+            "Timeout while waiting for vm with platform %s" % platform
+        )
 
     yield delayed_vm.vm
 
     for condition in generator_wait_for(
-        lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT):
+        lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT
+    ):
         yield delayed_vm.vm
 
     if not delayed_vm.vm.ready:
-        raise CreationException('Timeout while building vm %s '
-                                '(platform: %s)' % (delayed_vm.vm.id, platform))
+        raise CreationException(
+            'Timeout while building vm %s (platform: %s)' %
+            (delayed_vm.vm.id, platform)
+        )
 
     log.info('Got vm for request with params: %s' % delayed_vm.vm.info)
     yield delayed_vm.vm
@@ -69,4 +77,3 @@ def delete_vm(endpoint_name):
     else:
         msg = "Vm %s not found in pool or vm is busy" % endpoint_name
         log.info(msg)
-

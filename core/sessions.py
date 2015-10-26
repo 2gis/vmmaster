@@ -15,7 +15,6 @@ from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
 
-from vmpool.endpoint import delete_vm
 from core.video import VNCVideoHelper
 
 from flask import current_app
@@ -121,11 +120,9 @@ class Session(SessionModel):
         self.save()
 
         current_app.sessions.remove(self)
-        if hasattr(self, "endpoint"):
+        if hasattr(self, "endpoint") and self.endpoint:
             log.info("Deleting VM for session: %s" % self.id)
             self.endpoint.delete()
-        else:
-            delete_vm(self.endpoint_name)
         log.info("Session %s deleted. %s" % (self.id, message))
 
     def succeed(self):

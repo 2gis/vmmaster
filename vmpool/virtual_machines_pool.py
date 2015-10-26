@@ -59,8 +59,10 @@ class VirtualMachinesPool(object):
     @classmethod
     def can_produce(cls, platform):
         if cls.count() >= Platforms.can_produce(platform):
-            log.info('Can\'t produce new virtual machine with platform %s: '
-                     'not enough Instances resources' % platform)
+            log.debug(
+                'Can\'t produce new virtual machine with platform %s: '
+                'not enough Instances resources' % platform
+            )
             return False
         else:
             return True
@@ -77,9 +79,11 @@ class VirtualMachinesPool(object):
         if platform:
             for vm in sorted(cls.pool, key=lambda v: v.created,
                              reverse=True):
-                log.info("Got VM %s (ip=%s, ready=%s, checking="
-                         "%s)" % (vm.name, vm.ip, vm.ready, vm.checking))
                 if vm.platform == platform and vm.ready and not vm.checking:
+                    log.info(
+                        "Got VM %s (ip=%s, ready=%s, checking=%s)" %
+                        (vm.name, vm.ip, vm.ready, vm.checking)
+                    )
                     if vm.ping_vm():
                         cls.pool.remove(vm)
                         cls.using.append(vm)
