@@ -97,12 +97,12 @@ class KVMClone(Clone):
     def delete(self):
         log.info("Deleting kvm clone: {}".format(self.name))
         self.ready = False
-
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
         try:
             domain = self.conn.lookupByName(self.name)
-            domain.destroy()
+            if domain.isActive():
+                domain.destroy()
             domain.undefine()
         except libvirtError:
             # not running
@@ -112,7 +112,6 @@ class KVMClone(Clone):
         except ValueError, e:
             log.warning(e)
             pass
-
         pool.remove_vm(self)
         VirtualMachine.delete(self)
 
@@ -258,7 +257,6 @@ class OpenstackClone(Clone):
 
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
-        from time import sleep
         config_create_check_retry_count, config_create_check_pause = \
             config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
         config_ping_retry_count, config_ping_timeout = \
@@ -286,7 +284,7 @@ class OpenstackClone(Clone):
                              "check this VM" % (self.name, p))
 
                 create_check_retry += 1
-                sleep(config_create_check_pause)
+                time.sleep(config_create_check_pause)
 
             elif self.vm_has_created():
                 if method is not None:

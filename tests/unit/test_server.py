@@ -11,7 +11,7 @@ from core.config import setup_config, config
 from tests.unit.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, request_with_drop, BaseTestCase, \
-    set_primary_key, DatabaseMock
+    set_primary_key, wait_for, DatabaseMock
 
 
 from nose.twistedtools import reactor
@@ -472,6 +472,80 @@ class TestConnectionClose(BaseTestServer):
             request_with_drop(self.address, self.desired_caps, None)
 
         self.assertEqual(0, self.pool.count())
+
+    def test_req_closed_when_platform_queued(self):
+        """
+        - wait until platform is queued
+        - check queue state
+        - drop request while platform is queued
+        Expected: platform no more in queue
+        """
+        import vmpool.virtual_machines_pool as vmp
+        with patch.object(vmp, 'pool', Mock()) as p:
+            p.has = Mock(return_value=False)
+            p.can_produce = Mock(return_value=True)
+
+            from vmpool.vmqueue import q
+
+            def wait_for_platform_in_queue():
+                wait_for(lambda: q, timeout=2)
+                self.assertEqual(len(q), 1)
+                self.assertEqual(
+                    q[0].dc, self.desired_caps["desiredCapabilities"]
+                )
+
+            request_with_drop(
+                self.address, self.desired_caps, wait_for_platform_in_queue
+            )
+            wait_for(lambda: not q, timeout=2)
+            self.assertEqual(len(q), 0)
+
+    @patch.multiple(
+        "vmpool.clone.KVMClone",
+        clone_origin=Mock(),
+        define_clone=Mock(),
+        start_virtual_machine=Mock(),
+        drive_path=Mock()
+    )
+    def test_req_closed_when_vm_is_spawning(self):
+        """
+        - waiting for clone spawning to begin
+        - drop request while vm is spawning
+        Expected: queue is empty, vm spawned and then deleted
+        """
+
+        vm_mock = Mock()
+        vm_mock.delete = Mock()
+
+        def just_sleep(*args, **kwargs):
+            time.sleep(2)
+            return vm_mock
+
+        from vmpool.virtual_machines_pool import pool
+        with patch.object(
+            pool, 'has', Mock(return_value=False)
+        ), patch.object(
+            pool, 'can_produce', Mock(return_value=True)
+        ), patch(
+            'vmpool.platforms.KVMOrigin.make_clone',
+            Mock(side_effect=just_sleep)
+        ) as make_clone:
+            from vmpool.vmqueue import q
+
+            def wait_for_vm_start_tp_spawn():
+                wait_for(lambda: make_clone.called, timeout=2)
+                self.assertTrue(make_clone.called)
+                self.assertEqual(len(q), 1)
+
+            request_with_drop(
+                self.address, self.desired_caps, wait_for_vm_start_tp_spawn
+            )
+
+            wait_for(lambda: not q, timeout=2)
+            self.assertEqual(len(q), 0)
+
+        wait_for(lambda: vm_mock.delete.called)
+        vm_mock.delete.assert_any_call()
 
 
 class TestServerShutdown(BaseTestServer):
