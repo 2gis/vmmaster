@@ -94,7 +94,11 @@ class KVMClone(Clone):
         self.network = pool.network
         self.conn = self.network.conn
 
-    def delete(self):
+    def delete(self, try_to_rebuild=True):
+        if try_to_rebuild and self.is_preloaded():
+            self.rebuild()
+            return
+
         log.info("Deleting kvm clone: {}".format(self.name))
         self.ready = False
         utils.delete_file(self.drive_path)
@@ -134,7 +138,7 @@ class KVMClone(Clone):
             clone=self.name, ip=self.ip, platform=self.platform)
         )
         pool.remove_vm(self)
-        self.delete()
+        self.delete(try_to_rebuild=False)
 
         try:
             pool.add(self.platform, self.prefix, pool.pool)
@@ -374,7 +378,11 @@ class OpenstackClone(Clone):
             log.info("VM does not exist. Error: %s" % e.message)
             return False
 
-    def delete(self):
+    def delete(self, try_to_rebuild=True):
+        if try_to_rebuild and self.is_preloaded():
+            self.rebuild()
+            return
+
         self.ready = False
         pool.remove_vm(self)
         if self.check_vm_exist(self.name):

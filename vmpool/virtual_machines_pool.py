@@ -45,11 +45,11 @@ class VirtualMachinesPool(object):
         log.info("Deleting using machines")
         for vm in list(cls.using):
             cls.using.remove(vm)
-            vm.delete()
+            vm.delete(try_to_rebuild=False)
         log.info("Deleting pool")
         for vm in list(cls.pool):
             cls.pool.remove(vm)
-            vm.delete()
+            vm.delete(try_to_rebuild=False)
         cls.network.delete()
 
     @classmethod
