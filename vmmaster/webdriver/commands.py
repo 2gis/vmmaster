@@ -18,6 +18,9 @@ from core.logger import log
 from core.exceptions import CreationException
 from core.sessions import RequestHelper, update_log_step
 
+from threading import Thread
+from flask import copy_current_request_context
+
 
 def add_sub_step(session, func):
     @wraps(func)
@@ -234,6 +237,7 @@ def take_screenshot(session, port):
         yield None
 
 
+@connection_watcher
 def run_script_through_websocket(script, session, host):
     status_code = 200
     default_msg = json.dumps({"status": 0, "output": ""})
@@ -264,7 +268,7 @@ def run_script_through_websocket(script, session, host):
         global status_code
         status_code = 500
         ws.status = 1
-        ws.output = repr(message)
+        ws.output += repr(message)
         log.debug("RunScript error: %s" % message)
 
     ws = websocket.WebSocketApp(host,
@@ -274,10 +278,17 @@ def run_script_through_websocket(script, session, host):
                                 on_error=on_error)
     ws.output = ""
     ws.status = 0
-    ws.run_forever()
+    session.ws = ws
+
+    t = Thread(target=copy_current_request_context(ws.run_forever))
+    t.daemon = True
+    t.start()
+
+    while t.isAlive():
+        yield None, None, None
 
     full_msg = json.dumps({"status": ws.status, "output": ws.output})
-    return status_code, {}, full_msg
+    yield status_code, {}, full_msg
 
 
 def run_script(request, session):
