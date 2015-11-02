@@ -146,7 +146,7 @@ class User(Base, FeaturesMixin):
     def regenerate_token(self):
         self.token = User.generate_token()
         self.save()
-        return self
+        return self.token
 
     @property
     def info(self):

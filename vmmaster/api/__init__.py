@@ -98,10 +98,9 @@ def get_user(user_id):
 @api.route('/user/<int:user_id>/regenerate_token', methods=['POST'])
 @auth.login_required
 def regenerate_token(user_id):
-    updated_user = helpers.regenerate_user_token(user_id)
-    if updated_user:
-        return render_json("Token for the user %s regenerated successfully "
-                           % updated_user.username, 200)
+    new_token = helpers.regenerate_user_token(user_id)
+    if new_token:
+        return render_json({'token': new_token}, 200)
     else:
         return render_json("User %s not found" % user_id, 404)
 
