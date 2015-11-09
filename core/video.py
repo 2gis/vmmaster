@@ -5,6 +5,7 @@
 ##
 
 import multiprocessing
+from twisted.internet import threads
 import websockify
 
 from core.config import config
@@ -80,7 +81,25 @@ class VNCVideoHelper():
             "-i", "%s" % self.__filepath,
             "%s.webm" % self.__filepath.split(".flv")[0]
         ]
-        subprocess.Popen(args, stdin=subprocess.PIPE)
+        converter = subprocess.Popen(args, stdin=subprocess.PIPE)
+
+        if converter.pid:
+            cpulimiter = subprocess.Popen([
+                "/usr/bin/cpulimit",
+                "-z",
+                "-b",
+                "-l", "15",
+                "-p", "%s" % converter.pid
+            ], stdin=subprocess.PIPE)
+
+            cpulimiter.wait()
+            converter.communicate()
+            self.delete_source_video()
+
+    def delete_source_video(self):
+        if os.path.isfile('%s.webm' % self.__filepath.split('.flv')[0]):
+            os.remove(self.__filepath)
+            log.debug('Source video %s was deleted' % self.__filepath)
 
     def start_proxy(self):
         self.__proxy_port = get_free_port()
@@ -129,4 +148,5 @@ class VNCVideoHelper():
         if self.recorder and self.recorder.is_alive():
             self.recorder.terminate()
 
-            self._flv2webm()
+            d = threads.deferToThread(self._flv2webm)
+            d.addBoth(lambda s: None)
