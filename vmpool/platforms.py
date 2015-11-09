@@ -3,7 +3,7 @@
 import os
 
 from core.config import config
-from core.logger import log
+from core.logger import log_pool
 from core.utils import openstack_utils
 
 
@@ -144,22 +144,28 @@ class OpenstackPlatforms(PlatformsInterface):
             Platforms.get(platform).flavor_name)
         if limits.get('totalInstancesUsed', 0) >= \
                 limits.get('maxTotalInstances', 0):
-            log.info('Can\'t produce new virtual machine with platform %s: '
-                     'not enough Instances resources' % platform)
+            log_pool.warning(
+                'Can\'t produce new virtual machine with platform %s: '
+                'not enough Instances resources' % platform
+            )
             return 0
 
         if flavor_params.get('vcpus', 0) >= \
                 limits.get('maxTotalCores', 0) - \
                 limits.get('totalCoresUsed', 0):
-            log.info('Can\'t produce new virtual machine with platform %s: '
-                     'not enough CPU resources' % platform)
+            log_pool.warning(
+                'Can\'t produce new virtual machine with platform %s: '
+                'not enough CPU resources' % platform
+            )
             return 0
 
         if flavor_params.get('ram', 0) >= \
                 limits.get('maxTotalRAMSize', 0) - \
                 limits.get('totalRAMUsed', 0):
-            log.info('Can\'t produce new virtual machine with platform %s: '
-                     'not enough RAM resources' % platform)
+            log_pool.warning(
+                'Can\'t produce new virtual machine with platform %s: '
+                'not enough RAM resources' % platform
+            )
             return 0
 
         return OpenstackPlatforms.max_count()
@@ -171,18 +177,18 @@ class Platforms(object):
     openstack_platforms = None
 
     def __new__(cls, *args, **kwargs):
-        log.info("Load platforms...")
+        log_pool.info("Load platforms...")
         inst = object.__new__(cls)
         if config.USE_KVM:
             cls.kvm_platforms = {vm.name: vm for vm in
                                  KVMPlatforms().platforms}
-            log.debug("Load kvm platforms: {}".format(
+            log_pool.info("KVM platforms: {}".format(
                 cls.kvm_platforms.keys())
             )
         if config.USE_OPENSTACK:
             cls.openstack_platforms = {vm.short_name: vm for vm in
                                        OpenstackPlatforms().platforms}
-            log.debug("Load openstack platforms: {}".format(
+            log_pool.info("Openstack platforms: {}".format(
                 cls.openstack_platforms.keys())
             )
         cls._load_platforms()
@@ -195,7 +201,7 @@ class Platforms(object):
         if bool(cls.openstack_platforms):
             cls.platforms.update(cls.openstack_platforms)
 
-        log.info("Platforms loaded: {}".format(str(cls.platforms.keys())))
+        log_pool.info("Platforms loaded: {}".format(str(cls.platforms.keys())))
 
     @classmethod
     def max_count(cls):

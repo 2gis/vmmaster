@@ -14,7 +14,7 @@ from vmpool import VirtualMachine
 from virtual_machines_pool import pool
 
 from core import dumpxml
-from core.logger import log
+from core.logger import log_pool
 from core import utils
 from core.exceptions import libvirtError, CreationException
 from core.config import config
@@ -62,13 +62,13 @@ class Clone(VirtualMachine):
         timeout = config.PING_TIMEOUT
         start = time.time()
 
-        log.info("Starting ping vm {clone}: {ip}:{port}".format(
+        log_pool.info("Starting ping vm {clone}: {ip}:{port}".format(
             clone=self.name, ip=self.ip, port=ports))
         _ping = partial(network_utils.ping, self.ip)
         while time.time() - start < timeout:
             result = map(_ping, ports)
             if all(result):
-                log.info(
+                log_pool.info(
                     "Successful ping for {clone} with {ip}:{ports}".format(
                         clone=self.name, ip=self.ip, ports=ports))
                 break
@@ -76,7 +76,7 @@ class Clone(VirtualMachine):
 
         if not all(result):
             fails = [port for port, res in zip(ports, result) if res is False]
-            log.info("Failed ping for {clone} with {ip}:{ports}".format(
+            log_pool.info("Failed ping for {clone} with {ip}:{ports}".format(
                 clone=self.name, ip=self.ip, ports=str(fails))
             )
             return False
@@ -99,7 +99,7 @@ class KVMClone(Clone):
             self.rebuild()
             return
 
-        log.info("Deleting kvm clone: {}".format(self.name))
+        log_pool.info("Deleting kvm clone: {}".format(self.name))
         self.ready = False
         utils.delete_file(self.drive_path)
         utils.delete_file(self.dumpxml_file)
@@ -114,13 +114,13 @@ class KVMClone(Clone):
         try:
             self.network.append_free_mac(self.mac)
         except ValueError, e:
-            log.warning(e)
+            log_pool.warning(e)
             pass
         pool.remove_vm(self)
         VirtualMachine.delete(self)
 
     def create(self):
-        log.info("Creating kvm clone of {platform}".format(
+        log_pool.info("Creating kvm clone of {platform}".format(
             platform=self.platform)
         )
         self.dumpxml_file = self.clone_origin(self.platform)
@@ -128,14 +128,15 @@ class KVMClone(Clone):
         self.start_virtual_machine(self.name)
         self.ip = self.network.get_ip(self.mac)
         self.ready = True
-        log.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
+        log_pool.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
             clone=self.name, ip=self.ip, mac=self.mac)
         )
         return self
 
     def rebuild(self):
-        log.info("Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
-            clone=self.name, ip=self.ip, platform=self.platform)
+        log_pool.info(
+            "Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
+                clone=self.name, ip=self.ip, platform=self.platform)
         )
         pool.remove_vm(self)
         self.delete(try_to_rebuild=False)
@@ -163,27 +164,27 @@ class KVMClone(Clone):
         return clone_xml
 
     def define_clone(self, clone_dumpxml_file):
-        log.info("Defining from {}".format(clone_dumpxml_file))
+        log_pool.info("Defining from {}".format(clone_dumpxml_file))
         file_handler = open(clone_dumpxml_file, "r")
         self.conn.defineXML(file_handler.read())
 
     def start_virtual_machine(self, machine):
-        log.info("Starting {}".format(machine))
+        log_pool.info("Starting {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.create()
 
     def shutdown_virtual_machine(self, machine):
-        log.info("Shutting down {}".format(machine))
+        log_pool.info("Shutting down {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.shutdown()
 
     def destroy_clone(self, machine):
-        log.info("Destroying {}".format(machine))
+        log_pool.info("Destroying {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.destroy()
 
     def undefine_clone(self, machine):
-        log.info("Undefining {}".format(machine))
+        log_pool.info("Undefining {}".format(machine))
         domain = self.conn.lookupByName(machine)
         domain.undefine()
 
@@ -220,8 +221,9 @@ class OpenstackClone(Clone):
         self.network_name = self.get_network_name(self.network_id)
 
     def create(self):
-        log.info("Creating openstack clone of {} with image={}, "
-                 "flavor={}".format(self.name, self.image, self.flavor))
+        log_pool.info(
+            "Creating openstack clone of {} with image={}, "
+            "flavor={}".format(self.name, self.image, self.flavor))
 
         kwargs = {
             'name': self.name,
@@ -251,13 +253,14 @@ class OpenstackClone(Clone):
                     if ip is not None:
                         self.ip = ip
 
-                    log.info("Created openstack {clone} with ip {ip}"
-                             " and mac {mac}".format(clone=self.name,
-                                                     ip=self.ip,
-                                                     mac=self.mac))
+                    log_pool.info(
+                        "Created openstack {clone} with ip {ip}"
+                        " and mac {mac}".format(
+                            clone=self.name, ip=self.ip, mac=self.mac)
+                    )
             except Exception as e:
-                log.info("Vm %s does not have address block. Error: %s" %
-                         (self.name, e.message))
+                log_pool.info("Vm %s does not have address block. Error: %s" %
+                              (self.name, e.message))
 
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
@@ -273,19 +276,21 @@ class OpenstackClone(Clone):
             try:
                 server = self.nova_client.servers.find(name=self.name)
             except Exception as e:
-                log.info("Can't find vm %s in openstack. Error: %s" %
-                         (self.name, e.message))
+                log_pool.info(
+                    "Can't find vm %s in openstack. Error: %s" %
+                    (self.name, e.message)
+                )
                 server = None
 
             if server is not None and server.status.lower() in \
                     ('build', 'rebuild'):
-                log.info("Virtual Machine %s is spawning..." % self.name)
+                log_pool.info("Virtual Machine %s is spawning..." % self.name)
 
                 if create_check_retry > config_create_check_retry_count:
                     p = config_create_check_retry_count * \
                         config_create_check_pause
-                    log.info("VM %s creates more than %s seconds, "
-                             "check this VM" % (self.name, p))
+                    log_pool.info("VM %s creates more than %s seconds, "
+                                  "check this VM" % (self.name, p))
 
                 create_check_retry += 1
                 time.sleep(config_create_check_pause)
@@ -298,14 +303,14 @@ class OpenstackClone(Clone):
                     break
                 if ping_retry > config_ping_retry_count:
                     p = config_ping_retry_count * config_ping_timeout
-                    log.info("VM %s pings more than %s seconds, "
-                             "rebuilding VM..." % (self.name, p))
+                    log_pool.info("VM %s pings more than %s seconds, "
+                                  "rebuilding VM..." % (self.name, p))
                     self.rebuild()
                     break
 
                 ping_retry += 1
             else:
-                log.info("VM %s has not been created." % self.name)
+                log_pool.info("VM %s has not been created." % self.name)
                 self.rebuild()
                 break
 
@@ -339,18 +344,20 @@ class OpenstackClone(Clone):
                     'subnets', []):
                 if subnet['tenant_id'] == config.OPENSTACK_TENANT_ID:
                     stree[str(subnet['cidr'])] = str(subnet['network_id'])
-                    log.info("Associate vm with network id %s and subnet id %s"
-                             % (str(subnet['network_id']), str(subnet['id'])))
+                    log_pool.info(
+                        "Associate vm with network id %s and subnet id %s"
+                        % (str(subnet['network_id']), str(subnet['id'])))
 
             try:
                 net_id = stree[self_ip]
-                log.info("Current network id for creating vm: %s" % net_id)
+                log_pool.info(
+                    "Current network id for creating vm: %s" % net_id)
                 return net_id
             except KeyError:
-                log.info("Error: Network id not found in your project.")
+                log_pool.info("Error: Network id not found in your project.")
                 return None
         else:
-            log.info("Error: Your server does not have ip address.")
+            log_pool.info("Error: Your server does not have ip address.")
             return None
             # fixme
             # create new network
@@ -359,8 +366,9 @@ class OpenstackClone(Clone):
         try:
             server = self.nova_client.servers.find(name=self.name)
         except Exception as e:
-            log.info("An error occurred during addition ip for vm %s: %s" %
-                     (self.name, e.message))
+            log_pool.info(
+                "An error occurred during addition ip for vm %s: %s" %
+                (self.name, e.message))
             server = None
 
         if server is not None:
@@ -375,7 +383,7 @@ class OpenstackClone(Clone):
             server = self.nova_client.servers.find(name=server_name)
             return True if server.name == server_name else False
         except Exception as e:
-            log.info("VM does not exist. Error: %s" % e.message)
+            log_pool.info("VM does not exist. Error: %s" % e.message)
             return False
 
     def delete(self, try_to_rebuild=True):
@@ -389,17 +397,17 @@ class OpenstackClone(Clone):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
             except Exception as e:
-                log.info("Delete vm %s was FAILED. %s" %
-                         (self.name, e.message))
-            log.info("Deleted openstack clone: {clone}".format(
+                log_pool.info("Delete vm %s was FAILED. %s" %
+                              (self.name, e.message))
+            log_pool.info("Deleted openstack clone: {clone}".format(
                 clone=self.name))
         else:
-            log.info("VM {clone} can not be removed because "
-                     "it does not exist".format(clone=self.name))
+            log_pool.info("VM {clone} can not be removed because "
+                          "it does not exist".format(clone=self.name))
         VirtualMachine.delete(self)
 
     def rebuild(self):
-        log.info("Rebuilding openstack {clone}".format(clone=self.name))
+        log_pool.info("Rebuilding openstack {clone}".format(clone=self.name))
 
         if self.is_preloaded():
             pool.remove_vm(self)
@@ -408,8 +416,9 @@ class OpenstackClone(Clone):
         self.ready = False
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
-            self._wait_for_activated_service(lambda: log.info(
+            self._wait_for_activated_service(lambda: log_pool.info(
                 "Rebuilded openstack clone: {clone}".format(clone=self.name)))
         except Exception as e:
-            log.info("Rebuild vm %s was FAILED. %s" % (self.name, e.message))
+            log_pool.info(
+                "Rebuild vm %s was FAILED. %s" % (self.name, e.message))
             self.delete()

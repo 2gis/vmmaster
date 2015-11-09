@@ -23,8 +23,9 @@ class StreamToLogger(object):
 
 
 def setup_logging(
-        logdir=None, logfile_name='vmmaster.log',
-        scrnlog=True, txtlog=True, loglevel=None):
+    logname='', logdir=None, logfile_name='vmmaster.log',
+    scrnlog=True, txtlog=True, loglevel=None
+):
     if loglevel is None:
         loglevel = logging.getLevelName(config.LOG_LEVEL.upper())
 
@@ -33,10 +34,15 @@ def setup_logging(
     if not os.path.exists(logdir):
         os.mkdir(logdir)
 
-    log = logging.getLogger('')
+    log = logging.getLogger(logname)
     log.setLevel(loglevel)
 
-    log_format = "%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s"
+    if scrnlog:
+        log_format = \
+            "%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s"
+    else:
+        log_format = "%(asctime)s - %(levelname)-7s :: %(message)s"
+
     log_formatter = logging.Formatter(log_format)
 
     if txtlog:
@@ -81,4 +87,4 @@ def setup_logging(
 
 
 log = logging.getLogger('LOG')
-log_cleanup = logging.getLogger('cleanup')
+log_pool = logging.getLogger('POOL')

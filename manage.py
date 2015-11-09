@@ -25,7 +25,10 @@ manager = Manager(app)
 
 
 def activate_logger():
-    setup_logging(config.LOG_DIR)
+    setup_logging(logname='LOG', logdir=config.LOG_DIR)
+    setup_logging(
+        logname='POOL', logdir=config.LOG_DIR, logfile_name='pool.log',
+        scrnlog=False, txtlog=True, loglevel='DEBUG')
 
 
 @manager.command

@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from core.exceptions import CreationException
 from core.config import config
-from core.logger import log
+from core.logger import log_pool
 from core.network import Network
 
 from platforms import Platforms
@@ -42,11 +42,11 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def free(cls):
-        log.info("Deleting using machines")
+        log_pool.info("Deleting using machines...")
         for vm in list(cls.using):
             cls.using.remove(vm)
             vm.delete(try_to_rebuild=False)
-        log.info("Deleting pool")
+        log_pool.info("Deleting pool...")
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete(try_to_rebuild=False)
@@ -59,7 +59,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def can_produce(cls, platform):
         if cls.count() >= Platforms.can_produce(platform):
-            log.debug(
+            log_pool.warning(
                 'Can\'t produce new virtual machine with platform %s: '
                 'not enough Instances resources' % platform
             )
@@ -80,7 +80,7 @@ class VirtualMachinesPool(object):
             for vm in sorted(cls.pool, key=lambda v: v.created,
                              reverse=True):
                 if vm.platform == platform and vm.ready and not vm.checking:
-                    log.info(
+                    log_pool.info(
                         "Got VM %s (ip=%s, ready=%s, checking=%s)" %
                         (vm.name, vm.ip, vm.ready, vm.checking)
                     )
@@ -95,7 +95,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def get_by_name(cls, _name=None):
         if _name:
-            log.debug('Getting VM: %s' % _name)
+            log_pool.debug('Getting VM: %s' % _name)
             for vm in cls.pool + cls.using:
                 if vm.ready and vm.name == _name:
                     return vm
@@ -132,7 +132,9 @@ class VirtualMachinesPool(object):
         try:
             clone = origin.make_clone(origin, prefix)
         except Exception as e:
-            log.info('Exception during initializing vm object: %s' % e.message)
+            log_pool.info(
+                'Exception during initializing vm object: %s' % e.message
+            )
             return
 
         cls.add_vm(clone, to)
@@ -140,7 +142,7 @@ class VirtualMachinesPool(object):
         try:
             clone.create()
         except Exception as e:
-            log.error("Error creating vm: %s" % e.message)
+            log_pool.error("Error creating vm: %s" % e.message)
             clone.delete()
             try:
                 to.remove(clone)
@@ -192,7 +194,7 @@ class VirtualMachinesPoolPreloader(Thread):
             platform = self.need_load()
             if platform is not None:
                 if self.pool.can_produce(platform):
-                    log.info("Preloading vm for platform %s." % platform)
+                    log_pool.info("Preloading vm for platform %s." % platform)
                     self.pool.preload(platform, "preloaded")
 
             time.sleep(config.PRELOADER_FREQUENCY)
@@ -219,7 +221,7 @@ class VirtualMachinesPoolPreloader(Thread):
     def stop(self):
         self.running = False
         self.join(1)
-        log.info("Preloader stopped")
+        log_pool.info("Preloader stopped")
 
 
 class VirtualMachineChecker(Thread):
@@ -237,14 +239,14 @@ class VirtualMachineChecker(Thread):
     def fix_broken_vm(self):
         for vm in self.pool.pool:
             vm.checking = True
-            log.info("Checking {clone} with {ip}:{port}...".format(
+            log_pool.info("Checking {clone} with {ip}:{port}...".format(
                 clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
             if vm.ready:
                 if not vm.ping_vm():
                     try:
                         vm.rebuild()
                     except Exception as e:
-                        log.error(e)
+                        log_pool.error(e)
                         vm.delete()
                         self.pool.remove(vm)
             vm.checking = False
@@ -252,7 +254,7 @@ class VirtualMachineChecker(Thread):
     def stop(self):
         self.running = False
         self.join(1)
-        log.info("VMChecker stopped")
+        log_pool.info("VMChecker stopped")
 
 
 pool = VirtualMachinesPool()

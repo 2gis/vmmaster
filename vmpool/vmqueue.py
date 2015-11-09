@@ -3,7 +3,7 @@
 from threading import Thread
 from time import sleep
 
-from core.logger import log
+from core.logger import log_pool
 from vmpool.virtual_machines_pool import pool
 from core.exceptions import QueueItemNotFound
 
@@ -14,14 +14,16 @@ class DelayedVirtualMachine(object):
         self.vm = None
 
     def delete(self):
-        log.info("Deleting request for getting vm from "
-                 "queue with desired capabilities: %s" % self.dc)
+        log_pool.info(
+            "Deleting request for getting vm from "
+            "queue with desired capabilities: %s" % self.dc
+        )
         q.dequeue(self)
 
 
 class VMPoolQueue(list):
     def enqueue(self, desired_capabilities):
-        log.info("Enqueue %s" % desired_capabilities)
+        log_pool.info("Enqueue %s" % desired_capabilities)
         delayed_vm = DelayedVirtualMachine(desired_capabilities)
         self.append(delayed_vm)
         return delayed_vm
@@ -63,7 +65,7 @@ class QueueWorker(Thread):
                     try:
                         self.queue.dequeue(delayed_vm)
                     except QueueItemNotFound:
-                        log.info(
+                        log_pool.info(
                             "VM %s (%s) is no longer required" %
                             (vm.name, vm.ip)
                         )
@@ -76,6 +78,6 @@ class QueueWorker(Thread):
         self.running = False
         while self.queue:
             self.queue.dequeue()
-        log.info("QueueWorker stopped")
+        log_pool.info("QueueWorker stopped")
 
 q = VMPoolQueue()
