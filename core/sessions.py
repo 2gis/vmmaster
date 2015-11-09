@@ -147,10 +147,11 @@ class Session(SessionModel):
         self.restart_timer()
         self.set_vm(endpoint)
         self.status = "running"
-        self.vnc_helper = VNCVideoHelper(self.endpoint_ip, logfilename=self.id)
+        self.vnc_helper = VNCVideoHelper(self.endpoint_ip,
+                                         filename_prefix=self.id)
 
         if self.take_screencast:
-            self.vnc_helper.start_recording(filename=self.id)
+            self.vnc_helper.start_recording()
 
         log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
 

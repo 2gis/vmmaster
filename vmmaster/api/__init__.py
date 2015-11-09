@@ -7,7 +7,6 @@ from flask import Blueprint, jsonify, request
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
-from core.video import VNCVideoHelper
 
 api = Blueprint('api', __name__)
 

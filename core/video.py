@@ -21,10 +21,12 @@ class VNCVideoHelper():
     __proxy_port = None
     __filepath = None
 
-    def __init__(self, host, port=5900, logfilename=''):
-        sys.stderr = sys.stdout = open(os.sep.join([
-            config.LOG_DIR, str(logfilename) + '_vnc_video.log'
-        ]), 'w')
+    def __init__(self, host, port=5900, filename_prefix='vnc'):
+        self.filename_prefix = filename_prefix
+        self.dir_path = os.sep.join([config.SCREENSHOTS_DIR,
+                                     str(self.filename_prefix)])
+        if not os.path.isdir(self.dir_path):
+            os.mkdir(self.dir_path)
         self.host = host
         self.port = port
 
@@ -85,7 +87,7 @@ class VNCVideoHelper():
         sys.argv = [
             "--daemon",
             "--wrap-mode=ignore",
-            "--record=%s/proxy_vnc_%s.log" % (config.LOG_DIR, self.port),
+            "--record=%s/proxy_vnc_%s.log" % (self.dir_path, self.port),
             "0.0.0.0:%d" % self.__proxy_port,
             "%s:%s" % (self.host, self.port)
         ]
@@ -103,11 +105,12 @@ class VNCVideoHelper():
         if self.proxy and self.proxy.is_alive():
             self.proxy.terminate()
 
-    def start_recording(self, filename, framerate=5, size=(800, 600)):
-        dir_path = os.sep.join([config.SCREENSHOTS_DIR, str(filename)])
-        if not os.path.isdir(dir_path):
-            os.mkdir(dir_path)
-        self.__filepath = os.sep.join([dir_path, str(filename) + '.flv'])
+    def start_recording(self, framerate=5, size=(800, 600)):
+        sys.stderr = sys.stdout = open(os.sep.join([
+            self.dir_path, 'vnc_video.log'
+        ]), 'w')
+        self.__filepath = os.sep.join([self.dir_path,
+                                       str(self.filename_prefix) + '.flv'])
 
         kwargs = {
             'framerate': framerate,
