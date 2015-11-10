@@ -6,10 +6,12 @@ from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.internet import defer
+from twisted.python.threadpool import ThreadPool
 from app import create_app
 
 from http_proxy import ProxyResource, HTTPChannelWithClient
 from core.logger import log
+from core.config import config
 
 
 def _block_on(d, timeout=None):
@@ -48,9 +50,11 @@ class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-        wsgi_resource = WSGIResource(self.reactor,
-                                     self.reactor.getThreadPool(),
-                                     self.app)
+
+        self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
+        self.thread_pool.start()
+        wsgi_resource = WSGIResource(self.reactor, self.thread_pool, self.app)
+
         root_resource = RootResource(wsgi_resource)
         root_resource.putChild("proxy", ProxyResource(self.app))
         site = Site(root_resource)
@@ -68,6 +72,7 @@ class VMMasterServer(object):
         d = self.bind.stopListening()
         _block_on(d, 20)
         self.app.cleanup()
+        self.thread_pool.stop()
 
     def wait_for_end_active_sessions(self):
         active_sessions = self.app.sessions.active()
