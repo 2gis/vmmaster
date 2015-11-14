@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
+from manage import version as get_version
 
 api = Blueprint('api', __name__)
 
@@ -16,6 +17,11 @@ def render_json(result, code=200):
     response['metacode'] = code
     response['result'] = result
     return jsonify(response)
+
+
+@api.route('/version')
+def version():
+    return render_json({'version': get_version()})
 
 
 @api.route('/status')
@@ -109,8 +115,10 @@ def get_screenshots(session_id):
     return render_json({'screenshots': helpers.get_screenshots(session_id)})
 
 
-@api.route('/session/<string:session_id>/step/<string:log_step_id>/screenshots',
-           methods=['GET'])
+@api.route(
+    '/session/<string:session_id>/step/<string:log_step_id>/screenshots',
+    methods=['GET']
+)
 def get_screenshot_for_log_step(session_id, log_step_id):
     return render_json({
         'screenshots': helpers.get_screenshots(session_id, log_step_id)

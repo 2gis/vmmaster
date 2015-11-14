@@ -84,7 +84,7 @@ def version():
     versioneer.tag_prefix = ''  # tags are like 0.1.0
     versioneer.parentdir_prefix = 'vmmaster-'  # dirname like 'myproject-0.1.0'
 
-    print 'Version: %s' % versioneer.get_version()
+    return versioneer.get_version()
 
 
 if __name__ == '__main__':
