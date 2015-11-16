@@ -61,7 +61,13 @@ class SessionLogStep(Base, FeaturesMixin):
 
     # Relationships
     sub_steps = relationship(
-        SessionLogSubStep, backref="session_log_step")
+        SessionLogSubStep,
+        cascade="all, delete",
+        backref=backref(
+            "session_log_step",
+            single_parent=True
+        )
+    )
 
     def __init__(self, control_line, body=None, session_id=None):
         self.control_line = control_line
@@ -102,7 +108,14 @@ class Session(Base, FeaturesMixin):
 
     # Relationships
     session_steps = relationship(
-        SessionLogStep, backref=backref("session", enable_typechecks=False))
+        SessionLogStep,
+        cascade="all, delete",
+        backref=backref(
+            "session",
+            enable_typechecks=False,
+            single_parent=True
+        )
+    )
 
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)

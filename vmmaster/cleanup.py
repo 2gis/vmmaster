@@ -12,6 +12,9 @@ from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
 from core.logger import setup_logging, log
 
+from shutil import rmtree
+from errno import ENOENT
+
 setup_config('%s/config.py' % home_dir())
 setup_logging(logdir=config.LOG_DIR, logfile_name='vmmaster_cleanup.log')
 
@@ -44,9 +47,6 @@ def old_sessions(dbsession=None):
 
 
 def delete_files(session=None):
-    from shutil import rmtree
-    from errno import ENOENT
-
     if session:
         session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
         try:
@@ -59,7 +59,12 @@ def delete_files(session=None):
 
 
 @transaction
-def delete_session_data(sessions=None, dbsession=None):
+def delete(session, dbsession=None):
+    dbsession.delete(session)
+    dbsession.commit()
+
+
+def delete_session_data(sessions=None, ):
     sessions_count = len(sessions)
 
     log.info("Got %s sessions. " % str(sessions_count))
@@ -72,7 +77,6 @@ def delete_session_data(sessions=None, dbsession=None):
         log.info("Done: %s%% (0 / %d)" % ('0.0'.rjust(5), sessions_count))
         for num, session in enumerate(sessions):
             delta = datetime.now() - checkpoint
-            # Show deletion progress each 10 seconds
             if delta > time_step or num == sessions_count - 1:
                 percentage = str(
                     round((num + 1)/float(sessions_count) * 100, 1))
@@ -80,8 +84,8 @@ def delete_session_data(sessions=None, dbsession=None):
                          (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
             delete_files(session)
-            dbsession.delete(session)
-            dbsession.commit()
+            delete(session)
+
         log.info("Total: %s sessions (%d:%d) have been deleted.\n" % (
             str(sessions_count), first_id, last_id))
     else:
