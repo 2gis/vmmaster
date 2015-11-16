@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import ArgumentError
 
 from core.config import config, setup_config
-from core.db.models import Session
+from core.db.models import Session, User
 from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
 from core.logger import setup_logging, log
@@ -36,16 +37,6 @@ def transaction(func):
     return wrapper
 
 
-def old():
-    expired = datetime.now() - timedelta(days=config.SCREENSHOTS_DAYS)
-    return expired
-
-
-@transaction
-def old_sessions(dbsession=None):
-    return dbsession.query(Session).filter(Session.created < old()).all()
-
-
 def delete_files(session=None):
     if session:
         session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
@@ -69,8 +60,6 @@ def delete_session_data(sessions=None, ):
 
     log.info("Got %s sessions. " % str(sessions_count))
     if sessions_count:
-        first_id = sessions[0].id
-        last_id = sessions[-1].id
         checkpoint = datetime.now()
         time_step = timedelta(days=0, seconds=10)
 
@@ -85,15 +74,43 @@ def delete_session_data(sessions=None, ):
                 checkpoint = datetime.now()
             delete_files(session)
             delete(session)
-
-        log.info("Total: %s sessions (%d:%d) have been deleted.\n" % (
-            str(sessions_count), first_id, last_id))
+        log.info(
+            "%s sessions have been deleted.\n" % (str(sessions_count)))
     else:
         log.info("Nothing to delete.\n")
+
+
+@transaction
+def get_users(dbsession=None):
+    return dbsession.query(User).all()
+
+
+@transaction
+def sessions_overflow(user, dbsession=None):
+    res = []
+    current_sessions = dbsession.query(Session).\
+        filter_by(user_id=user.id).count()
+
+    if current_sessions > user.max_stored_sessions:
+        overflow = current_sessions - user.max_stored_sessions
+        try:
+            res = dbsession.query(Session).\
+                filter_by(user_id=user.id).order_by(Session.id).\
+                limit(overflow).all()
+        except ArgumentError:
+            pass
+    return res
 
 
 def run():
     log.info('Running cleanup...')
     change_user_vmmaster()
-    outdated_sessions = old_sessions()
-    delete_session_data(outdated_sessions)
+    sessions = []
+    for user in get_users():
+        to_delete = sessions_overflow(user)
+        if to_delete:
+            log.debug(
+                "%s sessions found for %s" % (len(to_delete), user.username))
+            sessions += to_delete
+
+    delete_session_data(sessions)

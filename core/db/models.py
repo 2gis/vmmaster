@@ -178,6 +178,7 @@ class User(Base, FeaturesMixin):
     date_joined = Column(DateTime, default=datetime.now)
     last_login = Column(DateTime)
     token = Column(String(50), nullable=True, default=generate_token)
+    max_stored_sessions = Column(Integer, default=100)
 
     # Relationships
     sessions = relationship(Session, backref="user", passive_deletes=True)
