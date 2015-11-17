@@ -2,7 +2,6 @@
 
 import os
 import unittest
-from datetime import datetime, timedelta
 from mock import Mock, patch
 
 from core.utils import system_utils
@@ -68,15 +67,15 @@ class TestCleanup(unittest.TestCase):
         system_utils.run_command(
             ["rm", "-rf", config.SCREENSHOTS_DIR], silent=True)
 
-    def test_outdated_sessions(self):
+    def test_sessions_overflow(self):
+        user = Mock(id=1, max_stored_sessions=0)
         self.session.closed = True
         self.session.name = '__test_outdated_sessions'
-        self.session.created = \
-            datetime.now() - timedelta(days=config.SCREENSHOTS_DAYS, seconds=1)
         self.session.save()
 
-        outdated_sessions = self.cleanup.old_sessions()
-        outdated_ids = [s.id for s in outdated_sessions]
+        sessions_to_delete = self.cleanup.sessions_overflow(user)
 
-        self.assertIn(self.session.id, outdated_ids)
+        session_ids = [s.id for s in sessions_to_delete]
+
+        self.assertIn(self.session.id, session_ids)
         self.cleanup.delete_session_data([self.session])
