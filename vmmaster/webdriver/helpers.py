@@ -6,7 +6,7 @@ import json
 import time
 
 from functools import wraps
-from flask import Response, current_app, request
+from flask import Response, request
 
 from core.exceptions import CreationException, ConnectionError, \
     TimeoutException, SessionException
@@ -48,7 +48,7 @@ def connection_watcher(func):
             elif is_session_closed():
                 raise SessionException("Session closed")
 
-            time.sleep(0)
+            time.sleep(0.01)
         return value
     return wrapper
 
