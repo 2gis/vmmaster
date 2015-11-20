@@ -51,9 +51,7 @@ class TestApi(BaseTestCase):
 
     def test_api_sessions(self):
         from core.sessions import Session
-        session = Session()
-        session.name = "session1"
-        session.platform = 'test_origin_1'
+        session = Session("session1", self.desired_caps["desiredCapabilities"])
         session.created = session.modified = datetime.now()
 
         with patch('flask.current_app.sessions.active',
@@ -64,7 +62,7 @@ class TestApi(BaseTestCase):
 
         sessions = body['result']['sessions']
         self.assertEqual(1, len(sessions))
-        self.assertEqual(self.platform, sessions[0]['platform'])
+        self.assertEqual(self.platform, session.platform)
         self.assertEqual(200, body['metacode'])
 
         with patch('vmpool.endpoint.delete_vm', new=Mock()):
@@ -163,7 +161,6 @@ class TestApi(BaseTestCase):
         endpoint = Mock(ip='127.0.0.1')
         session = Session()
         session.name = "session1"
-        session.platform = 'test_origin_1'
         session.created = session.modified = datetime.now()
 
         expected = 5901
@@ -187,7 +184,8 @@ class TestApi(BaseTestCase):
         self.assertTrue(isinstance(session.vnc_helper.proxy, Process))
 
         session.delete()
-        self.assertTrue(wait_for(lambda: not session.vnc_helper.proxy.is_alive()))
+        self.assertTrue(wait_for(
+            lambda: not session.vnc_helper.proxy.is_alive()))
 
     @patch('core.db.database', Mock())
     def test_get_vnc_info_for_running_proxy(self):
@@ -195,7 +193,6 @@ class TestApi(BaseTestCase):
         endpoint = Mock(ip='127.0.0.1')
         session = Session()
         session.name = "session1"
-        session.platform = 'test_origin_1'
         session.created = session.modified = datetime.now()
         session.run(endpoint)
         session.vnc_helper = Mock(proxy=Mock(),

@@ -57,14 +57,15 @@ class TestVNCVideoHelper(BaseTestCase):
             from core.sessions import Session
             self.session = Session(dc=dc)
             self.session.name = "session1"
-            self.session.platform = "test_origin_1"
             with patch(
                 'core.video.VNCVideoHelper._flvrec', Mock()
             ), patch(
                 'core.video.VNCVideoHelper._flv2webm', Mock()
             ):
                 self.session.run(endpoint=endpoint)
-                self.assertTrue(isinstance(self.session.vnc_helper.recorder, Process))
+                self.assertTrue(
+                    isinstance(self.session.vnc_helper.recorder, Process))
 
                 self.session.delete()
-                self.assertTrue(wait_for(lambda: not self.session.vnc_helper.recorder.is_alive()))
+                self.assertTrue(wait_for(
+                    lambda: not self.session.vnc_helper.recorder.is_alive()))

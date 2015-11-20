@@ -190,6 +190,7 @@ def get_session():
         body=str(request.data)
     )
     yield session
+
     for vm in endpoint.new_vm(dc):
         session.endpoint = vm
         yield session

@@ -90,7 +90,6 @@ class Session(Base, FeaturesMixin):
     endpoint_ip = Column(String)
     endpoint_name = Column(String)
     name = Column(String)
-    platform = Column(String)
     dc = Column(String)
     selenium_session = Column(String)
     take_screenshot = Column(Boolean)
@@ -126,7 +125,7 @@ class Session(Base, FeaturesMixin):
 
         if dc:
             self.dc = json.dumps(dc)
-            self.platform = dc["platform"]
+
             if dc.get("name", None) and not self.name:
                 self.name = dc["name"]
 
@@ -142,6 +141,10 @@ class Session(Base, FeaturesMixin):
         if not self.name:
             self.name = "Unnamed session " + str(self.id)
             self.save()
+
+    @property
+    def platform(self):
+        return json.loads(self.dc).get("platform", None)
 
     def add_session_step(self, control_line, body=None):
         return SessionLogStep(control_line=control_line,

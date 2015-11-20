@@ -21,7 +21,15 @@ def get_vm_from_pool(endpoint_name):
 
 
 def new_vm(desired_caps):
-    platform = desired_caps.get('platform', None)
+    platform = desired_caps.get("platform", None)
+
+    if hasattr(config, "PLATFORM") and config.PLATFORM:
+        log_pool.info(
+            'Using %s. Desired platform %s has been ignored.' %
+            (config.PLATFORM, platform)
+        )
+        platform = config.PLATFORM
+        desired_caps["platform"] = platform
 
     if isinstance(platform, unicode):
         platform = platform.encode('utf-8')
