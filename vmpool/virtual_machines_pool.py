@@ -247,7 +247,7 @@ class VirtualMachineChecker(Thread):
                         vm.rebuild()
                     except Exception as e:
                         log_pool.error(e)
-                        vm.delete()
+                        vm.delete(try_to_rebuild=False)
                         self.pool.remove(vm)
             vm.checking = False
 
