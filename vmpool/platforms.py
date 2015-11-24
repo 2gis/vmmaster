@@ -6,6 +6,8 @@ from core.config import config
 from core.logger import log_pool
 from core.utils import openstack_utils
 
+UnlimitedCount = type("UnlimitedCount", (), {})()
+
 
 class Platform(object):
     name = None
@@ -70,7 +72,7 @@ class PlatformsInterface(object):
         raise NotImplementedError
 
     @staticmethod
-    def can_produce(platform):
+    def get_limit(platform):
         raise NotImplementedError
 
 
@@ -88,10 +90,13 @@ class KVMPlatforms(PlatformsInterface):
 
     @staticmethod
     def max_count():
-        return config.KVM_MAX_VM_COUNT
+        if hasattr(config, 'KVM_MAX_VM_COUNT'):
+            return config.KVM_MAX_VM_COUNT
+        else:
+            return UnlimitedCount
 
     @staticmethod
-    def can_produce(platform):
+    def get_limit(platform):
         return KVMPlatforms.max_count()
 
 
@@ -122,26 +127,22 @@ class OpenstackPlatforms(PlatformsInterface):
 
     @staticmethod
     def max_count():
-        config_max_count = config.OPENSTACK_MAX_VM_COUNT
         limits = OpenstackPlatforms.limits(if_none={'maxTotalInstances': 0})
 
-        if config_max_count <= limits.get('maxTotalInstances', 0):
-            max_count = config_max_count
-            # Maximum count of virtual machines use from vmmaster config
-        else:
-            max_count = limits.get('maxTotalInstances', 0)
-            # Maximum count of virtual machines use from openstack limits
+        if not hasattr(config, 'OPENSTACK_MAX_VM_COUNT'):
+            return limits.get('maxTotalInstances', 0)
 
-        return max_count
+        return min(
+            config.OPENSTACK_MAX_VM_COUNT,
+            limits.get('maxTotalInstances', 0)
+        )
 
     @staticmethod
-    def can_produce(platform):
+    def get_limit(platform):
         limits = OpenstackPlatforms.limits(if_none={
             'maxTotalCores': 0, 'maxTotalInstances': 0, 'maxTotalRAMSize': 0,
             'totalCoresUsed': 0, 'totalInstancesUsed': 0, 'totalRAMUsed': 0})
 
-        flavor_params = OpenstackPlatforms.flavor_params(
-            Platforms.get(platform).flavor_name)
         if limits.get('totalInstancesUsed', 0) >= \
                 limits.get('maxTotalInstances', 0):
             log_pool.warning(
@@ -149,6 +150,9 @@ class OpenstackPlatforms(PlatformsInterface):
                 'not enough Instances resources' % platform
             )
             return 0
+
+        flavor_params = OpenstackPlatforms.flavor_params(
+            Platforms.get(platform).flavor_name)
 
         if flavor_params.get('vcpus', 0) >= \
                 limits.get('maxTotalCores', 0) - \
@@ -207,17 +211,21 @@ class Platforms(object):
     def max_count(cls):
         m_count = 0
         if bool(cls.kvm_platforms):
-            m_count += KVMPlatforms.max_count()
+            kvm_m_count = KVMPlatforms.max_count()
+            if kvm_m_count is UnlimitedCount:
+                return kvm_m_count
+            else:
+                m_count += kvm_m_count
         if bool(cls.openstack_platforms):
             m_count += OpenstackPlatforms.max_count()
         return m_count
 
     @classmethod
-    def can_produce(cls, platform):
+    def get_limit(cls, platform):
         if config.USE_KVM and platform in cls.kvm_platforms.keys():
-            return KVMPlatforms.can_produce(platform)
+            return KVMPlatforms.get_limit(platform)
         if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
-            return OpenstackPlatforms.can_produce(platform)
+            return OpenstackPlatforms.get_limit(platform)
 
     @classmethod
     def check_platform(cls, platform):

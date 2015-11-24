@@ -9,8 +9,7 @@ from core.config import config
 from core.logger import log_pool
 from core.network import Network
 
-from platforms import Platforms
-from flask import current_app
+from platforms import Platforms, UnlimitedCount
 
 
 class VirtualMachinesPool(object):
@@ -58,7 +57,12 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls, platform):
-        if cls.count() >= Platforms.can_produce(platform):
+        platform_limit = Platforms.get_limit(platform)
+
+        if platform_limit is UnlimitedCount:
+            return True
+
+        if cls.count() >= platform_limit:
             log_pool.warning(
                 'Can\'t produce new virtual machine with platform %s: '
                 'not enough Instances resources' % platform
@@ -176,9 +180,7 @@ class VirtualMachinesPool(object):
                 'count': self.using_virtual_machines(),
                 'list': print_view(self.using),
             },
-            "max_count": current_app.platforms.max_count(),
             "already_use": self.count(),
-            "can_produce": current_app.platforms.max_count() - self.count()
         }
 
 
