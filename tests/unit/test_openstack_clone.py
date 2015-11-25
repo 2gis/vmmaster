@@ -3,7 +3,6 @@
 from mock import Mock, patch, PropertyMock
 from core.config import setup_config
 from tests.unit.helpers import wait_for, BaseTestCase
-from core.exceptions import CreationException
 
 
 def custom_wait(self, method):
@@ -721,10 +720,10 @@ class TestOpenstackPlatforms(BaseTestCase):
         - call OpenstackClone.create()
         - maximum instances already in use
 
-        Expected: CreationException
+        Expected: No vm added
         """
         count_before_try = self.pool.count()
-        self.assertRaises(CreationException, self.pool.add, self.platform)
+        self.assertIsNone(self.pool.add(self.platform))
         self.assertEqual(self.pool.count(), count_before_try)
 
     @patch(
@@ -740,10 +739,10 @@ class TestOpenstackPlatforms(BaseTestCase):
         - call OpenstackClone.create()
         - maximum cpu cores already in use
 
-        Expected: CreationException
+        Expected: No vm added
         """
         count_before_try = self.pool.count()
-        self.assertRaises(CreationException, self.pool.add, self.platform)
+        self.assertIsNone(self.pool.add(self.platform))
         self.assertEqual(self.pool.count(), count_before_try)
 
     @patch(
@@ -761,8 +760,8 @@ class TestOpenstackPlatforms(BaseTestCase):
         - call OpenstackClone.create()
         - maximum RAM already in use
 
-        Expected: CreationException
+        Expected: No vm added
         """
         count_before_try = self.pool.count()
-        self.assertRaises(CreationException, self.pool.add, self.platform)
+        self.assertIsNone(self.pool.add(self.platform))
         self.assertEqual(self.pool.count(), count_before_try)

@@ -17,6 +17,18 @@ from tests.unit.helpers import server_is_up, server_is_down, \
 from nose.twistedtools import reactor
 
 
+def ping_vm_true_mock(arg=None):
+    yield True
+
+
+def ping_vm_false_mock(arg=None):
+    yield False
+
+
+def transparent_mock():
+    return 200, {}, None
+
+
 class BaseTestServer(BaseTestCase):
     def setUp(self):
         with patch(
@@ -34,18 +46,6 @@ class BaseTestServer(BaseTestCase):
         self.pool = self.vmmaster.app.pool
 
         server_is_up(self.address)
-
-
-def ping_vm_true_mock(arg=None):
-    yield True
-
-
-def ping_vm_false_mock(arg=None):
-    yield False
-
-
-def transparent_mock():
-    return 200, {}, None
 
 
 @patch.multiple(
@@ -486,13 +486,15 @@ class TestConnectionClose(BaseTestServer):
             p.has = Mock(return_value=False)
             p.can_produce = Mock(return_value=True)
 
-            from vmpool.vmqueue import q
+            q = self.vmmaster.app.sessions.active_sessions
 
             def wait_for_platform_in_queue():
                 wait_for(lambda: q, timeout=2)
                 self.assertEqual(len(q), 1)
+
                 self.assertEqual(
-                    q[0].dc, self.desired_caps["desiredCapabilities"]
+                    self.vmmaster.app.sessions.active()[0].dc,
+                    json.dumps(self.desired_caps["desiredCapabilities"])
                 )
 
             request_with_drop(
@@ -531,7 +533,7 @@ class TestConnectionClose(BaseTestServer):
             'vmpool.platforms.KVMOrigin.make_clone',
             Mock(side_effect=just_sleep)
         ) as make_clone:
-            from vmpool.vmqueue import q
+            q = self.vmmaster.app.sessions.active_sessions
 
             def wait_for_vm_start_tp_spawn():
                 wait_for(lambda: make_clone.called, timeout=2)
@@ -749,17 +751,17 @@ class TestSessionSteps(BaseTestServer):
         """
 
         def raise_exception(dc):
-            raise Exception('something ugly happened in new_vm')
+            raise Exception('something ugly happened in get_vm')
 
         with patch(
-            'vmpool.endpoint.new_vm', Mock(side_effect=raise_exception)
+            'vmpool.endpoint.get_vm', Mock(side_effect=raise_exception)
         ), patch(
             'core.sessions.Session.add_session_step', Mock()
         ) as add_step_mock:
             response = new_session_request(self.address, self.desired_caps)
 
         self.assertEqual(500, response.status)
-        self.assertIn('something ugly happened in new_vm', response.content)
+        self.assertIn('something ugly happened in get_vm', response.content)
 
         self.assertEqual(add_step_mock.call_count, 2)
 
@@ -787,7 +789,7 @@ class TestSessionSteps(BaseTestServer):
             yield Mock(ip=1)
 
         with patch(
-            'vmpool.endpoint.new_vm', Mock(side_effect=new_vm_mock)
+            'vmpool.endpoint.get_vm', Mock(side_effect=new_vm_mock)
         ), patch(
             'core.sessions.Session.make_request',
             Mock(__name__="make_request", side_effect=raise_exception)
@@ -842,7 +844,6 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
         server_is_down(self.address)
         self.ctx.pop()
 
-
     @patch(
         'vmmaster.webdriver.commands.ping_vm',
         new=Mock(side_effect=ping_vm_true_mock)
@@ -866,11 +867,11 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
         - exception while waiting endpoint
         Expected: session was created, session_step was created
         """
-        def new_vm_mock(arg):
+        def get_vm_mock(arg):
             yield Mock(name="test_vm_1", ip="127.0.0.1")
 
         with patch(
-            'vmpool.endpoint.new_vm', Mock(side_effect=new_vm_mock)
+            'vmpool.endpoint.get_vm', Mock(side_effect=get_vm_mock)
         ):
             response = new_session_request(self.address, self.desired_caps)
 
