@@ -22,6 +22,9 @@ class TestVirtualMachinePool(BaseTestCase):
             from vmpool.virtual_machines_pool import pool
             self.pool = pool
 
+            from vmpool.endpoint import new_vm
+            self.new_vm = new_vm
+
         # TODO: mock it like openstack clone in test_server
         from vmpool.clone import Clone
         Clone.ping_vm = Mock(__name__="ping_vm")
@@ -98,3 +101,16 @@ class TestVirtualMachinePool(BaseTestCase):
         the_exception = e.exception
         self.assertEqual("Maximum count of virtual machines already running",
                          the_exception.message)
+
+    def test_platform_from_config(self):
+        desired_caps = {
+            'desiredCapabilities': {
+                'platform': "test_origin_1"
+            }
+        }
+
+        config.PLATFORM = "test_origin_2"
+
+        for vm in self.new_vm(desired_caps):
+            self.assertEqual(vm.dc["platform"], config.PLATFORM)
+            break

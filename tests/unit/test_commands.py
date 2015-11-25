@@ -72,7 +72,6 @@ class CommonCommandsTestCase(BaseTestCase):
             from core.sessions import Session
             self.session = Session()
             self.session.name = "session1"
-            self.session.platform = "test_origin_1"
 
             vm = Mock()
             vm.name = 'vm1'
