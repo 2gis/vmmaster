@@ -3,15 +3,15 @@
 from core.utils import generator_wait_for
 from core.logger import log_pool
 from core.config import config
-from core.exceptions import PlatformException, \
-    CreationException
 
+from core.exceptions import PlatformException, CreationException
+
+from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
-from vmpool.vmqueue import q
 
 
-def new_vm(desired_caps):
-    platform = desired_caps.get("platform", None)
+def get_platform(desired_caps):
+    platform = desired_caps.get('platform', None)
 
     if hasattr(config, "PLATFORM") and config.PLATFORM:
         log_pool.info(
@@ -32,32 +32,37 @@ def new_vm(desired_caps):
     if not Platforms.check_platform(platform):
         raise PlatformException('No such platform %s' % platform)
 
-    delayed_vm = q.enqueue(desired_caps)
-    yield delayed_vm
+    return platform
 
-    for condition in generator_wait_for(
-        lambda: delayed_vm.vm, timeout=config.GET_VM_TIMEOUT
+
+def get_vm(desired_caps):
+    platform = get_platform(desired_caps)
+
+    vm = None
+    for _ in generator_wait_for(
+        lambda: vm, timeout=config.GET_VM_TIMEOUT
     ):
-        yield delayed_vm
+        vm = pool.get_vm(platform)
+        if vm:
+            break
 
-    if not delayed_vm.vm:
+    if not vm:
         raise CreationException(
             "Timeout while waiting for vm with platform %s" % platform
         )
 
-    yield delayed_vm.vm
+    yield vm
 
-    for condition in generator_wait_for(
-        lambda: delayed_vm.vm.ready, timeout=config.GET_VM_TIMEOUT
+    for _ in generator_wait_for(
+        lambda: vm.ready, timeout=config.GET_VM_TIMEOUT
     ):
-        yield delayed_vm.vm
+        yield vm
 
-    if not delayed_vm.vm.ready:
+    if not vm.ready:
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %
-            (delayed_vm.vm.name, platform)
+            (vm.name, platform)
         )
 
-    log_pool.info('Got vm for request with params: %s' % delayed_vm.vm.info)
-    yield delayed_vm.vm
-
+    log_pool.info('Got vm for request with params: %s' % vm.info)
+    yield vm

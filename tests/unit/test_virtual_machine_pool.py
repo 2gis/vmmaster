@@ -1,7 +1,6 @@
 # coding: utf-8
 
 from mock import Mock, patch
-from core.exceptions import CreationException
 from core.config import config, setup_config
 from helpers import BaseTestCase
 
@@ -21,9 +20,6 @@ class TestVirtualMachinePool(BaseTestCase):
 
             from vmpool.virtual_machines_pool import pool
             self.pool = pool
-
-            from vmpool.endpoint import new_vm
-            self.new_vm = new_vm
 
         # TODO: mock it like openstack clone in test_server
         from vmpool.clone import Clone
@@ -95,12 +91,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.pool.add(self.platform)
         self.pool.add(self.platform)
 
-        with self.assertRaises(CreationException) as e:
-            self.pool.add(self.platform)
-
-        the_exception = e.exception
-        self.assertEqual("Maximum count of virtual machines already running",
-                         the_exception.message)
+        self.assertIsNone(self.pool.add(self.platform))
 
     def test_platform_from_config(self):
         desired_caps = {
@@ -111,6 +102,7 @@ class TestVirtualMachinePool(BaseTestCase):
 
         config.PLATFORM = "test_origin_2"
 
-        for vm in self.new_vm(desired_caps):
-            self.assertEqual(vm.dc["platform"], config.PLATFORM)
+        from vmpool.endpoint import get_vm
+        for vm in get_vm(desired_caps):
+            self.assertEqual(vm.platform, config.PLATFORM)
             break

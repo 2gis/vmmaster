@@ -191,7 +191,7 @@ def get_session():
     )
     yield session
 
-    for vm in endpoint.new_vm(dc):
+    for vm in endpoint.get_vm(dc):
         session.endpoint = vm
         yield session
 

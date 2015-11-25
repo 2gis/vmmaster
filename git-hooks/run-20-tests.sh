@@ -6,7 +6,7 @@ echo "running tests with coverage!"
 echo -en "\033[0m"
 
 
-tox -e tests-with-coverage
+tox -e unit-with-coverage
 RESULT=$?
 
 if [ $RESULT -ne 0 ]
