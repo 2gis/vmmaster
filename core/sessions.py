@@ -241,6 +241,9 @@ class Sessions(object):
     def running(self):
         return [s for s in self.active() if s.status == "running"]
 
+    def waiting(self):
+        return [s for s in self.active() if s.status == "waiting"]
+
     def kill_all(self):
         for session in self.active_sessions.values():
             session.delete()

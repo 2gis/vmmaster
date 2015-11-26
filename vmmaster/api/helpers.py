@@ -21,7 +21,7 @@ def get_sessions():
 
 def get_queue():
     queue = list()
-    for session in current_app.database.get_queue():
+    for session in current_app.sessions.waiting():
         queue.append(session.info)
     return queue
 
