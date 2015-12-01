@@ -65,7 +65,7 @@ def new_vm(desired_caps):
     if not delayed_vm.vm.ready:
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %
-            (delayed_vm.vm.id, platform)
+            (delayed_vm.vm.name, platform)
         )
 
     log_pool.info('Got vm for request with params: %s' % delayed_vm.vm.info)
