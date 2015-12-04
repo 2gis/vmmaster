@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify, abort
+from flask import Blueprint, current_app, request, jsonify
 
 from vmmaster.webdriver import commands
 import helpers
@@ -14,6 +14,16 @@ from core import utils
 webdriver = Blueprint('webdriver', __name__)
 
 
+def selenium_error_response(message, selenium_code=13, status_code=500):
+    error_context = {
+        'status': selenium_code,
+        'value': {
+            "message": "%s" % message
+        }
+    }
+    return jsonify(error_context), status_code
+
+
 @webdriver.errorhandler(Exception)
 def handle_errors(error):
     tb = format_exc()
@@ -21,13 +31,7 @@ def handle_errors(error):
     if hasattr(request, 'session'):
         request.session.failed(tb)
 
-    error_context = {
-        'status': 13,
-        'value': {
-            "message": "%s" % tb
-        }
-    }
-    return jsonify(error_context), 500
+    return selenium_error_response(tb)
 
 
 @webdriver.before_request
@@ -98,10 +102,14 @@ def create_session():
         session = helpers.get_session()
         commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
+
         return helpers.form_response(status, headers, body)
     else:
         log.info("This request is aborted %s" % request)
-        abort(502)
+        message = "A new session could not be created " \
+                  "because shutdown server in progress"
+        
+        return selenium_error_response(message, status_code=502)
 
 
 @webdriver.route("/session/<string:session_id>", methods=['GET'])
