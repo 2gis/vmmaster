@@ -4,7 +4,6 @@ import json
 import httplib
 from functools import partial, wraps
 import websocket
-import thread
 
 from traceback import format_exc
 from core import utils
@@ -96,7 +95,7 @@ def ping_vm(session):
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
     _ping = partial(network_utils.ping, ip)
     check = lambda: all(map(_ping, ports))
-    for condition in generator_wait_for(check, config.PING_TIMEOUT):
+    for _ in generator_wait_for(check, config.PING_TIMEOUT):
         yield False
 
     result = map(_ping, ports)
@@ -245,30 +244,32 @@ def run_script_through_websocket(script, session, host):
         control_line=status_code,
         body=default_msg)
 
-    def on_open(ws):
-        def run(*args):
-            ws.send(script)
+    def on_open(_ws):
+        def run():
+            _ws.send(script)
             log.info('RunScript: Open websocket and send message %s '
                      'to vmmaster-agent on vm %s' % (script, host))
-        thread.start_new_thread(run, ())
+        _t = Thread(target=run)
+        _t.daemon = True
+        _t.start()
 
-    def on_message(ws, message):
-        ws.output += message
+    def on_message(_ws, message):
+        _ws.output += message
         if sub_step:
-            msg = json.dumps({"status": ws.status, "output": ws.output})
+            msg = json.dumps({"status": _ws.status, "output": _ws.output})
             update_log_step(sub_step, message=msg)
 
-    def on_close(ws):
+    def on_close(_ws):
         if sub_step and ws.output:
-            msg = json.dumps({"status": ws.status, "output": ws.output})
+            msg = json.dumps({"status": _ws.status, "output": _ws.output})
             update_log_step(sub_step, message=msg)
         log.info("RunScript: Close websocket on vm %s" % host)
 
-    def on_error(ws, message):
+    def on_error(_ws, message):
         global status_code
         status_code = 500
-        ws.status = 1
-        ws.output += repr(message)
+        _ws.status = 1
+        _ws.output += repr(message)
         log.debug("RunScript error: %s" % message)
 
     ws = websocket.WebSocketApp(host,
