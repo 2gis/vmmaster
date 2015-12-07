@@ -421,4 +421,4 @@ class OpenstackClone(Clone):
         except Exception as e:
             log_pool.info(
                 "Rebuild vm %s was FAILED. %s" % (self.name, e.message))
-            self.delete()
+            self.delete(try_to_rebuild=False)

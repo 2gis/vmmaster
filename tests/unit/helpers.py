@@ -185,7 +185,7 @@ class ServerMock(object):
     def stop(self):
         self._server.shutdown()
         self._server.server_close()
-        self._thread.join(1)
+        self._thread.join()
 
 
 class BaseTestCase(unittest.TestCase):

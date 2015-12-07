@@ -1,12 +1,10 @@
 # coding: utf-8
 
-from Queue import Queue
 import json
 import os
 import errno
 import pwd
 import grp
-import requests
 import time
 import sys
 
@@ -191,39 +189,6 @@ def to_json(result):
     except ValueError:
         log.info("Couldn't parse response content <%s>" % repr(result))
         return {}
-
-
-def make_request(request, host, port):
-        """ Make http request to some port
-            and return the response. """
-
-        # log.debug('Request: %s' % request)
-        q = Queue()
-        url = "http://%s:%s%s" % (host,
-                                  port,
-                                  request.url)
-
-        req = lambda: requests.request(method=request.method,
-                                       url=url,
-                                       headers=request.headers,
-                                       data=request.body)
-
-        t = Thread(target=getresponse, args=(req, q))
-        t.daemon = True
-        t.start()
-
-        response = None
-        while not response:
-            if not t.isAlive():
-                response = q.get()
-                if isinstance(response, Exception):
-                    log.info('Exception in thread '
-                             'during request: %s' % str(response))
-                break
-            elif t is not None:
-                t.join(0.1)
-
-        return response
 
 
 def remove_base64_screenshot(response_data):

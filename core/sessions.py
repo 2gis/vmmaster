@@ -188,7 +188,6 @@ class Session(SessionModel):
         t.daemon = True
         t.start()
 
-        response = None
         while t.isAlive():
             yield None, None, None
 

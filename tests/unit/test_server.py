@@ -164,7 +164,7 @@ class TestServer(BaseTestServer):
         t.start()
         self.assertEqual(2, len(self.pool.using))
         self.assertTrue(t.isAlive())
-        t.join(0.1)
+        t.join()
 
     def test_get_non_existing_session(self):
         """
