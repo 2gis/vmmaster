@@ -3,21 +3,11 @@
 from core.utils import generator_wait_for
 from core.logger import log_pool
 from core.config import config
-from core.exceptions import PlatformException, NoSuchEndpoint, \
+from core.exceptions import PlatformException, \
     CreationException
 
-from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
 from vmpool.vmqueue import q
-
-
-def get_vm_from_pool(endpoint_name):
-    vm = pool.get_by_name(endpoint_name)
-    if vm:
-        log_pool.debug('Got vm with params: %s' % vm.info)
-        return vm
-    else:
-        raise NoSuchEndpoint('No such endpoint: %s' % endpoint_name)
 
 
 def new_vm(desired_caps):
@@ -71,17 +61,3 @@ def new_vm(desired_caps):
     log_pool.info('Got vm for request with params: %s' % delayed_vm.vm.info)
     yield delayed_vm.vm
 
-
-def delete_vm(endpoint_name):
-    vm = pool.get_by_name(endpoint_name)
-    if vm:
-        if vm.is_preloaded():
-            vm.rebuild()
-        else:
-            vm.delete()
-
-        msg = "Vm %s has been deleted" % endpoint_name
-        log_pool.info(msg)
-    else:
-        msg = "Vm %s not found in pool or vm is busy" % endpoint_name
-        log_pool.info(msg)
