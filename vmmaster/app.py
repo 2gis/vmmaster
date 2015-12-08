@@ -2,6 +2,7 @@
 
 from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
+from uuid import uuid1
 
 from core.sessions import Sessions, SessionWorker
 from core.logger import log
@@ -29,6 +30,7 @@ class Vmmaster(Flask):
     def __init__(self, *args, **kwargs):
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
+        self.uuid = str(uuid1())
 
         self.database = database
         self.pool = pool
@@ -51,6 +53,14 @@ class Vmmaster(Flask):
 
         self.json_encoder = JSONEncoder
 
+        self.register()
+
+    def register(self):
+        self.database.register_platforms(self.uuid, self.platforms.info())
+
+    def unregister(self):
+        self.database.unregister_platforms(self.uuid)
+
     def cleanup(self):
         log.info("Shutting down...")
         self.worker.stop()
@@ -58,6 +68,7 @@ class Vmmaster(Flask):
         self.vmchecker.stop()
         self.session_worker.stop()
         self.pool.free()
+        self.unregister()
         self.platforms.cleanup()
         log.info("Server gracefully shut down.")
 
