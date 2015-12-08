@@ -219,7 +219,7 @@ def set_body_session_id(body, session_id):
 def set_path_session_id(path, session_id):
     parts = path.split("/")
     pos = parts.index("session")
-    parts[pos + 1] = session_id
+    parts[pos + 1] = str(session_id)
     return "/".join(parts)
 
 

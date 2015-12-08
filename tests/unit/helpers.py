@@ -227,3 +227,8 @@ def vmmaster_server_mock(port):
         from vmmaster.server import VMMasterServer
         from nose.twistedtools import reactor
         return VMMasterServer(reactor, port)
+
+
+def request_mock(**kwargs):
+    time.sleep(2)
+    return Mock(status_code=200, headers={}, content=json.dumps({'status': 0}))

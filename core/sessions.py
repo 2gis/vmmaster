@@ -69,6 +69,7 @@ class Session(SessionModel):
     current_log_step = None
     vnc_helper = None
     take_screencast = None
+    is_active = True
 
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
@@ -106,9 +107,13 @@ class Session(SessionModel):
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
 
-    def restart_timer(self):
+    def start_timer(self):
         self.modified = datetime.now()
         self.save()
+        self.is_active = False
+
+    def stop_timer(self):
+        self.is_active = True
 
     def delete(self, message=""):
         if self.vnc_helper:
@@ -144,7 +149,7 @@ class Session(SessionModel):
         self.endpoint_name = endpoint.name
 
     def run(self, endpoint):
-        self.restart_timer()
+        self.modified = datetime.now()
         self.set_vm(endpoint)
         self.status = "running"
         self.vnc_helper = VNCVideoHelper(self.endpoint_ip,
@@ -176,7 +181,6 @@ class Session(SessionModel):
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        self.restart_timer()
         q = Queue()
         url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
 
@@ -209,7 +213,8 @@ class SessionWorker(Thread):
         with self.app.app_context():
             while self.running:
                 for session in self.app.sessions.running():
-                    if session.inactivity > config.SESSION_TIMEOUT:
+                    if not session.is_active \
+                            and session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
                 time.sleep(1)
 
