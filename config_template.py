@@ -49,8 +49,6 @@ class Config(object):
         'admin_pass': 'testPassw0rd.'
     }
 
-    VM_CHECK = False
-    VM_CHECK_FREQUENCY = 1800
     VM_CREATE_CHECK_PAUSE = 5
     VM_CREATE_CHECK_ATTEMPTS = 1000
     PRELOADER_FREQUENCY = 3
