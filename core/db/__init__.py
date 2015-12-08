@@ -3,10 +3,12 @@
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.db.models import SessionLogStep, User
+from core.db.models import SessionLogStep, User, Platform
 from core.utils import to_thread
 
 from core.sessions import Session as WrappedSession
+
+from core.logger import log
 
 
 def threaded_transaction(func):
@@ -87,6 +89,25 @@ class Database(object):
         elif username:
             return dbsession.query(User).filter_by(username=username).first()
         return None
+
+    @transaction
+    def get_platform(self, name, dbsession=None):
+        return dbsession.query(Platform).filter_by(name=name).first()
+
+    def register_platforms(self, node, platforms):
+        for name in platforms:
+            try:
+                self.add(Platform(name, node))
+            except Exception as e:
+                log.warning(
+                    'Error registering platform: %s (%s)' %
+                    (name, e.message)
+                )
+
+    @transaction
+    def unregister_platforms(self, uuid, dbsession=None):
+        dbsession.query(Platform).filter_by(node=uuid).delete()
+        dbsession.commit()
 
     @transaction
     def add(self, obj, dbsession=None):
