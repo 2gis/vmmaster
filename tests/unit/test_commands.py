@@ -457,9 +457,9 @@ class TestRunScript(CommonCommandsTestCase):
         def run_script_through_websocket_mock(*args, **kwargs):
             return 200, {}, 'some_body'
 
-        self.commands.run_script_through_websocket = \
-            run_script_through_websocket_mock
-        response = self.commands.run_script(self.request, self.session)
+        with patch('vmmaster.webdriver.commands.run_script_through_websocket',
+                   run_script_through_websocket_mock):
+            response = self.commands.run_script(self.request, self.session)
 
         self.assertEqual(200, response[0])
         self.assertEqual(self.response_body, response[2])

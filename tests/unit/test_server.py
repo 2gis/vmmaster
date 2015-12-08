@@ -11,7 +11,7 @@ from core.config import setup_config, config
 from tests.unit.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, request_with_drop, BaseTestCase, \
-    set_primary_key, wait_for, DatabaseMock
+    set_primary_key, wait_for, DatabaseMock, request_mock
 
 
 from nose.twistedtools import reactor
@@ -408,6 +408,7 @@ class TestSessionWorker(BaseTestCase):
 
         session = Mock()
         session.timeout = Mock()
+        session.is_active = False
         session.inactivity = config.SESSION_TIMEOUT + 1
 
         self.app.sessions.running = Mock(return_value=[session])
@@ -800,3 +801,87 @@ class TestSessionSteps(BaseTestServer):
             'something ugly happened in make_request', response.content)
 
         self.assertEqual(add_sub_step_mock.call_count, 2)
+
+
+class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
+    def setUp(self):
+        setup_config('data/config.py')
+        from core.config import config
+        config.SESSION_TIMEOUT = 1
+
+        self.address = ("localhost", 9001)
+
+        with patch(
+            'core.connection.Virsh', Mock(),
+        ), patch(
+            'core.network.Network', Mock()
+        ), patch(
+            'core.db.database', DatabaseMock()
+        ):
+            from vmmaster.server import VMMasterServer
+            self.vmmaster = VMMasterServer(reactor, self.address[1])
+
+        self.pool = self.vmmaster.app.pool
+
+        server_is_up(self.address)
+
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+            }
+        }
+
+        from core.config import config
+        config.SESSION_TIMEOUT = 1
+
+        self.ctx = self.vmmaster.app.app_context()
+        self.ctx.push()
+
+    def tearDown(self):
+        del self.vmmaster
+        server_is_down(self.address)
+        self.ctx.pop()
+
+
+    @patch(
+        'vmmaster.webdriver.commands.ping_vm',
+        new=Mock(side_effect=ping_vm_true_mock)
+    )
+    @patch(
+        'requests.request',
+        new=Mock(
+            __name__="request",
+            side_effect=request_mock
+        )
+    )
+    @patch(
+        'vmmaster.webdriver.commands.start_selenium_session',
+        new=Mock(
+            __name__="selenium_session",
+            return_value=(200, {}, json.dumps({'sessionId': 1}))
+        )
+    )
+    def test_check_timer_for_session_activity(self):
+        """
+        - exception while waiting endpoint
+        Expected: session was created, session_step was created
+        """
+        def new_vm_mock(arg):
+            yield Mock(name="test_vm_1", ip="127.0.0.1")
+
+        with patch(
+            'vmpool.endpoint.new_vm', Mock(side_effect=new_vm_mock)
+        ):
+            response = new_session_request(self.address, self.desired_caps)
+
+        self.assertEqual(200, response.status)
+        time.sleep(2)
+
+        with patch(
+            'flask.current_app.database.get_session', Mock(return_value=None)
+        ):
+            response = get_session_request(self.address, 1)
+        self.assertIn(
+            "SessionException: There is no active session 1 (Unknown session)",
+            response.content
+        )
