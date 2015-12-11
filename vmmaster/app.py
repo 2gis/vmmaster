@@ -11,7 +11,7 @@ from core.db import database
 from vmpool.platforms import Platforms
 
 from vmpool.virtual_machines_pool import pool, \
-    VirtualMachinesPoolPreloader, VirtualMachineChecker
+    VirtualMachinesPoolPreloader
 
 from vmpool.vmqueue import q, QueueWorker
 
@@ -38,9 +38,6 @@ class Vmmaster(Flask):
         self.preloader = VirtualMachinesPoolPreloader(self.pool)
         self.preloader.start()
 
-        self.vmchecker = VirtualMachineChecker(self.pool)
-        self.vmchecker.start()
-
         self.worker = QueueWorker(self.queue)
         self.worker.start()
 
@@ -55,7 +52,6 @@ class Vmmaster(Flask):
         log.info("Shutting down...")
         self.worker.stop()
         self.preloader.stop()
-        self.vmchecker.stop()
         self.session_worker.stop()
         self.pool.free()
         self.platforms.cleanup()

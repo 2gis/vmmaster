@@ -224,37 +224,4 @@ class VirtualMachinesPoolPreloader(Thread):
         log_pool.info("Preloader stopped")
 
 
-class VirtualMachineChecker(Thread):
-    def __init__(self, _pool):
-        Thread.__init__(self)
-        self.running = config.VM_CHECK
-        self.daemon = True
-        self.pool = _pool
-
-    def run(self):
-        while self.running:
-            self.fix_broken_vm()
-            time.sleep(config.VM_CHECK_FREQUENCY)
-
-    def fix_broken_vm(self):
-        for vm in self.pool.pool:
-            vm.checking = True
-            log_pool.info("Checking {clone} with {ip}:{port}...".format(
-                clone=vm.name, ip=vm.ip, port=config.SELENIUM_PORT))
-            if vm.ready:
-                if not vm.ping_vm():
-                    try:
-                        vm.rebuild()
-                    except Exception as e:
-                        log_pool.error(e)
-                        vm.delete(try_to_rebuild=False)
-                        self.pool.remove(vm)
-            vm.checking = False
-
-    def stop(self):
-        self.running = False
-        self.join(1)
-        log_pool.info("VMChecker stopped")
-
-
 pool = VirtualMachinesPool()
