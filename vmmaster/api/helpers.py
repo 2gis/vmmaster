@@ -4,6 +4,10 @@ from flask import current_app
 from core.exceptions import SessionException
 
 
+def get_node_info():
+    return current_app.uuid
+
+
 def get_session(session_id):
     try:
         session = current_app.sessions.get_session(session_id)

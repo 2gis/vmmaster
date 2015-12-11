@@ -195,3 +195,15 @@ class UserGroup(Base):
 
     # Relationships
     users = relationship(User, backref="group", passive_deletes=True)
+
+
+class Platform(Base):
+    __tablename__ = 'platforms'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(length=100), nullable=False)
+    node = Column(String(length=100), nullable=False)
+
+    def __init__(self, name, node):
+        self.name = name
+        self.node = node
