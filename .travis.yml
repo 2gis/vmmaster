@@ -5,4 +5,7 @@ python:
 install:
   - ./install-dependencies.sh
   - pip install tox
-script: tox -e unit
+script: tox -e unit-with-codecov
+
+after_success:
+  .tox/bin/codecov
