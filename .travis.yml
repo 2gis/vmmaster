@@ -4,8 +4,9 @@ python:
   - 2.7
 install:
   - ./install-dependencies.sh
-  - pip install tox
-script: tox -e unit-with-codecov
-
+  - pip install tox codecov==1.6.3
+script:
+  tox -e unit-with-coverage
 after_success:
-  .tox/bin/codecov
+  - coverage xml
+  - codecov
