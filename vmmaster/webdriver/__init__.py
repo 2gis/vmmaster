@@ -34,37 +34,56 @@ def handle_errors(error):
     return selenium_error_response(tb)
 
 
+def get_vmmaster_session(request):
+    if hasattr(request, 'session'):
+        session = request.session
+    else:
+        session_id = commands.get_session_id(request.path)
+
+        try:
+            session = current_app.sessions.get_session(session_id)
+        except SessionException:
+            session = None
+
+    return session
+
+
+def log_request(session, request):
+    control_line = "%s %s %s" % (
+        request.method, request.path,
+        request.headers.environ['SERVER_PROTOCOL']
+    )
+    session.add_session_step(
+        control_line=control_line,
+        body=str(request.data)
+    )
+
+
 @webdriver.before_request
-def log_request():
+def before_request():
     log.debug('%s' % request)
-
-    session_id = commands.get_session_id(request.path)
-
-    try:
-        session = current_app.sessions.get_session(session_id)
-    except SessionException:
-        session = None
+    session = get_vmmaster_session(request)
 
     if session:
-        control_line = "%s %s %s" % (
-            request.method, request.path,
-            request.headers.environ['SERVER_PROTOCOL']
-        )
-        session.add_session_step(
-            control_line=control_line,
-            body=str(request.data)
-        )
+        log_request(session, request)
+        session.stop_timer()
+
+
+def log_response(session, response):
+    response_data = utils.remove_base64_screenshot(response.data)
+    session.add_session_step(control_line=response.status_code,
+                             body=response_data)
 
 
 @webdriver.after_request
-def log_response(response):
+def after_request(response):
     log.debug('Response %s %s' % (response.data, response.status_code))
+    session = get_vmmaster_session(request)
 
-    if hasattr(request, 'session'):
-        session = request.session
-        response_data = utils.remove_base64_screenshot(response.data)
-        session.add_session_step(control_line=response.status_code,
-                                 body=response_data)
+    if session:
+        log_response(session, response)
+        session.start_timer()
+
     return response
 
 
