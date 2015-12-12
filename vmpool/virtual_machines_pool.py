@@ -1,10 +1,9 @@
 # coding: utf-8
 
 import time
-from threading import Thread
+from threading import Thread, Lock
 from collections import defaultdict
 
-from core.exceptions import CreationException
 from core.config import config
 from core.logger import log_pool
 from core.network import Network
@@ -16,6 +15,7 @@ class VirtualMachinesPool(object):
     pool = list()
     using = list()
     network = Network()
+    lock = Lock()
 
     def __str__(self):
         return str(self.pool)
@@ -26,12 +26,12 @@ class VirtualMachinesPool(object):
             try:
                 cls.using.remove(vm)
             except ValueError:
-                pass
+                log_pool.warning("VM %s not found in using" % vm.name)
         if vm in list(cls.pool):
             try:
                 cls.pool.remove(vm)
             except ValueError:
-                pass
+                log_pool.warning("VM %s not found in pool" % vm.name)
 
     @classmethod
     def add_vm(cls, vm, to=None):
@@ -79,25 +79,37 @@ class VirtualMachinesPool(object):
         return False
 
     @classmethod
-    def get_by_platform(cls, platform=None):
-        if platform:
-            for vm in sorted(cls.pool, key=lambda v: v.created,
-                             reverse=True):
+    def get_by_platform(cls, platform):
+        res = None
+
+        with cls.lock:
+            if not cls.has(platform):
+                return None
+
+            for vm in sorted(cls.pool, key=lambda v: v.created, reverse=True):
                 if vm.platform == platform and vm.ready and not vm.checking:
                     log_pool.info(
                         "Got VM %s (ip=%s, ready=%s, checking=%s)" %
                         (vm.name, vm.ip, vm.ready, vm.checking)
                     )
-                    if vm.ping_vm():
-                        cls.pool.remove(vm)
-                        cls.using.append(vm)
-                        return vm
-                    else:
-                        cls.pool.remove(vm)
-                        vm.delete()
+                    cls.pool.remove(vm)
+                    cls.using.append(vm)
+                    res = vm
+                    break
+
+        if not res:
+            return None
+
+        if res.ping_vm():
+            return res
+        else:
+            cls.using.remove(res)
+            res.delete()
+            return None
 
     @classmethod
     def get_by_name(cls, _name=None):
+        # TODO: remove get_by_name
         if _name:
             log_pool.debug('Getting VM: %s' % _name)
             for vm in cls.pool + cls.using:
@@ -121,27 +133,27 @@ class VirtualMachinesPool(object):
         return cls.count_virtual_machines(cls.using)
 
     @classmethod
-    def add(cls, platform, prefix=None, to=None):
-        if not cls.can_produce(platform):
-            raise CreationException(
-                "Maximum count of virtual machines already running")
+    def add(cls, platform, prefix="ondemand", to=None):
+        if prefix == "preloaded":
+            log_pool.info("Preloading %s." % platform)
 
         if to is None:
             to = cls.using
 
-        if prefix is None:
-            prefix = "ondemand"
+        with cls.lock:
+            if not cls.can_produce(platform):
+                return None
 
-        origin = Platforms.get(platform)
-        try:
-            clone = origin.make_clone(origin, prefix)
-        except Exception as e:
-            log_pool.info(
-                'Exception during initializing vm object: %s' % e.message
-            )
-            return
+            origin = Platforms.get(platform)
+            try:
+                clone = origin.make_clone(origin, prefix)
+            except Exception as e:
+                log_pool.info(
+                    'Exception during initializing vm object: %s' % e.message
+                )
+                return None
 
-        cls.add_vm(clone, to)
+            cls.add_vm(clone, to)
 
         try:
             clone.create()
@@ -151,10 +163,22 @@ class VirtualMachinesPool(object):
             try:
                 to.remove(clone)
             except ValueError:
-                pass
-            return
+                log_pool.warning("VM %s not found while removing" % clone.name)
+            return None
 
         return clone
+
+    @classmethod
+    def get_vm(cls, platform):
+        vm = cls.get_by_platform(platform)
+
+        if vm:
+            return vm
+
+        vm = cls.add(platform)
+
+        if vm:
+            return vm
 
     @classmethod
     def preload(cls, origin_name, prefix=None):
@@ -171,6 +195,7 @@ class VirtualMachinesPool(object):
             return [{"name": l.name, "ip": l.ip,
                      "ready": l.ready, "checking": l.checking,
                      "created": l.created} for l in lst]
+
         return {
             "pool": {
                 'count': self.pooled_virtual_machines(),
@@ -195,16 +220,14 @@ class VirtualMachinesPoolPreloader(Thread):
         while self.running:
             platform = self.need_load()
             if platform is not None:
-                if self.pool.can_produce(platform):
-                    log_pool.info("Preloading vm for platform %s." % platform)
-                    self.pool.preload(platform, "preloaded")
+                self.pool.preload(platform, "preloaded")
 
             time.sleep(config.PRELOADER_FREQUENCY)
 
     def need_load(self):
         if self.pool.using is not []:
             using = [vm for vm in self.pool.using
-                     if 'preloaded' in str(vm.prefix)]
+                     if vm.is_preloaded()]
         else:
             using = []
         already_have = self.pool.count_virtual_machines(self.pool.pool + using)

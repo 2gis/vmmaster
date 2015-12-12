@@ -9,7 +9,6 @@ from core.logger import log
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
-from manage import version as get_version
 
 api = Blueprint('api', __name__)
 
@@ -23,6 +22,7 @@ def render_json(result, code=200):
 
 @api.route('/version')
 def version():
+    from manage import version as get_version
     return render_json({'version': get_version()})
 
 
