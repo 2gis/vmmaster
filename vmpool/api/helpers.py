@@ -4,7 +4,7 @@ from flask import current_app
 
 
 def get_platforms():
-    return current_app.platforms.info()
+    return current_app.pool.platforms.info()
 
 
 def get_pool():

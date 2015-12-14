@@ -60,16 +60,23 @@ class TestOpenstackClone(BaseTestCase):
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0})
         ):
-            from vmpool.virtual_machines_pool import pool
-            self.pool = pool
+            from flask import Flask
+            self.app = Flask(__name__)
+
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
+            self.app.pool = VirtualMachinesPool()
 
             from vmpool.platforms import Platforms
-            self.platforms = Platforms()
+            self.app.platforms = Platforms()
+
+            self.ctx = self.app.test_request_context()
+            self.ctx.push()
 
     def tearDown(self):
-        self.pool.free()
-        del self.pool
-        self.platforms.cleanup()
+        self.app.platforms.cleanup()
+        self.app.pool.free()
+        del self.app.pool
+        self.ctx.pop()
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -82,9 +89,9 @@ class TestOpenstackClone(BaseTestCase):
 
         Expected: vm has been created
         """
-        self.pool.add(self.platform)
-        self.assertTrue(self.pool.using[0].ready)
-        self.assertEqual(len(self.pool.using), 1)
+        self.app.pool.add(self.platform)
+        self.assertTrue(self.app.pool.using[0].ready)
+        self.assertEqual(len(self.app.pool.using), 1)
 
     def test_exception_during_creation_vm(self):
         """
@@ -98,8 +105,8 @@ class TestOpenstackClone(BaseTestCase):
                 servers=Mock(create=Mock(
                     side_effect=Exception('Exception in create'))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -120,8 +127,8 @@ class TestOpenstackClone(BaseTestCase):
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 1)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -142,9 +149,9 @@ class TestOpenstackClone(BaseTestCase):
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
 
-            self.pool.add(self.platform)
-            wait_for(lambda: self.pool.count() == 0)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            wait_for(lambda: self.app.pool.count() == 0)
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -166,11 +173,11 @@ class TestOpenstackClone(BaseTestCase):
                 servers=Mock(
                     find=Mock(side_effect=Exception(
                         'Exception in _wait_for_activated_service'))))
-            self.pool.add(self.platform)
+            self.app.pool.add(self.platform)
 
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.assertEqual(self.pool.count(), 1)
-            self.assertTrue(self.pool.using[0].ready)
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.assertEqual(self.app.pool.count(), 1)
+            self.assertTrue(self.app.pool.using[0].ready)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -193,8 +200,8 @@ class TestOpenstackClone(BaseTestCase):
                 find=Mock(side_effect=Exception(
                     'Exception in _wait_for_activated_service'))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 1)
 
     def test_exception_in_getting_image(self):
         """
@@ -209,8 +216,8 @@ class TestOpenstackClone(BaseTestCase):
                                          find=Mock(side_effect=Exception(
                                              'Exception in image'))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch('vmpool.clone.OpenstackClone.image', Mock())
     def test_exception_in_getting_flavor(self):
@@ -229,8 +236,8 @@ class TestOpenstackClone(BaseTestCase):
                     side_effect=Exception('Exception in flavor')))
             )
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -248,9 +255,9 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.add(self.platform)
-            self.pool.using[0].delete()
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.app.pool.using[0].delete()
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -269,9 +276,9 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.add(self.platform)
-            self.pool.using[0].delete()
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.app.pool.using[0].delete()
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -289,12 +296,12 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.preload(self.platform, prefix='preloaded')
-            wait_for(lambda: self.pool.pool[0].ready is True)
-            self.pool.pool[0].rebuild()
-            wait_for(lambda: self.pool.pool[0].ready is True)
-            self.assertEqual(self.pool.count(), 1)
-            self.assertTrue(self.pool.pool[0].ready)
+            self.app.pool.preload(self.platform, prefix='preloaded')
+            wait_for(lambda: self.app.pool.pool[0].ready is True)
+            self.app.pool.pool[0].rebuild()
+            wait_for(lambda: self.app.pool.pool[0].ready is True)
+            self.assertEqual(self.app.pool.count(), 1)
+            self.assertTrue(self.app.pool.pool[0].ready)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -312,12 +319,12 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.add(self.platform, prefix='ondemand')
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.pool.using[0].rebuild()
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.assertEqual(self.pool.count(), 1)
-            self.assertTrue(self.pool.using[0].ready)
+            self.app.pool.add(self.platform, prefix='ondemand')
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.app.pool.using[0].rebuild()
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.assertEqual(self.app.pool.count(), 1)
+            self.assertTrue(self.app.pool.using[0].ready)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -336,12 +343,12 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.add(self.platform, prefix='ondemand')
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.pool.using[0].rebuild()
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.assertEqual(self.pool.count(), 1)
-            self.assertTrue(self.pool.using[0].ready)
+            self.app.pool.add(self.platform, prefix='ondemand')
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.app.pool.using[0].rebuild()
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.assertEqual(self.app.pool.count(), 1)
+            self.assertTrue(self.app.pool.using[0].ready)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -360,12 +367,12 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(delete=Mock(), rebuild=Mock()))))
 
-            self.pool.preload(self.platform, prefix='preloaded')
-            wait_for(lambda: self.pool.pool[0].ready is True)
-            self.pool.pool[0].rebuild()
-            wait_for(lambda: self.pool.pool[0].ready is True)
-            self.assertEqual(self.pool.count(), 1)
-            self.assertTrue(self.pool.pool[0].ready)
+            self.app.pool.preload(self.platform, prefix='preloaded')
+            wait_for(lambda: self.app.pool.pool[0].ready is True)
+            self.app.pool.pool[0].rebuild()
+            wait_for(lambda: self.app.pool.pool[0].ready is True)
+            self.assertEqual(self.app.pool.count(), 1)
+            self.assertTrue(self.app.pool.pool[0].ready)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -385,10 +392,10 @@ class TestOpenstackClone(BaseTestCase):
                 return_value=Mock(delete=Mock(), rebuild=Mock(
                     side_effect=Exception('Rebuild error'))))))
 
-            self.pool.add(self.platform)
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.pool.using[0].rebuild()
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.app.pool.using[0].rebuild()
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -408,10 +415,10 @@ class TestOpenstackClone(BaseTestCase):
                 return_value=Mock(delete=Mock(), rebuild=Mock(
                     side_effect=Exception('Rebuild error'))))))
 
-            self.pool.add(self.platform)
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.pool.using[0].rebuild()
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.app.pool.using[0].rebuild()
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -434,8 +441,8 @@ class TestOpenstackClone(BaseTestCase):
                 servers=Mock(find=Mock(side_effect=Exception(
                     'Exception in vm_has_created'))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 1)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -458,8 +465,8 @@ class TestOpenstackClone(BaseTestCase):
             nova.return_value = Mock(servers=Mock(find=Mock(
                 return_value=Mock(status=Mock(lower=Mock(
                     side_effect=['build', 'active']))))))
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 1)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -484,9 +491,9 @@ class TestOpenstackClone(BaseTestCase):
                     rebuild=Mock(side_effect=Exception('Rebuild exception')))))
             )
             ping_mock.side_effect = False
-            self.pool.add(self.platform)
-            wait_for(lambda: self.pool.count() > 0)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            wait_for(lambda: self.app.pool.count() > 0)
+            self.assertEqual(self.app.pool.count(), 1)
 
     @patch.multiple(
         'vmpool.clone.OpenstackClone',
@@ -510,11 +517,11 @@ class TestOpenstackClone(BaseTestCase):
                     return_value=[{'addr': '127.0.0.1',
                                    'OS-EXT-IPS-MAC:mac_addr': 'test_mac'}])))))
             )
-            self.pool.add(self.platform)
-            wait_for(lambda: self.pool.using[0].ready is True)
-            self.assertEqual(self.pool.using[0].ip, '127.0.0.1')
-            self.assertEqual(self.pool.using[0].mac, 'test_mac')
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            wait_for(lambda: self.app.pool.using[0].ready is True)
+            self.assertEqual(self.app.pool.using[0].ip, '127.0.0.1')
+            self.assertEqual(self.app.pool.using[0].mac, 'test_mac')
+            self.assertEqual(self.app.pool.count(), 1)
 
 
 @patch.multiple(
@@ -558,15 +565,20 @@ class TestNetworkGetting(BaseTestCase):
             'vmpool.platforms.OpenstackPlatforms.images',
             Mock(return_value=[mocked_image])
         ):
-            from vmpool.platforms import Platforms
-            self.platforms = Platforms()
+            from flask import Flask
+            self.app = Flask(__name__)
 
-            from vmpool.virtual_machines_pool import pool
-            self.pool = pool
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
+            self.app.pool = VirtualMachinesPool()
+
+            self.ctx = self.app.test_request_context()
+            self.ctx.push()
 
     def tearDown(self):
-        self.pool.free()
-        self.platforms.cleanup()
+        self.app.pool.platforms.cleanup()
+        self.app.pool.free()
+        del self.app.pool
+        self.ctx.pop()
 
     @patch('netifaces.ifaddresses',
            new=Mock(return_value=Mock(get=Mock(
@@ -592,8 +604,8 @@ class TestNetworkGetting(BaseTestCase):
                 list_networks=Mock(return_value=Mock(
                     get=Mock(return_value=[{'id': 1, 'name': 'Local-Net'}]))))
 
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 1)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 1)
 
     def test_exception_in_get_network_id(self):
         """
@@ -610,8 +622,8 @@ class TestNetworkGetting(BaseTestCase):
             nova.return_value = Mock(list_subnets=Mock(
                 return_value=Mock(get=Mock(side_effect=Exception(
                     'Exception in get_network_id')))))
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 0)
 
     def test_exception_in_get_network_name(self):
         """
@@ -633,8 +645,8 @@ class TestNetworkGetting(BaseTestCase):
                                    'id': 1}]))),
                 list_networks=Mock(side_effect=Exception(
                     'Exception in get_network_name')))
-            self.pool.add(self.platform)
-            self.assertEqual(self.pool.count(), 0)
+            self.app.pool.add(self.platform)
+            self.assertEqual(self.app.pool.count(), 0)
 
     @patch('vmpool.clone.OpenstackClone.get_network_id',
            new=Mock(return_value=None))
@@ -649,8 +661,8 @@ class TestNetworkGetting(BaseTestCase):
 
         Expected: vm has not been created
         """
-        self.pool.add(self.platform)
-        self.assertEqual(self.pool.count(), 0)
+        self.app.pool.add(self.platform)
+        self.assertEqual(self.app.pool.count(), 0)
 
 
 @patch.multiple(
@@ -699,16 +711,24 @@ class TestOpenstackPlatforms(BaseTestCase):
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0})
         ):
-            from vmpool.virtual_machines_pool import pool
-            self.pool = pool
+            from flask import Flask
+            self.app = Flask(__name__)
+
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
+            self.app.pool = VirtualMachinesPool()
 
             from vmpool.platforms import Platforms
-            self.platforms = Platforms()
+            self.app.platforms = Platforms()
+
+            self.ctx = self.app.test_request_context()
+            self.ctx.push()
 
     def tearDown(self):
-        self.pool.free()
-        del self.pool
-        self.platforms.cleanup()
+        self.app.pool.preloader.stop()
+        self.app.platforms.cleanup()
+        self.app.pool.free()
+        del self.app.pool
+        self.ctx.pop()
 
     @patch(
         'vmpool.platforms.OpenstackPlatforms.limits',
@@ -722,9 +742,9 @@ class TestOpenstackPlatforms(BaseTestCase):
 
         Expected: No vm added
         """
-        count_before_try = self.pool.count()
-        self.assertIsNone(self.pool.add(self.platform))
-        self.assertEqual(self.pool.count(), count_before_try)
+        count_before_try = self.app.pool.count()
+        self.assertIsNone(self.app.pool.add(self.platform))
+        self.assertEqual(self.app.pool.count(), count_before_try)
 
     @patch(
         'vmpool.platforms.OpenstackPlatforms.limits',
@@ -741,9 +761,9 @@ class TestOpenstackPlatforms(BaseTestCase):
 
         Expected: No vm added
         """
-        count_before_try = self.pool.count()
-        self.assertIsNone(self.pool.add(self.platform))
-        self.assertEqual(self.pool.count(), count_before_try)
+        count_before_try = self.app.pool.count()
+        self.assertIsNone(self.app.pool.add(self.platform))
+        self.assertEqual(self.app.pool.count(), count_before_try)
 
     @patch(
         'vmpool.platforms.OpenstackPlatforms.limits',
@@ -762,6 +782,6 @@ class TestOpenstackPlatforms(BaseTestCase):
 
         Expected: No vm added
         """
-        count_before_try = self.pool.count()
-        self.assertIsNone(self.pool.add(self.platform))
-        self.assertEqual(self.pool.count(), count_before_try)
+        count_before_try = self.app.pool.count()
+        self.assertIsNone(self.app.pool.add(self.platform))
+        self.assertEqual(self.app.pool.count(), count_before_try)

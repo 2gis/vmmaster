@@ -123,7 +123,6 @@ class Session(SessionModel):
         self.closed = True
         self.deleted = datetime.now()
         self.save()
-
         current_app.sessions.remove(self)
 
         if hasattr(self, "ws"):
@@ -203,16 +202,16 @@ class Session(SessionModel):
 
 
 class SessionWorker(Thread):
-    def __init__(self, app):
+    def __init__(self, sessions):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
-        self.app = app
+        self.sessions = sessions
 
     def run(self):
-        with self.app.app_context():
+        with self.sessions.app.app_context():
             while self.running:
-                for session in self.app.sessions.running():
+                for session in self.sessions.running():
                     if not session.is_active \
                             and session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
@@ -226,6 +225,11 @@ class SessionWorker(Thread):
 
 class Sessions(object):
     active_sessions = {}
+
+    def __init__(self, app):
+        self.app = app
+        self.worker = SessionWorker(self)
+        self.worker.start()
 
     def put(self, session):
         if str(session.id) not in self.active_sessions.keys():

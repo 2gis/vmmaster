@@ -50,7 +50,7 @@ class TestVNCVideoHelper(BaseTestCase):
         ), patch(
             "core.connection.Virsh", Mock()
         ), patch(
-            'core.db.database', DatabaseMock()
+            'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
             self.session = Session(dc=dc)

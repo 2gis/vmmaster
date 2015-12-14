@@ -216,7 +216,7 @@ def vmmaster_server_mock(port):
     ), patch(
         'core.connection.Virsh', Mock()
     ), patch(
-        'core.db.database', DatabaseMock()
+        'core.db.Database', DatabaseMock()
     ), patch(
         'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
     ), patch(
