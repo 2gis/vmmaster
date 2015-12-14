@@ -3,17 +3,7 @@
 from flask import Flask
 from flask.json import JSONEncoder as FlaskJSONEncoder
 from uuid import uuid1
-
-from core.sessions import Sessions, SessionWorker
 from core.logger import log
-
-from core.db import database
-
-from vmpool.platforms import Platforms
-
-from vmpool.virtual_machines_pool import pool, \
-    VirtualMachinesPoolPreloader
-
 from core.config import config
 
 
@@ -30,13 +20,20 @@ class Vmmaster(Flask):
         self.running = True
         self.uuid = str(uuid1())
 
-        self.database = database
-        self.pool = pool
+        from core.db import Database
+        self.database = Database()
+
+        from vmpool.platforms import Platforms
         self.platforms = Platforms()
+
+        from vmpool.virtual_machines_pool import VirtualMachinesPool, \
+            VirtualMachinesPoolPreloader
+        self.pool = VirtualMachinesPool()
 
         self.preloader = VirtualMachinesPoolPreloader(self.pool)
         self.preloader.start()
 
+        from core.sessions import Sessions, SessionWorker
         self.sessions = Sessions()
 
         self.session_worker = SessionWorker(app=self)
@@ -72,8 +69,6 @@ def register_blueprints(app):
 def create_app():
     if config is None:
         raise Exception("Need to setup config.py in application directory")
-    if database is None:
-        raise Exception("Need to setup database")
 
     app = Vmmaster(__name__)
 

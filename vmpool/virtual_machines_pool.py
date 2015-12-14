@@ -8,7 +8,9 @@ from core.config import config
 from core.logger import log_pool
 from core.network import Network
 
-from platforms import Platforms, UnlimitedCount
+from platforms import UnlimitedCount
+
+from flask import current_app
 
 
 class VirtualMachinesPool(object):
@@ -57,7 +59,7 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls, platform):
-        platform_limit = Platforms.get_limit(platform)
+        platform_limit = current_app.platforms.get_limit(platform)
 
         if platform_limit is UnlimitedCount:
             return True
@@ -144,7 +146,7 @@ class VirtualMachinesPool(object):
             if not cls.can_produce(platform):
                 return None
 
-            origin = Platforms.get(platform)
+            origin = current_app.platforms.get(platform)
             try:
                 clone = origin.make_clone(origin, prefix)
             except Exception as e:
@@ -247,6 +249,3 @@ class VirtualMachinesPoolPreloader(Thread):
         self.running = False
         self.join(1)
         log_pool.info("Preloader stopped")
-
-
-pool = VirtualMachinesPool()

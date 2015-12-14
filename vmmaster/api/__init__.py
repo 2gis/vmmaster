@@ -3,7 +3,7 @@
 import json
 import helpers
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 
 from core.logger import log
 from vmpool.api import helpers as vmpool_helpers
@@ -157,10 +157,9 @@ def get_vnc_info(session_id):
 
 @api.route('/pool/<string:endpoint_name>', methods=['DELETE'])
 def delete_vm_from_pool(endpoint_name):
-    from vmpool.virtual_machines_pool import pool
     result = "Endpoint %s not found in pool" % endpoint_name
 
-    endpoint = pool.get_by_name(endpoint_name)
+    endpoint = current_app.pool.get_by_name(endpoint_name)
 
     if endpoint:
         try:
@@ -176,11 +175,10 @@ def delete_vm_from_pool(endpoint_name):
 
 @api.route('/pool', methods=['DELETE'])
 def delete_all_vm_from_pool():
-    from vmpool.virtual_machines_pool import pool
     results = []
     failed = []
 
-    for endpoint in pool.pool + pool.using:
+    for endpoint in current_app.pool.pool + current_app.pool.using:
         try:
             endpoint.delete()
             results.append(endpoint)

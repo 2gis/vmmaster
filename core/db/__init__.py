@@ -9,6 +9,7 @@ from core.utils import to_thread
 from core.sessions import Session as WrappedSession
 
 from core.logger import log
+from core.config import config
 
 
 def threaded_transaction(func):
@@ -50,7 +51,10 @@ class Database(object):
             cls._instance = super(Database, cls).__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string=None):
+        if not connection_string:
+            connection_string = config.DATABASE
+
         self.engine = create_engine(connection_string,
                                     pool_size=200,
                                     max_overflow=100,
@@ -137,6 +141,3 @@ class Database(object):
         dbsession.delete(obj_to_delete)
         dbsession.commit()
         return obj_to_delete
-
-
-database = None
