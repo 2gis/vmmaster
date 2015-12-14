@@ -11,7 +11,6 @@ from uuid import uuid4
 from threading import Thread
 
 from vmpool import VirtualMachine
-from virtual_machines_pool import pool
 
 from core import dumpxml
 from core.logger import log_pool
@@ -19,6 +18,8 @@ from core import utils
 from core.exceptions import libvirtError, CreationException
 from core.config import config
 from core.utils import network_utils
+
+from flask import current_app
 
 
 def threaded_wait(func):
@@ -91,7 +92,7 @@ class KVMClone(Clone):
     def __init__(self, origin, prefix):
         super(KVMClone, self).__init__(origin, prefix)
 
-        self.network = pool.network
+        self.network = current_app.pool.network
         self.conn = self.network.conn
 
     def delete(self, try_to_rebuild=True):
@@ -116,7 +117,7 @@ class KVMClone(Clone):
         except ValueError, e:
             log_pool.warning(e)
             pass
-        pool.remove_vm(self)
+        current_app.pool.remove_vm(self)
         VirtualMachine.delete(self)
 
     def create(self):
@@ -138,11 +139,12 @@ class KVMClone(Clone):
             "Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
                 clone=self.name, ip=self.ip, platform=self.platform)
         )
-        pool.remove_vm(self)
+        current_app.pool.remove_vm(self)
         self.delete(try_to_rebuild=False)
 
         try:
-            pool.add(self.platform, self.prefix, pool.pool)
+            current_app.pool.add(
+                self.platform, self.prefix, current_app.pool.pool)
         except CreationException:
             pass
 
@@ -392,7 +394,7 @@ class OpenstackClone(Clone):
             return
 
         self.ready = False
-        pool.remove_vm(self)
+        current_app.pool.remove_vm(self)
         if self.check_vm_exist(self.name):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
@@ -410,8 +412,8 @@ class OpenstackClone(Clone):
         log_pool.info("Rebuilding openstack {clone}".format(clone=self.name))
 
         if self.is_preloaded():
-            pool.remove_vm(self)
-            pool.pool.append(self)
+            current_app.pool.remove_vm(self)
+            current_app.pool.pool.append(self)
 
         self.ready = False
         try:

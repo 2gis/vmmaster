@@ -5,9 +5,9 @@ from core.logger import log_pool
 from core.config import config
 
 from core.exceptions import PlatformException, CreationException
-
-from vmpool.virtual_machines_pool import pool
 from vmpool.platforms import Platforms
+
+from flask import current_app
 
 
 def get_platform(desired_caps):
@@ -42,7 +42,7 @@ def get_vm(desired_caps):
     for _ in generator_wait_for(
         lambda: vm, timeout=config.GET_VM_TIMEOUT
     ):
-        vm = pool.get_vm(platform)
+        vm = current_app.pool.get_vm(platform)
         if vm:
             break
 

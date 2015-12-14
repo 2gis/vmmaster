@@ -8,15 +8,12 @@ from flask.ext.script import Manager
 from core.config import setup_config, config
 from core.utils.init import home_dir, useradd
 from core.logger import log
-from core import db
 from core.logger import setup_logging
 
 try:
     setup_config('%s/config.py' % home_dir())
-    db.database = db.Database(config.DATABASE)
 except AttributeError:
     config = None
-    db.database = None
 
 from core.utils import change_user_vmmaster
 
