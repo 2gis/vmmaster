@@ -16,7 +16,7 @@ class Platform(object):
         pass
 
     @staticmethod
-    def make_clone(origin, prefix):
+    def make_clone(origin, prefix, pool):
         raise NotImplementedError
 
 
@@ -30,9 +30,9 @@ class KVMOrigin(Platform):
         self.settings = open(os.path.join(path, 'settings.xml'), 'r').read()
 
     @staticmethod
-    def make_clone(origin, prefix):
+    def make_clone(origin, prefix, pool):
         from clone import KVMClone
-        return KVMClone(origin, prefix)
+        return KVMClone(origin, prefix, pool)
 
 
 class OpenstackOrigin(Platform):
@@ -53,9 +53,9 @@ class OpenstackOrigin(Platform):
             self.flavor_name = config.OPENSTACK_DEFAULT_FLAVOR
 
     @staticmethod
-    def make_clone(origin, prefix):
+    def make_clone(origin, prefix, pool):
         from clone import OpenstackClone
-        return OpenstackClone(origin, prefix)
+        return OpenstackClone(origin, prefix, pool)
 
 
 class PlatformsInterface(object):

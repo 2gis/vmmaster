@@ -5,7 +5,6 @@ from core.logger import log_pool
 from core.config import config
 
 from core.exceptions import PlatformException, CreationException
-from vmpool.platforms import Platforms
 
 from flask import current_app
 
@@ -29,7 +28,7 @@ def get_platform(desired_caps):
             'Platform parameter for new endpoint not found in dc'
         )
 
-    if not Platforms.check_platform(platform):
+    if not current_app.pool.platforms.check_platform(platform):
         raise PlatformException('No such platform %s' % platform)
 
     return platform

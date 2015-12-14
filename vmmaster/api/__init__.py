@@ -47,11 +47,6 @@ def pool():
     return render_json(result={'pool': vmpool_helpers.get_pool()})
 
 
-@api.route('/pool_queue')
-def queue():
-    return render_json(result={'queue': vmpool_helpers.get_queue()})
-
-
 @api.route('/config', methods=['GET', 'POST'])
 def _config():
     if request.method == 'GET':

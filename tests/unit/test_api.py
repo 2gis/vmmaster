@@ -18,20 +18,18 @@ class TestApi(BaseTestCase):
         ), patch(
             'core.connection.Virsh', Mock(name='Virsh')
         ), patch(
-            'core.db.database', DatabaseMock()
-        ), patch(
             'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
         ), patch(
             'core.logger.setup_logging', Mock(return_value=Mock())
         ), patch(
-            'core.sessions.SessionWorker', Mock()
+            'core.db.Database', DatabaseMock()
         ):
             from vmmaster.server import create_app
             self.app = create_app()
 
         self.vmmaster_client = self.app.test_client()
-        self.platforms = self.app.platforms.platforms
-        self.platform = sorted(self.platforms.keys())[0]
+        self.platforms = self.app.pool.platforms.platforms
+        self.platform = sorted(self.app.pool.platforms.platforms.keys())[0]
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -45,9 +43,8 @@ class TestApi(BaseTestCase):
     def tearDown(self):
         self.app.sessions.kill_all()
         self.ctx.pop()
-        with patch('core.db.database'):
-            self.app.cleanup()
-            del self.app
+        self.app.cleanup()
+        del self.app
 
     def test_api_sessions(self):
         from core.sessions import Session
@@ -93,14 +90,13 @@ class TestApi(BaseTestCase):
 
         session.failed.assert_any_call()
 
-    @patch('core.db.database', Mock())
     def test_get_screenshots(self):
         steps = [
             Mock(screenshot=None),
             Mock(screenshot="/vmmaster/screenshots/1/1.png")
         ]
 
-        with patch('core.db.database.get_log_steps_for_session',
+        with patch('flask.current_app.database.get_log_steps_for_session',
                    Mock(return_value=steps)):
             response = self.vmmaster_client.get('/api/session/1/screenshots')
         body = json.loads(response.data)
@@ -114,12 +110,11 @@ class TestApi(BaseTestCase):
         ("/vmmaster/screenshots/1/1.png", 1),
         (None, 0)
     ])
-    @patch('core.db.database', Mock())
     def test_get_screenshot_for_step(self, screenshot_path, screenshots_count):
 
         steps = Mock(screenshot=screenshot_path)
 
-        with patch('core.db.database.get_step_by_id',
+        with patch('flask.current_app.database.get_step_by_id',
                    Mock(return_value=steps)):
             response = self.vmmaster_client.get(
                 '/api/session/1/step/1/screenshots')
@@ -130,7 +125,6 @@ class TestApi(BaseTestCase):
         self.assertEqual(screenshots_count, len(screenshots))
         self.assertEqual(200, body['metacode'])
 
-    @patch('core.db.database', Mock())
     def test_get_screenshots_for_label(self):
 
         steps = [
@@ -142,7 +136,7 @@ class TestApi(BaseTestCase):
                  screenshot=None)
         ]
 
-        with patch('core.db.database.get_log_steps_for_session',
+        with patch('flask.current_app.database.get_log_steps_for_session',
                    Mock(return_value=steps)):
             response = \
                 self.vmmaster_client.get('/api/session/1/label/1/screenshots')
@@ -153,7 +147,6 @@ class TestApi(BaseTestCase):
         self.assertEqual(1, len(screenshots))
         self.assertEqual(200, body['metacode'])
 
-    @patch('core.db.database', Mock())
     def test_failed_get_vnc_info_with_create_proxy(self):
         from core.sessions import Session
         endpoint = Mock(ip='127.0.0.1')
@@ -164,8 +157,8 @@ class TestApi(BaseTestCase):
         expected = 5901
 
         with patch(
-                'flask.current_app.sessions.active',
-                Mock(return_value=[session])
+            'flask.current_app.sessions.active',
+            Mock(return_value=[session])
         ), patch(
                 'websockify.websocketproxy.websockify_init', Mock()
         ):
@@ -185,7 +178,6 @@ class TestApi(BaseTestCase):
         self.assertTrue(wait_for(
             lambda: not session.vnc_helper.proxy.is_alive()))
 
-    @patch('core.db.database', Mock())
     def test_get_vnc_info_for_running_proxy(self):
         from core.sessions import Session
         endpoint = Mock(ip='127.0.0.1')
@@ -200,12 +192,8 @@ class TestApi(BaseTestCase):
             'vnc_proxy_port': 5900
         }
 
-        with patch(
-                'flask.current_app.sessions.active',
-                Mock(return_value=[session])
-        ):
-            response = self.vmmaster_client.get(
-                '/api/session/%s/vnc_info' % session.id)
+        response = self.vmmaster_client.get(
+            '/api/session/%s/vnc_info' % session.id)
 
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
@@ -215,7 +203,6 @@ class TestApi(BaseTestCase):
         self.assertEqual(200, body['metacode'])
         session.delete()
 
-    @patch('core.db.database', Mock())
     def test_get_vnc_info_if_session_not_found(self):
         with patch(
                 'flask.current_app.sessions.active',
@@ -234,14 +221,12 @@ class TestApi(BaseTestCase):
         self.assertDictEqual({}, vnc_proxy_port)
         self.assertEqual(500, body['metacode'])
 
-
-    @patch('core.db.database', Mock())
     def test_api_success_delete_endpoint(self):
         vm_for_delete = Mock(name='test_vm_1', delete=Mock())
         success_answer = "Endpoint %s was deleted" % vm_for_delete.name
 
         with patch(
-            'vmpool.virtual_machines_pool.pool.get_by_name',
+            'flask.current_app.pool.get_by_name',
             Mock(return_value=vm_for_delete)
         ):
             response = self.vmmaster_client.delete("/api/pool/%s"
@@ -251,16 +236,16 @@ class TestApi(BaseTestCase):
             self.assertEqual(200, body['metacode'])
             self.assertEqual(success_answer, body['result'])
 
-
-    @patch('core.db.database', Mock())
     def test_api_failed_delete_endpoint(self):
         error = 'Failed'
-        vm_for_delete = Mock(name='test_vm_1', delete=Mock(side_effect=Exception(error)))
+        vm_for_delete = Mock(
+            name='test_vm_1', delete=Mock(side_effect=Exception(error))
+        )
         failed_answer = 'Got error during deleting vm %s. ' \
                         '\n\n %s' % (vm_for_delete.name, error)
 
         with patch(
-            'vmpool.virtual_machines_pool.pool.get_by_name',
+            'flask.current_app.pool.get_by_name',
             Mock(return_value=vm_for_delete)
         ):
             response = self.vmmaster_client.delete("/api/pool/%s"
@@ -270,17 +255,18 @@ class TestApi(BaseTestCase):
             self.assertEqual(200, body['metacode'])
             self.assertEqual(failed_answer, body['result'])
 
-    @patch('core.db.database', Mock())
     def test_api_success_and_failed_delete_all_endpoints(self):
         vm_name_1 = "test_vm_1"
-        class VM():
+
+        class VM:
             def __repr__(self):
                 return "test_vm_1"
 
             def __init__(self, name):
                 self.name = name
 
-            def delete(self): pass
+            def delete(self):
+                pass
 
         fake_pool = [
             VM(vm_name_1),
@@ -288,9 +274,9 @@ class TestApi(BaseTestCase):
         ]
 
         with patch(
-            'vmpool.virtual_machines_pool.pool.pool', fake_pool
+            'flask.current_app.pool.pool', fake_pool
         ), patch(
-            'vmpool.virtual_machines_pool.pool.using', []
+            'flask.current_app.pool.using', []
         ):
             response = self.vmmaster_client.delete("/api/pool")
 

@@ -3,37 +3,34 @@
 from mock import Mock, patch
 from core.config import config, setup_config
 from helpers import BaseTestCase
+from flask import Flask
 
 
-@patch('core.db.database', Mock())
+@patch.multiple(
+    "vmpool.clone.KVMClone",
+    clone_origin=Mock(),
+    define_clone=Mock(),
+    start_virtual_machine=Mock(),
+    drive_path=Mock(),
+    ping_vm=Mock()
+)
 class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
         self.platform = "test_origin_1"
 
-        with patch('core.connection.Virsh', Mock()), \
-                patch('core.network.Network', Mock()):
-            from vmpool.platforms import Platforms
-            from core.network import Network
-            Platforms()
-            self.network = Network()
-
-            from vmpool.virtual_machines_pool import pool
-            self.pool = pool
-
-        # TODO: mock it like openstack clone in test_server
-        from vmpool.clone import Clone
-        Clone.ping_vm = Mock(__name__="ping_vm")
-
-        from vmpool.clone import KVMClone
-        KVMClone.clone_origin = Mock()
-        KVMClone.define_clone = Mock()
-        KVMClone.start_virtual_machine = Mock()
-        KVMClone.drive_path = Mock()
+        with patch(
+            'core.connection.Virsh', Mock()
+        ), patch(
+            'core.network.Network', Mock()
+        ):
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
+            self.pool = VirtualMachinesPool()
 
     def tearDown(self):
-        with patch('core.db.database', Mock()), \
-                patch('core.utils.delete_file', Mock()):
+        with patch(
+            'core.utils.delete_file', Mock()
+        ):
             self.pool.free()
 
     def test_pool_count(self):
@@ -102,7 +99,15 @@ class TestVirtualMachinePool(BaseTestCase):
 
         config.PLATFORM = "test_origin_2"
 
+        self.app = Flask(__name__)
+        self.app.pool = self.pool
+
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+
         from vmpool.endpoint import get_vm
         for vm in get_vm(desired_caps):
             self.assertEqual(vm.platform, config.PLATFORM)
             break
+
+        self.ctx.pop()

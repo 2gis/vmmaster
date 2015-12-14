@@ -23,39 +23,30 @@ class Vmmaster(Flask):
         from core.db import Database
         self.database = Database()
 
-        from vmpool.platforms import Platforms
-        self.platforms = Platforms()
-
-        from vmpool.virtual_machines_pool import VirtualMachinesPool, \
-            VirtualMachinesPoolPreloader
+        from vmpool.virtual_machines_pool import VirtualMachinesPool
         self.pool = VirtualMachinesPool()
 
-        self.preloader = VirtualMachinesPoolPreloader(self.pool)
-        self.preloader.start()
-
-        from core.sessions import Sessions, SessionWorker
-        self.sessions = Sessions()
-
-        self.session_worker = SessionWorker(app=self)
-        self.session_worker.start()
+        from core.sessions import Sessions
+        self.sessions = Sessions(self)
 
         self.json_encoder = JSONEncoder
 
         self.register()
 
     def register(self):
-        self.database.register_platforms(self.uuid, self.platforms.info())
+        self.database.register_platforms(self.uuid, self.pool.platforms.info())
 
     def unregister(self):
         self.database.unregister_platforms(self.uuid)
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.preloader.stop()
-        self.session_worker.stop()
+        self.pool.preloader.stop()
+        self.sessions.worker.stop()
         self.pool.free()
         self.unregister()
-        self.platforms.cleanup()
+        self.pool.platforms.cleanup()
+
         log.info("Server gracefully shut down.")
 
 

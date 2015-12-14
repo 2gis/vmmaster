@@ -24,15 +24,10 @@ class TestWDAuthPositive(BaseTestCase):
         from core.config import setup_config
         setup_config('data/config.py')
 
-        with patch('core.network.Network', Mock()), \
-                patch('core.connection.Virsh', Mock()):
-            from vmpool.platforms import Platforms
-            cls.platform = Platforms().platforms.keys()[0]
-
     def setUp(self):
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.platform
+                'platform': 'test_origin_1'
             }
         }
 
@@ -129,11 +124,6 @@ class TestAPIAuthPositive(BaseTestCase):
 
         from core.config import setup_config
         setup_config('data/config.py')
-
-        with patch('core.network.Network', Mock()), \
-                patch('core.connection.Virsh', Mock()):
-            from vmpool.platforms import Platforms
-            cls.platform = Platforms().platforms.keys()[0]
 
         cls.method = "GET"
         from base64 import urlsafe_b64encode
