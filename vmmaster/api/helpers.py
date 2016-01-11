@@ -45,11 +45,11 @@ def get_screenshots(session_id, log_step_id=None):
     screenshots = []
 
     if log_step_id:
-        session_steps = [current_app.database.get_step_by_id(log_step_id)]
+        steps = [current_app.database.get_step_by_id(log_step_id)]
     else:
-        session_steps = current_app.database.get_log_steps_for_session(session_id)
+        steps = current_app.database.get_log_steps_for_session(session_id)
 
-    for log_step in session_steps:
+    for log_step in steps:
         if log_step.screenshot:
             screenshots.append(log_step.screenshot)
 
