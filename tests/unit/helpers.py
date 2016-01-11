@@ -8,6 +8,7 @@ import time
 import socket
 import unittest
 
+from nose.twistedtools import reactor
 from mock import Mock, patch
 
 
@@ -225,7 +226,6 @@ def vmmaster_server_mock(port):
         'core.sessions.SessionWorker', Mock()
     ):
         from vmmaster.server import VMMasterServer
-        from nose.twistedtools import reactor
         return VMMasterServer(reactor, port)
 
 
