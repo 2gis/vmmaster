@@ -7,10 +7,10 @@ sudo add-apt-repository -y cloud-archive:icehouse
 sudo apt-get update
 
 # install kvm with libvirt
-sudo apt-get -y install qemu-kvm libvirt-bin
+sudo apt-get -y install qemu-kvm
 
 # install libvirt dependencies
-sudo apt-get -y install libvirt-dev
+sudo apt-get -y --force-yes install libvirt-dev libvirt-bin
 
 # install openstack dependencies
 sudo apt-get -y install libssl-dev libffi-dev
