@@ -1,4 +1,5 @@
 # coding: utf-8
+
 import BaseHTTPServer
 import copy
 import json
@@ -8,8 +9,10 @@ import time
 import socket
 import unittest
 
-from nose.twistedtools import reactor
 from mock import Mock, patch
+from nose.twistedtools import reactor
+
+from core.utils.network_utils import get_socket
 
 
 class TimeoutException(Exception):
@@ -86,8 +89,6 @@ def vmmaster_label(address, session, label=None):
     return request("%s:%s" % address, "POST",
                    "/wd/hub/session/%s/vmmaster/vmmasterLabel" % str(session),
                    body=json.dumps({"label": label}))
-
-from core.utils.network_utils import get_socket
 
 
 def server_is_up(address, wait=5):
@@ -230,5 +231,4 @@ def vmmaster_server_mock(port):
 
 
 def request_mock(**kwargs):
-    time.sleep(2)
     return Mock(status_code=200, headers={}, content=json.dumps({'status': 0}))
