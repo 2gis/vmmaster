@@ -3,9 +3,9 @@
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
+from core.sessions import Session
 from core.db.models import SessionLogStep, User, Platform
 from core.utils import to_thread
-
 from core.logger import log
 from core.config import config
 
@@ -65,10 +65,9 @@ class Database(object):
 
     @transaction
     def get_session(self, session_id, dbsession=None):
-        from core.sessions import Session as WrappedSession
         if not session_id:
             return None
-        return dbsession.query(WrappedSession).get(session_id)
+        return dbsession.query(Session).get(session_id)
 
     @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):

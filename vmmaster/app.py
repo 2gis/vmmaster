@@ -1,13 +1,14 @@
 # coding: utf-8
 
-from flask import Flask
-from flask.json import JSONEncoder as FlaskJSONEncoder
 from uuid import uuid1
+
+from flask import json, Flask
+
 from core.logger import log
 from core.config import config
 
 
-class JSONEncoder(FlaskJSONEncoder):
+class JSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
@@ -16,21 +17,17 @@ class JSONEncoder(FlaskJSONEncoder):
 
 class Vmmaster(Flask):
     def __init__(self, *args, **kwargs):
+        from core.db import Database
+        from core.sessions import Sessions
+        from vmpool.virtual_machines_pool import VirtualMachinesPool
+
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
         self.uuid = str(uuid1())
-
-        from core.db import Database
         self.database = Database()
-
-        from vmpool.virtual_machines_pool import VirtualMachinesPool
         self.pool = VirtualMachinesPool()
-
-        from core.sessions import Sessions
         self.sessions = Sessions(self)
-
         self.json_encoder = JSONEncoder
-
         self.register()
 
     def register(self):
@@ -46,7 +43,6 @@ class Vmmaster(Flask):
         self.pool.free()
         self.unregister()
         self.pool.platforms.cleanup()
-
         log.info("Server gracefully shut down.")
 
 
