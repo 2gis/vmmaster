@@ -1,20 +1,20 @@
 # coding: utf-8
 
 import time
-from http_proxy import ProxyResource, HTTPChannelWithClient
-from twisted.internet.threads import deferToThread
-from twisted.internet.defer import inlineCallbacks, Deferred, TimeoutError
+from Queue import Queue, Empty
+
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.web.resource import Resource
-from twisted.python.threadpool import ThreadPool
 from twisted.python.failure import Failure
-from Queue import Queue, Empty
-
-from core.logger import log
-from core.config import config
+from twisted.python.threadpool import ThreadPool
+from twisted.internet.defer import inlineCallbacks, Deferred, TimeoutError
+from twisted.internet.threads import deferToThread
 
 from app import create_app
+from http_proxy import ProxyResource, HTTPChannelWithClient
+from core.logger import log
+from core.config import config
 
 
 def _block_on(d, timeout=None):
