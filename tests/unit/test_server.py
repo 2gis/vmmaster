@@ -888,7 +888,6 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
             response = new_session_request(self.address, self.desired_caps)
 
         self.assertEqual(200, response.status)
-        time.sleep(2)
 
         response = get_session_request(self.address, 1)
         self.assertIn(
