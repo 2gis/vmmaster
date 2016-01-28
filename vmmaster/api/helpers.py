@@ -42,15 +42,14 @@ def regenerate_user_token(user_id):
 
 
 def get_screenshots(session_id, log_step_id=None):
-    from core.db import database
     screenshots = []
 
     if log_step_id:
-        session_steps = [database.get_step_by_id(log_step_id)]
+        steps = [current_app.database.get_step_by_id(log_step_id)]
     else:
-        session_steps = database.get_log_steps_for_session(session_id)
+        steps = current_app.database.get_log_steps_for_session(session_id)
 
-    for log_step in session_steps:
+    for log_step in steps:
         if log_step.screenshot:
             screenshots.append(log_step.screenshot)
 
@@ -58,10 +57,9 @@ def get_screenshots(session_id, log_step_id=None):
 
 
 def get_screenshots_for_label(session_id, label_id):
-    from core.db import database
     steps_groups = {}
     current_label = 0
-    log_steps = database.get_log_steps_for_session(session_id)
+    log_steps = current_app.database.get_log_steps_for_session(session_id)
 
     for step in reversed(log_steps):
         if label_step(step.control_line) == 'label':

@@ -36,7 +36,7 @@ class BaseTestServer(BaseTestCase):
         ), patch(
             'core.network.Network', Mock()
         ), patch(
-            'core.db.database', DatabaseMock()
+            'core.db.Database', DatabaseMock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
         ):
@@ -384,16 +384,11 @@ class TestSessionWorker(BaseTestCase):
 
         from flask import Flask
         self.app = Flask(__name__)
-
-        with patch(
-            'core.connection.Virsh', Mock(),
-        ), patch(
-            'core.network.Network', Mock()
-        ):
-            from core.sessions import SessionWorker
-        self.worker = SessionWorker(self.app)
-
         self.app.sessions = Mock()
+        self.app.sessions.app = self.app
+
+        from core.sessions import SessionWorker
+        self.worker = SessionWorker(self.app.sessions)
 
     def tearDown(self):
         self.worker.stop()
@@ -429,7 +424,7 @@ class TestConnectionClose(BaseTestServer):
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+                'platform': self.pool.platforms.platforms.keys()[0]
             }
         }
 
@@ -454,9 +449,10 @@ class TestConnectionClose(BaseTestServer):
 
         self.assertEqual(0, self.pool.count())
 
-        import vmpool.virtual_machines_pool as vmp
-        with patch.object(vmp, 'pool', Mock()) as p:
-            p.has = Mock(side_effect=pool_fake_return)
+        with patch(
+            'flask.current_app.pool.has',
+            Mock(side_effect=pool_fake_return)
+        ):
             request_with_drop(self.address, self.desired_caps, None)
 
         self.assertEqual(0, self.pool.count())
@@ -466,10 +462,13 @@ class TestConnectionClose(BaseTestServer):
         - close the connection when the request is queued
         Expected: session deleted, vm deleted
         """
-        import vmpool.virtual_machines_pool as vmp
-        with patch.object(vmp, 'pool', Mock()) as p:
-            p.has = Mock(return_value=False)
-            p.can_produce = Mock(return_value=False)
+        with patch(
+            'flask.current_app.pool.has',
+            Mock(return_value=False)
+        ), patch(
+            'flask.current_app.pool.can_produce',
+            Mock(return_value=False)
+        ):
             request_with_drop(self.address, self.desired_caps, None)
 
         self.assertEqual(0, self.pool.count())
@@ -481,11 +480,13 @@ class TestConnectionClose(BaseTestServer):
         - drop request while platform is queued
         Expected: platform no more in queue
         """
-        import vmpool.virtual_machines_pool as vmp
-        with patch.object(vmp, 'pool', Mock()) as p:
-            p.has = Mock(return_value=False)
-            p.can_produce = Mock(return_value=True)
-
+        with patch(
+            'flask.current_app.pool.has',
+            Mock(return_value=False)
+        ), patch(
+            'flask.current_app.pool.can_produce',
+            Mock(return_value=True)
+        ):
             q = self.vmmaster.app.sessions.active_sessions
 
             def wait_for_platform_in_queue():
@@ -524,11 +525,11 @@ class TestConnectionClose(BaseTestServer):
             time.sleep(2)
             return vm_mock
 
-        from vmpool.virtual_machines_pool import pool
-        with patch.object(
-            pool, 'has', Mock(return_value=False)
-        ), patch.object(
-            pool, 'can_produce', Mock(return_value=True)
+        with patch(
+            'flask.current_app.pool.has',
+            Mock(return_value=False)
+        ), patch(
+            'flask.current_app.pool.can_produce', Mock(return_value=True)
         ), patch(
             'vmpool.platforms.KVMOrigin.make_clone',
             Mock(side_effect=just_sleep)
@@ -561,7 +562,8 @@ class TestServerShutdown(BaseTestServer):
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+                'platform':
+                self.vmmaster.app.pool.platforms.platforms.keys()[0]
             }
         }
 
@@ -646,7 +648,7 @@ class TestServerWithPreloadedVM(BaseTestCase):
         ), patch(
             'core.network.Network', Mock()
         ), patch(
-            'core.db.database', Mock(add=Mock(side_effect=set_primary_key))
+            'core.db.Database', Mock(add=Mock(side_effect=set_primary_key))
         ), patch.multiple(
             'core.utils.openstack_utils',
             neutron_client=Mock(return_value=Mock()),
@@ -670,14 +672,22 @@ class TestServerWithPreloadedVM(BaseTestCase):
             from vmmaster.server import VMMasterServer
             self.vmmaster = VMMasterServer(reactor, self.address[1])
 
-        self.pool = self.vmmaster.app.pool
+            self.ctx = self.vmmaster.app.app_context()
+            self.ctx.push()
+
+            self.pool = self.vmmaster.app.pool
 
         server_is_up(self.address)
 
-    @patch('core.utils.delete_file', Mock())
+    @patch(
+        'vmpool.clone.OpenstackClone._wait_for_activated_service',
+        custom_wait
+    )
     def tearDown(self):
+        self.vmmaster.app.sessions.kill_all()
         del self.vmmaster
         server_is_down(self.address)
+        self.ctx.pop()
 
     @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
         __name__='vm_has_created',
@@ -732,7 +742,8 @@ class TestSessionSteps(BaseTestServer):
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+                'platform':
+                self.vmmaster.app.pool.platforms.platforms.keys()[0]
             }
         }
 
@@ -808,8 +819,6 @@ class TestSessionSteps(BaseTestServer):
 class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
     def setUp(self):
         setup_config('data/config.py')
-        from core.config import config
-        config.SESSION_TIMEOUT = 1
 
         self.address = ("localhost", 9001)
 
@@ -818,7 +827,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
         ), patch(
             'core.network.Network', Mock()
         ), patch(
-            'core.db.database', DatabaseMock()
+            'core.db.Database', DatabaseMock()
         ):
             from vmmaster.server import VMMasterServer
             self.vmmaster = VMMasterServer(reactor, self.address[1])
@@ -829,7 +838,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmmaster.app.platforms.platforms.keys()[0]
+                'platform': self.pool.platforms.platforms.keys()[0]
             }
         }
 
@@ -862,6 +871,9 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
             return_value=(200, {}, json.dumps({'sessionId': 1}))
         )
     )
+    @patch(
+        'flask.current_app.database', Mock(get_session=Mock(return_value=None))
+    )
     def test_check_timer_for_session_activity(self):
         """
         - exception while waiting endpoint
@@ -876,12 +888,8 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
             response = new_session_request(self.address, self.desired_caps)
 
         self.assertEqual(200, response.status)
-        time.sleep(2)
 
-        with patch(
-            'flask.current_app.database.get_session', Mock(return_value=None)
-        ):
-            response = get_session_request(self.address, 1)
+        response = get_session_request(self.address, 1)
         self.assertIn(
             "SessionException: There is no active session 1 (Unknown session)",
             response.content

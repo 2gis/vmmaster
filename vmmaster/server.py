@@ -1,24 +1,23 @@
 # coding: utf-8
 
 import time
-from twisted.internet.threads import deferToThread
+from Queue import Queue, Empty
+
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.web.resource import Resource
-from twisted.internet import defer
+from twisted.python.failure import Failure
 from twisted.python.threadpool import ThreadPool
-from app import create_app
+from twisted.internet.defer import inlineCallbacks, Deferred, TimeoutError
+from twisted.internet.threads import deferToThread
 
+from app import create_app
 from http_proxy import ProxyResource, HTTPChannelWithClient
 from core.logger import log
 from core.config import config
 
 
 def _block_on(d, timeout=None):
-    from Queue import Queue, Empty
-    from twisted.internet.defer import TimeoutError
-    from twisted.python.failure import Failure
-    from twisted.internet.defer import Deferred
     _q = Queue()
     if not isinstance(d, Deferred):
         return None
@@ -50,7 +49,6 @@ class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.app = create_app()
-
         self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
         self.thread_pool.start()
         wsgi_resource = WSGIResource(self.reactor, self.thread_pool, self.app)
@@ -88,7 +86,7 @@ class VMMasterServer(object):
 
         return deferToThread(wait_for, self).addBoth(lambda i: None)
 
-    @defer.inlineCallbacks
+    @inlineCallbacks
     def before_shutdown(self):
         self.app.running = False
         yield self.wait_for_end_active_sessions()

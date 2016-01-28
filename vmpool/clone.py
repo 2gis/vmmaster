@@ -11,7 +11,6 @@ from uuid import uuid4
 from threading import Thread
 
 from vmpool import VirtualMachine
-from virtual_machines_pool import pool
 
 from core import dumpxml
 from core.logger import log_pool
@@ -35,10 +34,11 @@ def threaded_wait(func):
 
 
 class Clone(VirtualMachine):
-    def __init__(self, origin, prefix):
+    def __init__(self, origin, prefix, pool):
         self.uuid = '%s' % uuid4()
         self.prefix = '%s' % prefix
         self.origin = origin
+        self.pool = pool
         name = "{platform}-clone-{prefix}-{uuid}".format(
             platform=origin.name, prefix=self.prefix, uuid=self.uuid)
 
@@ -88,10 +88,10 @@ class KVMClone(Clone):
     dumpxml_file = None
     drive_path = None
 
-    def __init__(self, origin, prefix):
-        super(KVMClone, self).__init__(origin, prefix)
+    def __init__(self, origin, prefix, pool):
+        super(KVMClone, self).__init__(origin, prefix, pool)
 
-        self.network = pool.network
+        self.network = self.pool.network
         self.conn = self.network.conn
 
     def delete(self, try_to_rebuild=True):
@@ -116,7 +116,7 @@ class KVMClone(Clone):
         except ValueError, e:
             log_pool.warning(e)
             pass
-        pool.remove_vm(self)
+        self.pool.remove_vm(self)
         VirtualMachine.delete(self)
 
     def create(self):
@@ -138,11 +138,12 @@ class KVMClone(Clone):
             "Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
                 clone=self.name, ip=self.ip, platform=self.platform)
         )
-        pool.remove_vm(self)
+        self.pool.remove_vm(self)
         self.delete(try_to_rebuild=False)
 
         try:
-            pool.add(self.platform, self.prefix, pool.pool)
+            self.pool.add(
+                self.platform, self.prefix, self.pool.pool)
         except CreationException:
             pass
 
@@ -209,8 +210,8 @@ class KVMClone(Clone):
 
 
 class OpenstackClone(Clone):
-    def __init__(self, origin, prefix):
-        super(OpenstackClone, self).__init__(origin, prefix)
+    def __init__(self, origin, prefix, pool):
+        super(OpenstackClone, self).__init__(origin, prefix, pool)
         self.platform = origin.short_name
 
         from core.utils import openstack_utils
@@ -392,7 +393,7 @@ class OpenstackClone(Clone):
             return
 
         self.ready = False
-        pool.remove_vm(self)
+        self.pool.remove_vm(self)
         if self.check_vm_exist(self.name):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
@@ -410,8 +411,8 @@ class OpenstackClone(Clone):
         log_pool.info("Rebuilding openstack {clone}".format(clone=self.name))
 
         if self.is_preloaded():
-            pool.remove_vm(self)
-            pool.pool.append(self)
+            self.pool.remove_vm(self)
+            self.pool.pool.append(self)
 
         self.ready = False
         try:

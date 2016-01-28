@@ -29,10 +29,10 @@ class TestHttpProxy(BaseTestCase):
     def tearDown(self):
         self.session.delete()
         self.ctx.pop()
-        with patch('core.db.database', Mock()):
-            self.vmmaster.app.sessions.kill_all()
-            del self.vmmaster
-            server_is_down(self.address)
+        self.vmmaster.app.sessions.kill_all()
+        self.vmmaster.app.cleanup()
+        del self.vmmaster
+        server_is_down(self.address)
 
     def test_proxy_successful(self):
         server = ServerMock(self.host, self.free_port)

@@ -1,23 +1,18 @@
 # coding: utf-8
 
 import time
-from datetime import datetime
+import requests
+
 from Queue import Queue
 from threading import Thread
+from datetime import datetime
+from flask import current_app
 
-import requests
-import logging
-requests_log = logging.getLogger("requests")
-requests_log.setLevel(logging.WARNING)
-
-from core.db.models import Session as SessionModel
+from core.db import models
 from core.config import config
 from core.logger import log
 from core.exceptions import SessionException
-
 from core.video import VNCVideoHelper
-
-from flask import current_app
 
 
 def getresponse(req, q):
@@ -65,7 +60,7 @@ class SimpleResponse:
         self.content = content
 
 
-class Session(SessionModel):
+class Session(models.Session):
     current_log_step = None
     vnc_helper = None
     take_screencast = None
@@ -123,7 +118,6 @@ class Session(SessionModel):
         self.closed = True
         self.deleted = datetime.now()
         self.save()
-
         current_app.sessions.remove(self)
 
         if hasattr(self, "ws"):
@@ -184,10 +178,12 @@ class Session(SessionModel):
         q = Queue()
         url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
 
-        req = lambda: requests.request(method=request.method,
-                                       url=url,
-                                       headers=request.headers,
-                                       data=request.data)
+        def req():
+            return requests.request(method=request.method,
+                                    url=url,
+                                    headers=request.headers,
+                                    data=request.data)
+
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
         t.start()
@@ -203,16 +199,16 @@ class Session(SessionModel):
 
 
 class SessionWorker(Thread):
-    def __init__(self, app):
+    def __init__(self, sessions):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
-        self.app = app
+        self.sessions = sessions
 
     def run(self):
-        with self.app.app_context():
+        with self.sessions.app.app_context():
             while self.running:
-                for session in self.app.sessions.running():
+                for session in self.sessions.running():
                     if not session.is_active \
                             and session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
@@ -226,6 +222,11 @@ class SessionWorker(Thread):
 
 class Sessions(object):
     active_sessions = {}
+
+    def __init__(self, app):
+        self.app = app
+        self.worker = SessionWorker(self)
+        self.worker.start()
 
     def put(self, session):
         if str(session.id) not in self.active_sessions.keys():

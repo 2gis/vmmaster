@@ -8,7 +8,7 @@ from core.config import config
 from core.logger import log_pool
 from core.network import Network
 
-from platforms import Platforms, UnlimitedCount
+from vmpool.platforms import Platforms, UnlimitedCount
 
 
 class VirtualMachinesPool(object):
@@ -16,9 +16,15 @@ class VirtualMachinesPool(object):
     using = list()
     network = Network()
     lock = Lock()
+    platforms = Platforms
 
     def __str__(self):
         return str(self.pool)
+
+    def __init__(self):
+        self.platforms()
+        self.preloader = VirtualMachinesPoolPreloader(self)
+        self.preloader.start()
 
     @classmethod
     def remove_vm(cls, vm):
@@ -57,7 +63,7 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def can_produce(cls, platform):
-        platform_limit = Platforms.get_limit(platform)
+        platform_limit = cls.platforms.get_limit(platform)
 
         if platform_limit is UnlimitedCount:
             return True
@@ -144,9 +150,9 @@ class VirtualMachinesPool(object):
             if not cls.can_produce(platform):
                 return None
 
-            origin = Platforms.get(platform)
+            origin = cls.platforms.get(platform)
             try:
-                clone = origin.make_clone(origin, prefix)
+                clone = origin.make_clone(origin, prefix, cls)
             except Exception as e:
                 log_pool.info(
                     'Exception during initializing vm object: %s' % e.message
@@ -210,11 +216,11 @@ class VirtualMachinesPool(object):
 
 
 class VirtualMachinesPoolPreloader(Thread):
-    def __init__(self, _pool):
+    def __init__(self, pool):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
-        self.pool = _pool
+        self.pool = pool
 
     def run(self):
         while self.running:
@@ -247,6 +253,3 @@ class VirtualMachinesPoolPreloader(Thread):
         self.running = False
         self.join(1)
         log_pool.info("Preloader stopped")
-
-
-pool = VirtualMachinesPool()

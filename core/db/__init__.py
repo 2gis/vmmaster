@@ -3,12 +3,11 @@
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
+from core.sessions import Session
 from core.db.models import SessionLogStep, User, Platform
 from core.utils import to_thread
-
-from core.sessions import Session as WrappedSession
-
 from core.logger import log
+from core.config import config
 
 
 def threaded_transaction(func):
@@ -50,7 +49,10 @@ class Database(object):
             cls._instance = super(Database, cls).__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def __init__(self, connection_string):
+    def __init__(self, connection_string=None):
+        if not connection_string:
+            connection_string = config.DATABASE
+
         self.engine = create_engine(connection_string,
                                     pool_size=200,
                                     max_overflow=100,
@@ -65,7 +67,7 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         if not session_id:
             return None
-        return dbsession.query(WrappedSession).get(session_id)
+        return dbsession.query(Session).get(session_id)
 
     @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):
@@ -76,11 +78,6 @@ class Database(object):
     @transaction
     def get_step_by_id(self, log_step_id, dbsession=None):
         return dbsession.query(SessionLogStep).get(log_step_id)
-
-    @transaction
-    def get_queue(self, dbsession=None):
-        return dbsession.query(WrappedSession).filter_by(
-            status='waiting').all()
 
     @transaction
     def get_user(self, username=None, user_id=None, dbsession=None):
@@ -137,6 +134,3 @@ class Database(object):
         dbsession.delete(obj_to_delete)
         dbsession.commit()
         return obj_to_delete
-
-
-database = None
