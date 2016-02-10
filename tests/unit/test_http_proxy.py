@@ -30,8 +30,7 @@ class TestHttpProxy(BaseTestCase):
         self.session.delete()
         self.ctx.pop()
         self.vmmaster.app.sessions.kill_all()
-        self.vmmaster.app.cleanup()
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
 
     def test_proxy_successful(self):

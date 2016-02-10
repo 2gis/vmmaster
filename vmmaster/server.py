@@ -48,6 +48,10 @@ class RootResource(Resource):
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
+        self.reactor.addSystemEventTrigger('before', 'shutdown',
+                                           self.before_shutdown)
+        self.reactor.addSystemEventTrigger('during', 'shutdown',
+                                           self.during_shutdown)
         self.app = create_app()
         self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
         self.thread_pool.start()
@@ -61,33 +65,43 @@ class VMMasterServer(object):
         log.info('Server is listening on %s ...' % port)
 
     def run(self):
-        self.reactor.addSystemEventTrigger('before', 'shutdown',
-                                           self.before_shutdown)
         self.reactor.run()
-        del self
 
-    def __del__(self):
-        d = self.bind.stopListening()
-        _block_on(d, 20)
-        self.app.cleanup()
-        self.thread_pool.stop()
+    def stop_services(self):
+        def lets_do_it():
+            d = self.bind.stopListening()
+            _block_on(d, 20)
+            self.app.cleanup()
+            self.thread_pool.stop()
+
+        return deferToThread(lets_do_it).addBoth(
+            lambda i: log.info('All services has been stopped')
+        )
 
     def wait_for_end_active_sessions(self):
         active_sessions = self.app.sessions.active()
 
-        def wait_for(_self):
+        def wait_for():
             while active_sessions:
                 for session in active_sessions:
-                    if session.status in ('failed', 'success'):
+                    if session.status in ('failed', 'succeed'):
                         active_sessions.remove(session)
 
                 time.sleep(1)
-                log.info("Wait for end %s session[s]" % len(active_sessions))
+                log.info("Wait for end %s active session[s]:"
+                         " %s" % (len(active_sessions), active_sessions))
 
-        return deferToThread(wait_for, self).addBoth(lambda i: None)
+        return deferToThread(wait_for).addBoth(
+            lambda i: log.info("All active sessions has been completed")
+        )
 
     @inlineCallbacks
     def before_shutdown(self):
         self.app.running = False
-        yield self.wait_for_end_active_sessions()
-        log.info("All active sessions has been completed")
+        if hasattr(config, 'NO_SHUTDOWN_WITH_SESSIONS') \
+                and config.NO_SHUTDOWN_WITH_SESSIONS:
+            yield self.wait_for_end_active_sessions()
+
+    @inlineCallbacks
+    def during_shutdown(self):
+        yield self.stop_services()

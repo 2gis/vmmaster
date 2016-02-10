@@ -94,7 +94,7 @@ class TestServer(BaseTestServer):
     def tearDown(self):
         self.vmmaster.app.sessions.kill_all()
         self.ctx.pop()
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
 
     def test_server_create_new_session(self):
@@ -435,7 +435,7 @@ class TestConnectionClose(BaseTestServer):
     def tearDown(self):
         self.vmmaster.app.sessions.kill_all()
         self.ctx.pop()
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
 
     def test_req_closed_during_session_creating(self):
@@ -578,7 +578,7 @@ class TestServerShutdown(BaseTestServer):
         - shutdown current instance
         Expected: server is down
         """
-        del self.vmmaster
+        self.vmmaster.stop_services()
         with self.assertRaises(RuntimeError):
             server_is_up(self.address, wait=1)
 
@@ -593,7 +593,7 @@ class TestServerShutdown(BaseTestServer):
 
         with patch('core.sessions.Sessions.get_session',
                    Mock(return_value=session)):
-            del self.vmmaster
+            self.vmmaster.stop_services()
 
         self.assertFalse(session.closed)
         session.failed()
@@ -685,7 +685,7 @@ class TestServerWithPreloadedVM(BaseTestCase):
     )
     def tearDown(self):
         self.vmmaster.app.sessions.kill_all()
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
         self.ctx.pop()
 
@@ -751,7 +751,7 @@ class TestSessionSteps(BaseTestServer):
         self.ctx.push()
 
     def tearDown(self):
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
         self.ctx.pop()
 
@@ -849,7 +849,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
         self.ctx.push()
 
     def tearDown(self):
-        del self.vmmaster
+        self.vmmaster.stop_services()
         server_is_down(self.address)
         self.ctx.pop()
 
