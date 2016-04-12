@@ -224,9 +224,12 @@ class VirtualMachinesPoolPreloader(Thread):
 
     def run(self):
         while self.running:
-            platform = self.need_load()
-            if platform is not None:
-                self.pool.preload(platform, "preloaded")
+            try:
+                platform = self.need_load()
+                if platform is not None:
+                    self.pool.preload(platform, "preloaded")
+            except Exception as e:
+                log_pool.exception('Exception in preloader: %s', e.message)
 
             time.sleep(config.PRELOADER_FREQUENCY)
 
