@@ -75,16 +75,19 @@ class VMMasterServer(object):
     def wait_for_end_active_sessions(self):
         active_sessions = self.app.sessions.active()
 
-        def wait_for(_self):
+        def wait_for():
             while active_sessions:
                 for session in active_sessions:
-                    if session.status in ('failed', 'success'):
+                    if session.status in ('failed', 'succeed'):
                         active_sessions.remove(session)
 
                 time.sleep(1)
-                log.info("Wait for end %s session[s]" % len(active_sessions))
+                log.info("Wait for end %s active session[s]:"
+                         " %s" % (len(active_sessions), active_sessions))
 
-        return deferToThread(wait_for, self).addBoth(lambda i: None)
+        return deferToThread(wait_for, self).addBoth(
+            lambda i: log.info("All active sessions has been completed")
+        )
 
     @inlineCallbacks
     def before_shutdown(self):
