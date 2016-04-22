@@ -35,7 +35,7 @@ def threaded_wait(func):
 
 class Clone(VirtualMachine):
     def __init__(self, origin, prefix, pool):
-        self.uuid = '%s' % uuid4()
+        self.uuid = str(uuid4())[:8]
         self.prefix = '%s' % prefix
         self.origin = origin
         self.pool = pool
