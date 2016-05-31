@@ -127,51 +127,10 @@ class OpenstackPlatforms(PlatformsInterface):
 
     @staticmethod
     def max_count():
-        limits = OpenstackPlatforms.limits(if_none={'maxTotalInstances': 0})
-
-        if not hasattr(config, 'OPENSTACK_MAX_VM_COUNT'):
-            return limits.get('maxTotalInstances', 0)
-
-        return min(
-            config.OPENSTACK_MAX_VM_COUNT,
-            limits.get('maxTotalInstances', 0)
-        )
+        return config.OPENSTACK_MAX_VM_COUNT
 
     @staticmethod
     def get_limit(platform):
-        limits = OpenstackPlatforms.limits(if_none={
-            'maxTotalCores': 0, 'maxTotalInstances': 0, 'maxTotalRAMSize': 0,
-            'totalCoresUsed': 0, 'totalInstancesUsed': 0, 'totalRAMUsed': 0})
-
-        if limits.get('totalInstancesUsed', 0) >= \
-                limits.get('maxTotalInstances', 0):
-            log_pool.warning(
-                'Can\'t produce new virtual machine with platform %s: '
-                'not enough Instances resources' % platform
-            )
-            return 0
-
-        flavor_params = OpenstackPlatforms.flavor_params(
-            Platforms.get(platform).flavor_name)
-
-        if flavor_params.get('vcpus', 0) >= \
-                limits.get('maxTotalCores', 0) - \
-                limits.get('totalCoresUsed', 0):
-            log_pool.warning(
-                'Can\'t produce new virtual machine with platform %s: '
-                'not enough CPU resources' % platform
-            )
-            return 0
-
-        if flavor_params.get('ram', 0) >= \
-                limits.get('maxTotalRAMSize', 0) - \
-                limits.get('totalRAMUsed', 0):
-            log_pool.warning(
-                'Can\'t produce new virtual machine with platform %s: '
-                'not enough RAM resources' % platform
-            )
-            return 0
-
         return OpenstackPlatforms.max_count()
 
 
