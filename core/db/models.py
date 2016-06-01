@@ -69,11 +69,13 @@ class SessionLogStep(Base, FeaturesMixin):
         )
     )
 
-    def __init__(self, control_line, body=None, session_id=None):
+    def __init__(self, control_line, body=None, session_id=None, created=None):
         self.control_line = control_line
         self.body = body
         if session_id:
             self.session_id = session_id
+        if created:
+            self.created = created
         self.add()
 
     def add_sub_step(self, control_line, body):
@@ -147,10 +149,11 @@ class Session(Base, FeaturesMixin):
     def platform(self):
         return json.loads(self.dc).get("platform", None)
 
-    def add_session_step(self, control_line, body=None):
+    def add_session_step(self, control_line, body=None, created=None):
         return SessionLogStep(control_line=control_line,
                               body=body,
-                              session_id=self.id)
+                              session_id=self.id,
+                              created=created)
 
 
 class User(Base, FeaturesMixin):

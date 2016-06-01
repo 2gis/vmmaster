@@ -1,9 +1,9 @@
 # coding: utf-8
-
+from datetime import datetime
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, g
 
-from vmmaster.webdriver import commands
+from vmmaster.webdriver import commands, helpers
 import helpers
 
 from core.logger import log
@@ -48,41 +48,49 @@ def get_vmmaster_session(request):
     return session
 
 
-def log_request(session, request):
+def log_request(session, request, created=None):
     control_line = "%s %s %s" % (
         request.method, request.path,
         request.headers.environ['SERVER_PROTOCOL']
     )
     session.add_session_step(
         control_line=control_line,
-        body=str(request.data)
+        body=str(request.data),
+        created=created
     )
 
 
 @webdriver.before_request
 def before_request():
+    g.started = datetime.now()
     log.debug('%s' % request)
     session = get_vmmaster_session(request)
 
     if session:
-        log_request(session, request)
         session.stop_timer()
 
 
-def log_response(session, response):
+def log_response(session, response, created=None):
     response_data = utils.remove_base64_screenshot(response.data)
     session.add_session_step(control_line=response.status_code,
-                             body=response_data)
+                             body=response_data, created=created)
 
 
 @webdriver.after_request
 def after_request(response):
     log.debug('Response %s %s' % (response.data, response.status_code))
     session = get_vmmaster_session(request)
+    parts = request.path.split("/")
 
     if session:
-        log_response(session, response)
-        session.start_timer()
+        log_request(session, request, created=g.started)
+        if not session.closed:
+            log_response(session, response, created=datetime.now())
+            if request.method == 'DELETE' and parts[-2] == "session" \
+                    and parts[-1] == str(session.id):
+                session.succeed()
+            else:
+                session.start_timer()
 
     return response
 
@@ -104,13 +112,6 @@ def verify_token(username, client_token):
 def delete_session(session_id):
     request.session = current_app.sessions.get_session(session_id)
     status, headers, body = helpers.transparent()
-
-    request.session.add_session_step(
-        control_line=status, body=body
-    )
-    request.session.succeed()
-
-    del request.session
     return helpers.form_response(status, headers, body)
 
 
