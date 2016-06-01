@@ -72,3 +72,4 @@ class Config(object):
     THREAD_POOL_MAX = 100
 
     LOG_LEVEL = "INFO"
+    LOG_FORMAT = "plain/text"
