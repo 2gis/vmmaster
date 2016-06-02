@@ -5,6 +5,7 @@ import helpers
 
 from flask import Blueprint, jsonify, request, current_app
 
+from core import constants
 from core.logger import log
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
@@ -82,7 +83,7 @@ def get_session(session_id):
 def stop_session(session_id):
     _session = helpers.get_session(session_id)
     if _session:
-        _session.failed()
+        _session.failed(reason=constants.SESSION_CLOSE_REASON_API_CALL)
         return render_json("Session %s closed successfully" % session_id, 200)
     else:
         return render_json("Session %s not found" % session_id, 404)

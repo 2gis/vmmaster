@@ -64,6 +64,6 @@ class TestVNCVideoHelper(BaseTestCase):
                 self.assertTrue(
                     isinstance(self.session.vnc_helper.recorder, Process))
 
-                self.session.delete()
+                self.session.close()
                 self.assertTrue(wait_for(
                     lambda: not self.session.vnc_helper.recorder.is_alive()))

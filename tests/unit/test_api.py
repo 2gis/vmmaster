@@ -6,6 +6,7 @@ from mock import Mock, patch
 from multiprocessing import Process
 from helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for
 from lode_runner import dataprovider
+from core import constants
 
 
 class TestApi(BaseTestCase):
@@ -88,7 +89,8 @@ class TestApi(BaseTestCase):
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
 
-        session.failed.assert_any_call()
+        session.failed.assert_any_call(
+            reason=constants.SESSION_CLOSE_REASON_API_CALL)
 
     def test_get_screenshots(self):
         steps = [
@@ -174,7 +176,7 @@ class TestApi(BaseTestCase):
         self.assertEqual(200, body['metacode'])
         self.assertTrue(isinstance(session.vnc_helper.proxy, Process))
 
-        session.delete()
+        session.close()
         self.assertTrue(wait_for(
             lambda: not session.vnc_helper.proxy.is_alive()))
 
@@ -201,7 +203,7 @@ class TestApi(BaseTestCase):
         vnc_proxy_port = body['result']
         self.assertDictEqual(expected, vnc_proxy_port)
         self.assertEqual(200, body['metacode'])
-        session.delete()
+        session.close()
 
     def test_get_vnc_info_if_session_not_found(self):
         with patch(

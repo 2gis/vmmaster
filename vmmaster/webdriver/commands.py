@@ -94,7 +94,9 @@ def ping_vm(session):
 
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
     _ping = partial(network_utils.ping, ip)
-    check = lambda: all(map(_ping, ports))
+
+    def check():
+        all(map(_ping, ports))
     for _ in generator_wait_for(check, config.PING_TIMEOUT):
         yield False
 
@@ -119,7 +121,7 @@ def start_selenium_session(request, session, port):
         log.info(
             "Attempt %s. Starting selenium-server-standalone session for %s" %
             (attempt_start, session.id))
-        log.info("with %s %s\n%s %s" % (request.method, request.path,
+        log.debug("with %s %s %s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
         wrapped_make_request = add_sub_step(session, session.make_request)

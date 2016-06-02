@@ -26,12 +26,12 @@ def selenium_error_response(message, selenium_code=13, status_code=500):
 
 @webdriver.errorhandler(Exception)
 def handle_errors(error):
+    log.exception(error)
     tb = format_exc()
-    log.error(tb)
     if hasattr(request, 'session'):
-        request.session.failed(tb)
+        request.session.failed(tb=tb, reason=error)
 
-    return selenium_error_response(tb)
+    return selenium_error_response("%s %s" % (error, tb))
 
 
 def get_vmmaster_session(request):
@@ -127,7 +127,7 @@ def create_session():
         log.info("This request is aborted %s" % request)
         message = "A new session could not be created " \
                   "because shutdown server in progress"
-        
+
         return selenium_error_response(message, status_code=502)
 
 
