@@ -2,16 +2,17 @@
 
 import json
 import helpers
+import logging
 
 from flask import Blueprint, jsonify, request, current_app
 
 from core import constants
-from core.logger import log
 from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
 
 api = Blueprint('api', __name__)
+log = logging.getLogger(__name__)
 
 
 def render_json(result, code=200):

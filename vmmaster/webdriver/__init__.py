@@ -1,4 +1,5 @@
 # coding: utf-8
+import logging
 from datetime import datetime
 from traceback import format_exc
 from flask import Blueprint, current_app, request, jsonify, g
@@ -6,12 +7,12 @@ from flask import Blueprint, current_app, request, jsonify, g
 from vmmaster.webdriver import commands, helpers
 import helpers
 
-from core.logger import log
 from core.exceptions import SessionException
 from core.auth.custom_auth import auth, anonymous
 from core import utils
 
 webdriver = Blueprint('webdriver', __name__)
+log = logging.getLogger(__name__)
 
 
 def selenium_error_response(message, selenium_code=13, status_code=500):

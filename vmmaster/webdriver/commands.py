@@ -4,6 +4,7 @@ import json
 import httplib
 from functools import partial, wraps
 import websocket
+import logging
 
 from traceback import format_exc
 from core import utils
@@ -13,12 +14,13 @@ from core.utils import generator_wait_for
 from vmmaster.webdriver.helpers import check_to_exist_ip, connection_watcher
 
 from core.config import config
-from core.logger import log
 from core.exceptions import CreationException
 from core.sessions import RequestHelper, update_log_step
 
 from threading import Thread
 from flask import copy_current_request_context
+
+log = logging.getLogger(__name__)
 
 
 def add_sub_step(session, func):

@@ -7,6 +7,7 @@ import pwd
 import grp
 import time
 import sys
+import logging
 
 
 from twisted.internet import threads
@@ -14,7 +15,8 @@ from threading import Thread
 
 from core.config import config
 from core.utils import system_utils, commands
-from core.logger import log
+
+log = logging.getLogger(__name__)
 
 
 class UserNotFound(Exception):
