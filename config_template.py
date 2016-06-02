@@ -17,8 +17,8 @@ class Config(object):
     SCREENSHOTS_DAYS = 7
 
     # logging
-    LOG_DIR = os.sep.join([BASEDIR, "logs"])
-    LOG_SIZE = 5242880
+    LOG_TYPE = "logstash"
+    LOG_LEVEL = "DEBUG"
 
     # kvm
     USE_KVM = True
@@ -58,18 +58,9 @@ class Config(object):
     # vm pool
     GET_VM_TIMEOUT = 180
 
-    # additional logging
-    # sending logs with (Graylog Extended Log Format, GELF)
-    # GRAYLOG = ('logserver', 12201)
-
-    # graphite
-    # GRAPHITE = ('graphite', 2003)
-
     # selenium
     SELENIUM_PORT = 4455
     VMMASTER_AGENT_PORT = 9000
 
     THREAD_POOL_MAX = 100
 
-    LOG_LEVEL = "INFO"
-    LOG_FORMAT = "plain/text"

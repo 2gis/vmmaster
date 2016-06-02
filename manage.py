@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import logging
 from flask import Flask
 
 from twisted.internet import reactor
@@ -7,25 +8,19 @@ from flask.ext.script import Manager
 
 from core.config import setup_config, config
 from core.utils.init import home_dir, useradd
-from core.logger import log
 from core.logger import setup_logging
 
-try:
-    setup_config('%s/config.py' % home_dir())
-except AttributeError:
-    config = None
+setup_config('%s/config.py' % home_dir())
 
 from core.utils import change_user_vmmaster
 
+setup_logging(
+    log_type=getattr(config, "LOG_TYPE", None),
+    log_level=getattr(config, "LOG_LEVEL", None)
+)
 app = Flask(__name__)
 manager = Manager(app)
-
-
-def activate_logger():
-    setup_logging(logname='LOG', logdir=config.LOG_DIR)
-    setup_logging(
-        logname='POOL', logdir=config.LOG_DIR, logfile_name='pool.log',
-        scrnlog=False, txtlog=True, loglevel='DEBUG')
+log = logging.getLogger(__name__)
 
 
 @manager.command
@@ -33,7 +28,6 @@ def runserver():
     """
     Run server
     """
-    activate_logger()  # todo decorator
     from vmmaster.server import VMMasterServer
     VMMasterServer(reactor, config.PORT).run()
 
@@ -52,7 +46,6 @@ def init():
     """
     Initialize application
     """
-    # activate_logger()  # todo decorator
     log.info('Initialize application')
     useradd()
     change_user_vmmaster()

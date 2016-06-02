@@ -2,6 +2,7 @@
 
 import time
 import requests
+import logging
 
 from Queue import Queue
 from threading import Thread
@@ -10,9 +11,10 @@ from flask import current_app
 
 from core.db import models
 from core.config import config
-from core.logger import log
 from core.exceptions import SessionException
 from core.video import VNCVideoHelper
+
+log = logging.getLogger(__name__)
 
 
 def getresponse(req, q):

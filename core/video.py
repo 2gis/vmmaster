@@ -4,16 +4,18 @@
 ##  Copyright (c) 2009-2010 by Yusuke Shinyama
 ##
 
+import logging
 import multiprocessing
 from twisted.internet import threads
 import websockify
 
 from core.config import config
-from core.logger import log
 
 import sys, socket, os, os.path, subprocess, signal
 from vnc2flv import flv, rfb, video
 from core.utils.network_utils import get_free_port
+
+log = logging.getLogger(__name__)
 
 
 class VNCVideoHelper():

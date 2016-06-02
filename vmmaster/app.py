@@ -1,11 +1,11 @@
 # coding: utf-8
 
+import logging
 from uuid import uuid1
-
 from flask import json, Flask
-
-from core.logger import log
 from core.config import config
+
+log = logging.getLogger(__name__)
 
 
 class JSONEncoder(json.JSONEncoder):

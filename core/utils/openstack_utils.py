@@ -2,10 +2,13 @@ import keystoneclient.v2_0.client as ksclient
 from novaclient.v2.client import client as novaclient
 from neutronclient.v2_0 import client as networkclient
 import glanceclient.v2.client as glclient
-from ..config import config
+from core.config import config
+import logging
 
 
 def keystone_client():
+    keystone_log = logging.getLogger("keystoneclient.auth.identity.v2")
+    keystone_log.setLevel(logging.WARNING)
     auth_url = '%s:%s/%s' % (
         config.OPENSTACK_AUTH_URL,
         config.OPENSTACK_PORT,
@@ -20,6 +23,8 @@ def keystone_client():
 
 
 def nova_client():
+    keystone_log = logging.getLogger("novaclient")
+    keystone_log.setLevel(logging.WARNING)
     auth_url = '%s:%s/%s' % (
         config.OPENSTACK_AUTH_URL,
         config.OPENSTACK_PORT,
@@ -35,6 +40,8 @@ def nova_client():
 
 
 def glance_client():
+    glance_log = logging.getLogger("glanceclient.common.http")
+    glance_log.setLevel(logging.WARNING)
     keystone = keystone_client()
     glance_endpoint = keystone.service_catalog.url_for(service_type='image')
     return glclient.Client(
@@ -44,6 +51,8 @@ def glance_client():
 
 
 def neutron_client():
+    neutron_log = logging.getLogger("neutronclient.client")
+    neutron_log.setLevel(logging.WARNING)
     keystone = keystone_client()
     network_endpoint = keystone.service_catalog.url_for(service_type='network')
     return networkclient.Client(

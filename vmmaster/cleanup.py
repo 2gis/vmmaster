@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import os
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import create_engine
@@ -11,14 +12,12 @@ from core.config import config, setup_config
 from core.db.models import Session, User
 from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
-from core.logger import setup_logging, log
 
 from shutil import rmtree
 from errno import ENOENT
 
 setup_config('%s/config.py' % home_dir())
-setup_logging(logdir=config.LOG_DIR, logfile_name='vmmaster_cleanup.log')
-
+log = logging.getLogger(__name__)
 
 engine = create_engine(config.DATABASE)
 session_factory = sessionmaker(bind=engine)

@@ -1,13 +1,15 @@
 # coding: utf-8
 
+import logging
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from core.sessions import Session
 from core.db.models import SessionLogStep, User, Platform
 from core.utils import to_thread
-from core.logger import log
 from core.config import config
+
+log = logging.getLogger(__name__)
 
 
 def threaded_transaction(func):
@@ -96,7 +98,7 @@ class Database(object):
             try:
                 self.add(Platform(name, node))
             except Exception as e:
-                log.warning(
+                log.exception(
                     'Error registering platform: %s (%s)' %
                     (name, e.message)
                 )

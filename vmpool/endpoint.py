@@ -1,19 +1,20 @@
 # coding: utf-8
-
+import logging
 from core.utils import generator_wait_for
-from core.logger import log_pool
 from core.config import config
 
 from core.exceptions import PlatformException, CreationException
 
 from flask import current_app
 
+log = logging.getLogger(__name__)
+
 
 def get_platform(desired_caps):
     platform = desired_caps.get('platform', None)
 
     if hasattr(config, "PLATFORM") and config.PLATFORM:
-        log_pool.info(
+        log.info(
             'Using %s. Desired platform %s has been ignored.' %
             (config.PLATFORM, platform)
         )
@@ -63,5 +64,5 @@ def get_vm(desired_caps):
             (vm.name, platform)
         )
 
-    log_pool.info('Got vm for request with params: %s' % vm.info)
+    log.info('Got vm for request with params: %s' % vm.info)
     yield vm
