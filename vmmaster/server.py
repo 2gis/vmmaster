@@ -93,4 +93,3 @@ class VMMasterServer(object):
     def before_shutdown(self):
         self.app.running = False
         yield self.wait_for_end_active_sessions()
-        log.info("All active sessions has been completed")

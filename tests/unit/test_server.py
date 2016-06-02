@@ -201,7 +201,7 @@ class TestServer(BaseTestServer):
             "SessionException: There is no active session %s"
             % session.id, response.content
         )
-        session.delete()
+        session.close()
 
     def test_get_timeouted_session(self):
         """
@@ -220,10 +220,13 @@ class TestServer(BaseTestServer):
         ):
             response = get_session_request(self.address, session.id)
         self.assertIn(
-            "SessionException: There is no active session %s (Session timeout)"
+            "SessionException: There is no active session %s"
             % session.id, response.content
         )
-        session.delete()
+        self.assertIn(
+            "Session timeout. No activity since", response.content
+        )
+        session.close()
 
     @patch(
         'core.sessions.Session.make_request',
@@ -250,7 +253,7 @@ class TestServer(BaseTestServer):
             response = delete_session_request(self.address, session.id)
             session.succeed.assert_called_once_with()
         self.assertEqual(200, response.status)
-        session.delete()
+        session.close()
 
     @patch(
         'core.sessions.Session.make_request',
@@ -282,7 +285,7 @@ class TestServer(BaseTestServer):
             self.assertEqual(200, response.status)
             response2 = delete_session_request(self.address, session.id)
             self.assertEqual(200, response2.status)
-        session.delete()
+        session.close()
 
     @patch('flask.current_app.database.get_session', Mock(return_value=None))
     def test_delete_non_existing_session(self):
@@ -315,12 +318,12 @@ class TestServer(BaseTestServer):
             'core.sessions.Sessions.get_session',
             Mock(return_value=session)
         ), patch.object(
-            Session, 'delete'
+            Session, 'close'
         ) as mock:
             get_session_request(self.address, session.id)
 
         self.assertTrue(mock.called)
-        session.delete()
+        session.close()
 
     @patch(
         'vmmaster.webdriver.commands.AgentCommands',
@@ -347,7 +350,7 @@ class TestServer(BaseTestServer):
 
         self.assertEqual(200, response.status)
         self.assertEqual(output, response.content)
-        session.delete()
+        session.close()
 
     @patch(
         'vmmaster.webdriver.commands.InternalCommands',
@@ -364,7 +367,7 @@ class TestServer(BaseTestServer):
 
         self.assertEqual(200, response.status)
         self.assertEqual(json.dumps({"value": "step-label"}), response.content)
-        session.delete()
+        session.close()
 
     def test_vmmaster_no_such_platform(self):
         desired_caps = {
@@ -410,7 +413,7 @@ class TestSessionWorker(BaseTestCase):
         self.worker.start()
         time.sleep(1)
         session.timeout.assert_any_call()
-        session.delete()
+        session.close()
 
 
 class TestConnectionClose(BaseTestServer):

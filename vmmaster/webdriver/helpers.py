@@ -24,15 +24,17 @@ def is_request_closed():
 
 
 def is_session_timeouted():
-    if hasattr(request, 'session'):
-        return request.session.timeouted
-    return False
+    if hasattr(request, 'session') and request.session.timeouted:
+        return "Session %s timeout (%s)" % \
+               (request.session.id, request.session.reason)
+    return None
 
 
 def is_session_closed():
-    if hasattr(request, 'session'):
-        return request.session.closed
-    return False
+    if hasattr(request, 'session') and request.session.closed:
+        return "Session %s closed (%s)" % \
+               (request.session.id, request.session.reason)
+    return None
 
 
 def connection_watcher(func):
@@ -42,11 +44,13 @@ def connection_watcher(func):
             if is_request_closed():
                 raise ConnectionError("Client has disconnected")
 
-            elif is_session_timeouted():
-                raise TimeoutException("Session timeouted")
+            res = is_session_timeouted()
+            if res:
+                raise TimeoutException(res)
 
-            elif is_session_closed():
-                raise SessionException("Session closed")
+            res = is_session_closed()
+            if res:
+                raise SessionException(res)
 
             time.sleep(0.01)
         return value

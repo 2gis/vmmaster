@@ -27,7 +27,7 @@ class TestHttpProxy(BaseTestCase):
         self.session.endpoint_ip = "localhost"
 
     def tearDown(self):
-        self.session.delete()
+        self.session.close()
         self.ctx.pop()
         self.vmmaster.app.sessions.kill_all()
         self.vmmaster.app.cleanup()
@@ -72,7 +72,7 @@ class TestHttpProxy(BaseTestCase):
                 "http://%s:%s/proxy/session/%s/port/%s/" %
                 (self.host, self.port, self.session.id, self.free_port)
             )
-        self.assertEqual(
+        self.assertIn(
             "There is no active session %s" % self.session.id,
             response.content
         )

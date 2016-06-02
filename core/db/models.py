@@ -101,6 +101,7 @@ class Session(Base, FeaturesMixin):
     # State
     status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
                          name='status', native_enum=False), default='waiting')
+    reason = Column(String)
     error = Column(String)
     timeouted = Column(Boolean, default=False)
     closed = Column(Boolean, default=False)

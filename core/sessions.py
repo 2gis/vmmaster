@@ -110,12 +110,14 @@ class Session(models.Session):
     def stop_timer(self):
         self.is_active = True
 
-    def delete(self, message=""):
+    def close(self, reason=None):
         if self.vnc_helper:
             self.vnc_helper.stop_recording()
             self.vnc_helper.stop_proxy()
 
         self.closed = True
+        if reason:
+            self.reason = reason
         self.deleted = datetime.now()
         self.save()
         current_app.sessions.remove(self)
@@ -124,19 +126,23 @@ class Session(models.Session):
             self.ws.close()
 
         if hasattr(self, "endpoint") and self.endpoint:
-            log.info("Deleting VM for session: %s" % self.id)
+            log.info("Deleting endpoint %s (%s) for session %s" %
+                     (self.endpoint_name, self.endpoint_ip, self.id))
             self.endpoint.delete()
 
-        log.info("Session %s deleted. %s" % (self.id, message))
+        log.info("Session %s closed. %s" % (self.id, self.reason))
 
     def succeed(self):
         self.status = "succeed"
-        self.delete()
+        self.close()
 
-    def failed(self, tb="Session closed by user"):
+    def failed(self, tb=None, reason=None):
+        if self.closed:
+            log.warn("Session % already closed")
+            return
         self.status = "failed"
         self.error = tb
-        self.delete(tb)
+        self.close(reason)
 
     def set_vm(self, endpoint):
         self.endpoint_ip = endpoint.ip
@@ -152,11 +158,13 @@ class Session(models.Session):
         if self.take_screencast:
             self.vnc_helper.start_recording()
 
-        log.info("Session %s starting on %s." % (self.id, self.endpoint_name))
+        log.info("Session %s starting on %s (%s)." %
+                 (self.id, self.endpoint_name, self.endpoint_ip))
 
     def timeout(self):
         self.timeouted = True
-        self.failed("Session timeout")
+        self.failed(reason="Session timeout. No activity since %s" %
+                    str(self.modified))
 
     def add_sub_step(self, control_line, body=None):
         if self.current_log_step:
@@ -251,7 +259,7 @@ class Sessions(object):
 
     def kill_all(self):
         for session in self.active_sessions.values():
-            session.delete()
+            session.close()
 
     def get_session(self, session_id):
         try:
@@ -259,7 +267,7 @@ class Sessions(object):
         except KeyError:
             session = current_app.database.get_session(session_id)
             if session:
-                reason = session.error
+                reason = session.reason
             else:
                 reason = "Unknown session"
 
