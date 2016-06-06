@@ -138,8 +138,9 @@ class Session(models.Session):
 
     def failed(self, tb=None, reason=None):
         if self.closed:
-            log.warn("Session % already closed")
-            return
+            log.warn("Session %s already closed with reason %s. "
+                     "In this method call was tb='%s' and reason='%s'"
+                     % (self.id, self.reason, tb, reason))
         self.status = "failed"
         self.error = tb
         self.close(reason)
