@@ -111,15 +111,16 @@ class Session(models.Session):
         self.is_active = True
 
     def close(self, reason=None):
-        if self.vnc_helper:
-            self.vnc_helper.stop_recording()
-            self.vnc_helper.stop_proxy()
-
         self.closed = True
         if reason:
             self.reason = reason
         self.deleted = datetime.now()
         self.save()
+
+        if self.vnc_helper:
+            self.vnc_helper.stop_recording()
+            self.vnc_helper.stop_proxy()
+
         current_app.sessions.remove(self)
 
         if hasattr(self, "ws"):
@@ -171,8 +172,10 @@ class Session(models.Session):
         if self.current_log_step:
             return self.current_log_step.add_sub_step(control_line, body)
 
-    def add_session_step(self, control_line, body=None):
-        step = super(Session, self).add_session_step(control_line, body)
+    def add_session_step(self, control_line, body=None, created=None):
+        step = super(Session, self).add_session_step(
+            control_line=control_line, body=body, created=created
+        )
         self.current_log_step = step
 
         return step

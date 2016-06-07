@@ -185,14 +185,6 @@ def get_session():
     request.session = session
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
-    control_line = "%s %s %s" % (
-        request.method, request.path,
-        request.headers.environ['SERVER_PROTOCOL']
-    )
-    session.add_session_step(
-        control_line=control_line,
-        body=str(request.data)
-    )
     yield session
 
     for vm in endpoint.get_vm(dc):
