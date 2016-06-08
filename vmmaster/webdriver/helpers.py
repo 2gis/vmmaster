@@ -43,16 +43,15 @@ def connection_watcher(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         for value in func(*args, **kwargs):
+            session_timeouted = is_session_timeouted()
+            session_closed = is_session_closed()
+
             if is_request_closed():
                 raise ConnectionError("Client has disconnected")
-
-            res = is_session_timeouted()
-            if res:
-                raise TimeoutException(res)
-
-            res = is_session_closed()
-            if res:
-                raise SessionException(res)
+            elif session_timeouted:
+                raise TimeoutException(session_timeouted)
+            elif session_closed:
+                raise SessionException(session_closed)
 
             time.sleep(0.01)
         return value

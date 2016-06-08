@@ -98,7 +98,7 @@ def ping_vm(session):
     _ping = partial(network_utils.ping, ip)
 
     def check():
-        all(map(_ping, ports))
+        return all(map(_ping, ports))
     for _ in generator_wait_for(check, config.PING_TIMEOUT):
         yield False
 
