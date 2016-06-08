@@ -115,7 +115,7 @@ class Session(models.Session):
     def close(self, reason=None):
         self.closed = True
         if reason:
-            self.reason = reason
+            self.reason = "%s" % reason
         self.deleted = datetime.now()
         self.save()
 
