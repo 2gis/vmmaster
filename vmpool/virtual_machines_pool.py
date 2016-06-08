@@ -1,14 +1,16 @@
 # coding: utf-8
 
 import time
+import logging
 from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
-from core.logger import log_pool
 from core.network import Network
 
 from vmpool.platforms import Platforms, UnlimitedCount
+
+log = logging.getLogger(__name__)
 
 
 class VirtualMachinesPool(object):
@@ -32,12 +34,12 @@ class VirtualMachinesPool(object):
             try:
                 cls.using.remove(vm)
             except ValueError:
-                log_pool.warning("VM %s not found in using" % vm.name)
+                log.warning("VM %s not found in using" % vm.name)
         if vm in list(cls.pool):
             try:
                 cls.pool.remove(vm)
             except ValueError:
-                log_pool.warning("VM %s not found in pool" % vm.name)
+                log.warning("VM %s not found in pool" % vm.name)
 
     @classmethod
     def add_vm(cls, vm, to=None):
@@ -47,11 +49,11 @@ class VirtualMachinesPool(object):
 
     @classmethod
     def free(cls):
-        log_pool.info("Deleting using machines...")
+        log.info("Deleting using machines...")
         for vm in list(cls.using):
             cls.using.remove(vm)
             vm.delete(try_to_rebuild=False)
-        log_pool.info("Deleting pool...")
+        log.info("Deleting pool...")
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete(try_to_rebuild=False)
@@ -69,7 +71,7 @@ class VirtualMachinesPool(object):
             return True
 
         if cls.count() >= platform_limit:
-            log_pool.warning(
+            log.warning(
                 'Can\'t produce new virtual machine with platform %s: '
                 'not enough Instances resources' % platform
             )
@@ -94,7 +96,7 @@ class VirtualMachinesPool(object):
 
             for vm in sorted(cls.pool, key=lambda v: v.created, reverse=True):
                 if vm.platform == platform and vm.ready and not vm.checking:
-                    log_pool.info(
+                    log.info(
                         "Got VM %s (ip=%s, ready=%s, checking=%s)" %
                         (vm.name, vm.ip, vm.ready, vm.checking)
                     )
@@ -117,7 +119,7 @@ class VirtualMachinesPool(object):
     def get_by_name(cls, _name=None):
         # TODO: remove get_by_name
         if _name:
-            log_pool.debug('Getting VM: %s' % _name)
+            log.debug('Getting VM: %s' % _name)
             for vm in cls.pool + cls.using:
                 if vm.name == _name:
                     return vm
@@ -141,7 +143,7 @@ class VirtualMachinesPool(object):
     @classmethod
     def add(cls, platform, prefix="ondemand", to=None):
         if prefix == "preloaded":
-            log_pool.info("Preloading %s." % platform)
+            log.info("Preloading %s." % platform)
 
         if to is None:
             to = cls.using
@@ -154,7 +156,7 @@ class VirtualMachinesPool(object):
             try:
                 clone = origin.make_clone(origin, prefix, cls)
             except Exception as e:
-                log_pool.info(
+                log.exception(
                     'Exception during initializing vm object: %s' % e.message
                 )
                 return None
@@ -164,12 +166,12 @@ class VirtualMachinesPool(object):
         try:
             clone.create()
         except Exception as e:
-            log_pool.error("Error creating vm: %s" % e.message)
+            log.exception("Error creating vm: %s" % e.message)
             clone.delete()
             try:
                 to.remove(clone)
             except ValueError:
-                log_pool.warning("VM %s not found while removing" % clone.name)
+                log.warning("VM %s not found while removing" % clone.name)
             return None
 
         return clone
@@ -229,7 +231,7 @@ class VirtualMachinesPoolPreloader(Thread):
                 if platform is not None:
                     self.pool.preload(platform, "preloaded")
             except Exception as e:
-                log_pool.exception('Exception in preloader: %s', e.message)
+                log.exception('Exception in preloader: %s', e.message)
 
             time.sleep(config.PRELOADER_FREQUENCY)
 
@@ -255,4 +257,4 @@ class VirtualMachinesPoolPreloader(Thread):
     def stop(self):
         self.running = False
         self.join(1)
-        log_pool.info("Preloader stopped")
+        log.info("Preloader stopped")

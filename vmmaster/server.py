@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import time
+import logging
 from Queue import Queue, Empty
 
 from twisted.web.wsgi import WSGIResource
@@ -13,8 +14,9 @@ from twisted.internet.threads import deferToThread
 
 from app import create_app
 from http_proxy import ProxyResource, HTTPChannelWithClient
-from core.logger import log
 from core.config import config
+
+log = logging.getLogger(__name__)
 
 
 def _block_on(d, timeout=None):

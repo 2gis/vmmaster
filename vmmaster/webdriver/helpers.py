@@ -4,6 +4,7 @@ import base64
 import commands
 import json
 import time
+import logging
 
 from functools import wraps
 from flask import Response, request
@@ -11,12 +12,13 @@ from flask import Response, request
 from core.exceptions import CreationException, ConnectionError, \
     TimeoutException, SessionException
 from core.config import config
-from core.logger import log
 
 from core import utils
 from core.sessions import Session, RequestHelper
 from vmpool import endpoint
 from PIL import Image
+
+log = logging.getLogger(__name__)
 
 
 def is_request_closed():

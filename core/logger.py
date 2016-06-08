@@ -1,20 +1,19 @@
 import os
 import sys
 import json
-import graypy
 import socket
-import logging
 import traceback
+import logging
+import logging.config
 import logging.handlers
-
-from config import config
 from datetime import datetime
-from core.utils.network_utils import ping
+log = logging.getLogger(__name__)
 
 
 class LogstashFormatter(logging.Formatter):
 
-    def __init__(self, message_type=None, tags=None, fqdn=False):
+    def __init__(self, fmt=None, datefmt=None, message_type=None, tags=None, fqdn=False):
+        super(LogstashFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
         self.message_type = message_type if message_type else "vmmaster"
         self.tags = tags if tags is not None else []
 
@@ -113,86 +112,68 @@ class StreamToLogger(object):
     Fake file-like stream object that redirects writes to a logger instance.
     """
 
-    def __init__(self, logger, log_level=logging.INFO):
+    def __init__(self, logger, log_level=logging.ERROR):
         self.logger = logger
         self.log_level = log_level
-        self.linebuf = ''
+        self.message = ''
+
+    def __del__(self):
+        if self.message:
+            self.logger.error(self.message)
+
+    def flush(self):
+        self.message = ''
 
     def write(self, buf):
         for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
+            self.message += "\n%s" % line
 
 
-def add_screen_handler(log, log_formatter):
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(log_formatter)
-    log.addHandler(console_handler)
+def set_loggers(log_type, log_level):
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "standard": {
+                'format': '%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s',
+                'datefmt': '%Y-%m-%d %H:%M:%S'
+            }
+        },
+        "handlers": {
+            "default": {
+                "level": log_level,
+                "class": "logging.StreamHandler",
+                "formatter": "standard"
+            }
+        },
+        "loggers": {
+            "": {
+                "handlers": ["default"],
+                "level": log_level,
+                'propagate': True
+            }
+        }
+    }
+    if log_type == "logstash":
+        logging_config["formatters"]["standard"] = {
+            "()": "core.logger.LogstashFormatter"
+        }
+
+    return logging_config
 
 
-def add_text_handler(log, log_formatter, logdir, logfile_name):
-    txt_handler = logging.handlers.RotatingFileHandler(
-        os.path.join(logdir, logfile_name),
-        maxBytes=config.LOG_SIZE,
-        backupCount=5
-    )
-    txt_handler.setFormatter(log_formatter)
-    log.addHandler(txt_handler)
-    log.info("Logger initialised.")
+def setup_logging(log_type=None, log_level=None):
+    log_level = log_level if log_level else logging.getLevelName(logging.INFO)
 
-
-def add_graylog_handler(log, log_formatter):
-    host, port = config.GRAYLOG
-
-    if ping(host, port):
-        graylog_handler = graypy.GELFHandler(host=host, port=port)
-        graylog_handler.setFormatter(log_formatter)
-        log.addHandler(graylog_handler)
-        log.info("GRAYLOG Handler initialised.")
-    else:
-        log.warn('GRAYLOG URL not available')
-
-
-def setup_logging(logname='', logdir=None, logfile_name='vmmaster.log',
-                  scrnlog=True, txtlog=True, loglevel=None,
-                  message_type="vmmaster", tags=None, fqdn=False):
-    if not loglevel:
-        loglevel = logging.getLevelName(config.LOG_LEVEL.upper())
-
-    logdir = os.path.abspath(logdir)
-
-    if not os.path.exists(logdir):
-        os.mkdir(logdir)
-
-    log = logging.getLogger(logname)
-    log.setLevel(loglevel)
-
-    if hasattr(config, "LOG_FORMAT") and config.LOG_FORMAT == 'json':
-        log_formatter = LogstashFormatter(
-            message_type=message_type, tags=tags, fqdn=fqdn
+    if os.path.exists("logging.ini"):
+        logging.config.fileConfig(
+            "logging.ini", disable_existing_loggers=False
         )
-    else:
-        log_format = \
-            "%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s" \
-            if scrnlog else "%(asctime)s - %(levelname)-7s :: %(message)s"
-        log_formatter = logging.Formatter(log_format)
+        log.warning("logger from logging.ini initialised.")
+    elif log_type:
+        config = set_loggers(log_type, log_level)
+        logging.config.dictConfig(config)
+        log.warning("%s logger initialised." % log_type)
 
-    if scrnlog:
-        add_screen_handler(log, log_formatter)
-
-    if txtlog:
-        add_text_handler(log, log_formatter, logdir, logfile_name)
-
-    if hasattr(config, 'GRAYLOG'):
-        add_graylog_handler(log, log_formatter)
-
-    stdout_logger = logging.getLogger('STDOUT')
-    sys.stdout = StreamToLogger(stdout_logger, loglevel)
-
-    stderr_logger = logging.getLogger('STDERR')
-    sys.stderr = StreamToLogger(stderr_logger, logging.ERROR)
-
-    return log
-
-
-log = logging.getLogger('LOG')
-log_pool = logging.getLogger('POOL')
+    sys.stderr = StreamToLogger(logging.getLogger('STDERR'))
+    sys.stdout = StreamToLogger(logging.getLogger('STDOUT'))

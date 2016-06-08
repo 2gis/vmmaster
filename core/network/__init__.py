@@ -1,12 +1,14 @@
 # coding: utf-8
 
+import logging
 import libvirt
 from uuid import uuid4
 
 from core.network.network_xml import NetworkXml
 from core.network.mac_ip_table import MacIpTable
 from core.connection import Virsh
-from core.logger import log
+
+log = logging.getLogger(__name__)
 
 
 class Network(MacIpTable):

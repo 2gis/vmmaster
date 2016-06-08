@@ -46,7 +46,6 @@ class Config(object):
 
         create_if_not_exist(self.ORIGINS_DIR)
         create_if_not_exist(self.CLONES_DIR)
-        create_if_not_exist(self.LOG_DIR)
         create_if_not_exist(self.SCREENSHOTS_DIR)
 
 
