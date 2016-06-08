@@ -122,7 +122,7 @@ class StreamToLogger(object):
             self.logger.error(self.message)
 
     def flush(self):
-        self.message = ''
+        pass
 
     def write(self, buf):
         for line in buf.rstrip().splitlines():
