@@ -36,11 +36,12 @@ def transaction(func):
     return wrapper
 
 
-def delete_files(session=None):
-    if session:
-        session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session.id))
+def delete_files(session_id=None):
+    if session_id:
+        session_dir = os.path.join(config.SCREENSHOTS_DIR, str(session_id))
         try:
             rmtree(session_dir)
+            log.debug("Successful deleted dir %s" % session_dir)
         except OSError as os_error:
             # Ignore 'No such file or directory' error
             if os_error.errno != ENOENT:
@@ -49,12 +50,14 @@ def delete_files(session=None):
 
 
 @transaction
-def delete(session, dbsession=None):
-    dbsession.delete(session)
+def delete(session_id, dbsession=None):
+    obj_to_delete = dbsession.query(Session).get(session_id)
+    dbsession.delete(obj_to_delete)
     dbsession.commit()
+    log.debug("Successful deleted session %s from db" % obj_to_delete.id)
 
 
-def delete_session_data(sessions=None, ):
+def delete_session_data(sessions=None):
     sessions_count = len(sessions)
 
     log.info("Got %s sessions. " % str(sessions_count))
@@ -63,7 +66,7 @@ def delete_session_data(sessions=None, ):
         time_step = timedelta(days=0, seconds=10)
 
         log.info("Done: %s%% (0 / %d)" % ('0.0'.rjust(5), sessions_count))
-        for num, session in enumerate(sessions):
+        for num, session_id in enumerate(sessions):
             delta = datetime.now() - checkpoint
             if delta > time_step or num == sessions_count - 1:
                 percentage = str(
@@ -71,8 +74,8 @@ def delete_session_data(sessions=None, ):
                 log.info("Done: %s%% (%d / %d)" %
                          (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
-            delete_files(session)
-            delete(session)
+            delete_files(session_id)
+            delete(session_id)
         log.info(
             "%s sessions have been deleted.\n" % (str(sessions_count)))
     else:
@@ -96,8 +99,10 @@ def sessions_overflow(user, dbsession=None):
             res = dbsession.query(Session).\
                 filter_by(user_id=user.id).order_by(Session.id).\
                 limit(overflow).all()
+            res = [session.id for session in res]
         except ArgumentError:
-            pass
+            log.exception("Error during getting sessions ids from db")
+
     return res
 
 
