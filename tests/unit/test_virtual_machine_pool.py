@@ -19,19 +19,24 @@ class TestVirtualMachinePool(BaseTestCase):
         setup_config('data/config.py')
         self.platform = "test_origin_1"
 
+        self.app = Flask(__name__)
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+
         with patch(
             'core.connection.Virsh', Mock()
         ), patch(
             'core.network.Network', Mock()
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
-            self.pool = VirtualMachinesPool()
+            self.pool = VirtualMachinesPool(self.app)
 
     def tearDown(self):
         with patch(
             'core.utils.delete_file', Mock()
         ):
             self.pool.free()
+            self.ctx.pop()
 
     def test_pool_count(self):
         self.assertEqual(0, self.pool.count())
@@ -98,16 +103,9 @@ class TestVirtualMachinePool(BaseTestCase):
         }
 
         config.PLATFORM = "test_origin_2"
-
-        self.app = Flask(__name__)
         self.app.pool = self.pool
-
-        self.ctx = self.app.app_context()
-        self.ctx.push()
 
         from vmpool.endpoint import get_vm
         for vm in get_vm(desired_caps):
             self.assertEqual(vm.platform, config.PLATFORM)
             break
-
-        self.ctx.pop()

@@ -99,6 +99,7 @@ class Session(Base, FeaturesMixin):
     created = Column(DateTime, default=datetime.now)
     modified = Column(DateTime, default=datetime.now)
     deleted = Column(DateTime)
+    selenium_log = Column(String)
 
     # State
     status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',

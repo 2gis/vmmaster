@@ -63,6 +63,7 @@ class SimpleResponse:
 
 
 class Session(models.Session):
+    endpoint = None
     current_log_step = None
     vnc_helper = None
     take_screencast = None
@@ -112,6 +113,12 @@ class Session(models.Session):
     def stop_timer(self):
         self.is_active = True
 
+    def save_artifacts(self):
+        artifacts = {
+            "selenium_server": "/var/log/selenium_server.log"
+        }
+        return self.endpoint.save_artifacts(self, artifacts)
+
     def close(self, reason=None):
         self.closed = True
         if reason:
@@ -128,7 +135,7 @@ class Session(models.Session):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if hasattr(self, "endpoint") and self.endpoint:
+        if getattr(self, "endpoint") and not self.save_artifacts():
             log.info("Deleting endpoint %s (%s) for session %s" %
                      (self.endpoint_name, self.endpoint_ip, self.id))
             self.endpoint.delete()
@@ -156,6 +163,7 @@ class Session(models.Session):
 
     def run(self, endpoint):
         self.modified = datetime.now()
+        self.endpoint = endpoint
         self.set_vm(endpoint)
         self.status = "running"
         self.vnc_helper = VNCVideoHelper(self.endpoint_ip,

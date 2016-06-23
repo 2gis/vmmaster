@@ -9,3 +9,7 @@ def get_platforms():
 
 def get_pool():
     return current_app.pool.info
+
+
+def get_artifact_collector_queue():
+    return current_app.pool.artifact_collector.get_queue()

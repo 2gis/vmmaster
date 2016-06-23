@@ -39,6 +39,15 @@ def status():
     })
 
 
+@api.route('/artifacts')
+def artifacts():
+    queue = vmpool_helpers.get_artifact_collector_queue()
+    return render_json({
+        "amount": len(queue),
+        "queue": queue
+    })
+
+
 @api.route('/platforms')
 def platforms():
     return render_json(result={'platforms': vmpool_helpers.get_platforms()})

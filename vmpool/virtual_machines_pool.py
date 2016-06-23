@@ -9,6 +9,7 @@ from core.config import config
 from core.network import Network
 
 from vmpool.platforms import Platforms, UnlimitedCount
+from vmpool.artifact_collector import ArtifactCollector
 
 log = logging.getLogger(__name__)
 
@@ -19,14 +20,30 @@ class VirtualMachinesPool(object):
     network = Network()
     lock = Lock()
     platforms = Platforms
+    preloader = None
+    artifact_collector = None
 
     def __str__(self):
         return str(self.pool)
 
-    def __init__(self):
+    def __init__(self, app):
+        self.app = app
         self.platforms()
-        self.preloader = VirtualMachinesPoolPreloader(self)
-        self.preloader.start()
+        self.start_workers(app)
+
+    @classmethod
+    def start_workers(cls, app):
+        cls.app = app
+        cls.artifact_collector = ArtifactCollector(cls)
+        cls.preloader = VirtualMachinesPoolPreloader(cls)
+        cls.preloader.start()
+
+    @classmethod
+    def stop_workers(cls):
+        if cls.preloader:
+            cls.preloader.stop()
+        if cls.artifact_collector:
+            cls.artifact_collector.close()
 
     @classmethod
     def remove_vm(cls, vm):
@@ -187,6 +204,10 @@ class VirtualMachinesPool(object):
 
         if vm:
             return vm
+
+    @classmethod
+    def save_artifact(cls, session_id, artifacts):
+        return cls.artifact_collector.add_tasks(session_id, artifacts)
 
     @classmethod
     def preload(cls, origin_name, prefix=None):
