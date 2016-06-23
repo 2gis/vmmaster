@@ -58,6 +58,9 @@ class Clone(VirtualMachine):
     def rebuild(self):
         raise NotImplementedError
 
+    def save_artifacts(self, session, artifacts):
+        return self.pool.save_artifact(session.id, artifacts)
+
     def ping_vm(self):
         ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
         result = [False, False]

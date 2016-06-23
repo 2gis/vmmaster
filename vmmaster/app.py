@@ -25,7 +25,7 @@ class Vmmaster(Flask):
         self.running = True
         self.uuid = str(uuid1())
         self.database = Database()
-        self.pool = VirtualMachinesPool()
+        self.pool = VirtualMachinesPool(self)
         self.sessions = Sessions(self)
         self.json_encoder = JSONEncoder
         self.register()
@@ -38,7 +38,7 @@ class Vmmaster(Flask):
 
     def cleanup(self):
         log.info("Shutting down...")
-        self.pool.preloader.stop()
+        self.pool.stop_workers()
         self.sessions.worker.stop()
         self.pool.free()
         self.unregister()
