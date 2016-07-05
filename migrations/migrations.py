@@ -15,7 +15,7 @@ script = ScriptDirectory.from_config(alembic_cfg)
 
 
 def run(connection_string):
-    revision = "32c160e101ea"  # Added platforms table
+    revision = "4f80a6b3ffc2"  # Added selenium log field
 
     alembic_cfg.set_main_option("sqlalchemy.url", connection_string)
     try:

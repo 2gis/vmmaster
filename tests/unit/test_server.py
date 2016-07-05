@@ -39,6 +39,8 @@ class BaseTestServer(BaseTestCase):
             'core.db.Database', DatabaseMock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
+        ), patch(
+            'core.sessions.Session.save_artifacts', Mock()
         ):
             from vmmaster.server import VMMasterServer
             self.vmmaster = VMMasterServer(reactor, self.address[1])
@@ -523,6 +525,7 @@ class TestConnectionClose(BaseTestServer):
 
         vm_mock = Mock()
         vm_mock.delete = Mock()
+        vm_mock.save_artifacts = Mock(return_value=False)
 
         def just_sleep(*args, **kwargs):
             time.sleep(2)
@@ -770,6 +773,8 @@ class TestSessionSteps(BaseTestServer):
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=raise_exception)
         ), patch(
+            'core.sessions.Session.save_artifacts', Mock(return_value=False),
+        ), patch(
             'core.sessions.Session.add_session_step', Mock()
         ) as add_step_mock:
             response = new_session_request(self.address, self.desired_caps)
@@ -777,7 +782,7 @@ class TestSessionSteps(BaseTestServer):
         self.assertEqual(500, response.status)
         self.assertIn('something ugly happened in get_vm', response.content)
 
-        self.assertEqual(add_step_mock.call_count, 2)
+        self.assertEqual(add_step_mock.call_count, 1)
 
     @patch(
         'vmmaster.webdriver.commands.ping_vm',

@@ -64,7 +64,7 @@ class TestOpenstackClone(BaseTestCase):
             self.app = Flask(__name__)
 
             from vmpool.virtual_machines_pool import VirtualMachinesPool
-            self.app.pool = VirtualMachinesPool()
+            self.app.pool = VirtualMachinesPool(self.app)
 
             from vmpool.platforms import Platforms
             self.app.platforms = Platforms()
@@ -546,7 +546,7 @@ class TestNetworkGetting(BaseTestCase):
             self.app = Flask(__name__)
 
             from vmpool.virtual_machines_pool import VirtualMachinesPool
-            self.app.pool = VirtualMachinesPool()
+            self.app.pool = VirtualMachinesPool(self.app)
 
             self.ctx = self.app.test_request_context()
             self.ctx.push()
