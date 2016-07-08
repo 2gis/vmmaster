@@ -16,6 +16,8 @@ class LogstashFormatter(logging.Formatter):
         super(LogstashFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
         self.message_type = message_type if message_type else "vmmaster"
         self.tags = tags if tags is not None else []
+        self.team = "vmmaster"
+        self.project = "vmmaster"
 
         if fqdn:
             self.host = socket.getfqdn()
@@ -92,6 +94,8 @@ class LogstashFormatter(logging.Formatter):
             'path': record.pathname,
             'tags': self.tags,
             'type': self.message_type,
+            'team': self.team,
+            'project': self.project,
 
             # Extra Fields
             'level': record.levelname,
