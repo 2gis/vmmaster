@@ -54,6 +54,9 @@ class Config(object):
 
     # vm pool
     GET_VM_TIMEOUT = 1
+    GET_ENDPOINT_ATTEMPTS = 1
+    GET_ENDPOINT_WAIT_TIME_INCREMENT = 0.01
+
     # GRAPHITE = ('graphite', 2003)
 
     SELENIUM_PORT = 4455

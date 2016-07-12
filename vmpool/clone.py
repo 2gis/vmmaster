@@ -316,7 +316,7 @@ class OpenstackClone(Clone):
 
                 ping_retry += 1
             else:
-                log.info("VM %s has not been created." % self.name)
+                log.error("VM %s has not been created." % self.name)
                 self.rebuild()
                 break
 
@@ -360,10 +360,10 @@ class OpenstackClone(Clone):
                     "Current network id for creating vm: %s" % net_id)
                 return net_id
             except KeyError:
-                log.info("Error: Network id not found in your project.")
+                log.warn("Error: Network id not found in your project.")
                 return None
         else:
-            log.info("Error: Your server does not have ip address.")
+            log.warn("Error: Your server does not have ip address.")
             return None
             # fixme
             # create new network
@@ -408,7 +408,7 @@ class OpenstackClone(Clone):
             log.info("Deleted openstack clone: {clone}".format(
                 clone=self.name))
         else:
-            log.info("VM {clone} can not be removed because "
+            log.warn("VM {clone} can not be removed because "
                           "it does not exist".format(clone=self.name))
         VirtualMachine.delete(self)
 
