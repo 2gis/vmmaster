@@ -25,7 +25,7 @@ def get_platform(desired_caps):
         platform = platform.encode('utf-8')
 
     if not platform:
-        raise CreationException(
+        raise PlatformException(
             'Platform parameter for new endpoint not found in dc'
         )
 
@@ -59,6 +59,7 @@ def get_vm(desired_caps):
         yield vm
 
     if not vm.ready:
+        vm.delete()
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %
             (vm.name, platform)

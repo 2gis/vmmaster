@@ -13,6 +13,7 @@ from core.exceptions import CreationException, ConnectionError, \
     TimeoutException, SessionException
 from core.config import config
 
+from core import constants
 from core import utils
 from core.sessions import Session, RequestHelper
 from vmpool import endpoint
@@ -178,6 +179,39 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             time.sleep(timeout)
 
 
+def get_endpoint(session_id, dc):
+    _endpoint = None
+    attempt = 0
+    attempts = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
+                       constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
+    wait_time = 0
+    wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
+                                  constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
+
+    while not _endpoint:
+        attempt += 1
+        wait_time += wait_time_increment
+        try:
+            log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
+            for vm in endpoint.get_vm(dc):
+                _endpoint = vm
+                yield _endpoint
+            log.info("Attempt %s to get endpoint %s for session %s was succeed"
+                     % (attempt, _endpoint, session_id))
+        except CreationException as e:
+            log.exception("Attempt %s to get endpoint for session %s was failed: %s"
+                          % (attempt, session_id, str(e)))
+            if hasattr(_endpoint, "ready"):
+                if not _endpoint.ready:
+                    _endpoint = None
+            if attempt < attempts:
+                time.sleep(wait_time)
+            else:
+                raise e
+
+    yield _endpoint
+
+
 @connection_watcher
 def get_session():
     dc = commands.get_desired_capabilities(request)
@@ -188,8 +222,8 @@ def get_session():
              (str(session.id), session.name, str(dc)))
     yield session
 
-    for vm in endpoint.get_vm(dc):
-        session.endpoint = vm
+    for _endpoint in get_endpoint(session.id, dc):
+        session.endpoint = _endpoint
         yield session
 
     session.run(session.endpoint)
