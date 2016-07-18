@@ -5,8 +5,11 @@ python:
 install:
   - ./install-dependencies.sh
   - pip install tox==1.8.1 codecov==1.6.3
+  - tox -e basetest
+before_script:
+  - ./git-hooks/run-10-flake8.sh
 script:
-  tox -e unit-with-coverage
+  - tox -e unit-with-coverage
 after_success:
   - coverage xml
   - codecov
