@@ -59,7 +59,7 @@ def get_vm(desired_caps):
         yield vm
 
     if not vm.ready:
-        vm.delete()
+        vm.delete(try_to_rebuild=False)
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %
             (vm.name, platform)
