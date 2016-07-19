@@ -7,7 +7,7 @@ echo -en "\033[0m"
 
 FILES=$(git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$')
 if [[ -n $FILES ]]; then
-    .tox/bin/flake8 $FILES
+    .tox/bin/flake8 --max-line-length=120 $FILES
     RESULT=$?
 else
     echo "no files to check"
@@ -17,7 +17,7 @@ fi
 if [ $RESULT -ne 0 ]
 then
     echo -en "\033[41m"
-    echo -en "Воу воу воу! Перед коммитом поправь стиль!"
+    echo -en "Воу воу воу! Поправь стиль!"
     echo -e "\033[0m"
     exit $RESULT
 else
