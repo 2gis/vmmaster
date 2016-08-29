@@ -2,6 +2,7 @@ logs/
 .idea
 *.pyc
 .env
+.env3
 .tox
 .coverage
 config.py

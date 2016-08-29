@@ -1,0 +1,36 @@
+# except (concurrent.futures.CancelledError,
+#                 aiohttp.ClientDisconnectedError):
+
+import asyncio
+import logging
+from core.exceptions import PlatformException, SessionException
+from backend.webdriver import commands, helpers
+from backend.webdriver.helpers import selenium_error_response
+
+
+log = logging.getLogger(__name__)
+
+
+@asyncio.coroutine
+def request_check(app, handler):
+    @asyncio.coroutine
+    async def middleware(request):
+        try:
+            if request.method == "POST" and request.path == "/wd/hub/session":
+                platform = await commands.get_platform(request)
+                log.debug("Platform %s check..." % platform)
+                commands.check_platform(platform)
+            else:
+                log.debug("Find session by id...")
+                await helpers.get_vmmaster_session(request)
+            ret = await handler(request)
+        except PlatformException as exc:
+            log.exception('%s' % exc, exc_info=False)
+            return selenium_error_response("Platform %s not found in available platforms" % platform)
+        except SessionException as exc:
+            log.exception('%s' % exc, exc_info=False)
+            session_id = commands.get_session_id(request.path)
+            return selenium_error_response("Session %s not found in available active sessions" % session_id)
+        else:
+            return ret
+    return middleware

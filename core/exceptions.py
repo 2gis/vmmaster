@@ -1,8 +1,4 @@
 # coding: utf-8
-
-from libvirt import libvirtError  # NOQA
-
-
 class PlatformException(Exception):
     pass
 

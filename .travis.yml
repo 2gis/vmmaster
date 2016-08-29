@@ -3,13 +3,11 @@ language: python
 python:
   - 2.7
 install:
-  - ./install-dependencies.sh
-  - pip install tox==1.8.1 codecov==1.6.3
-  - tox -e basetest
+  - pip install codecov==1.6.3
 before_script:
   - ./git-hooks/run-10-flake8.sh
 script:
-  - tox -e unit-with-coverage
+  - make test
 after_success:
   - coverage xml
   - codecov

@@ -1,5 +1,0 @@
-recursive-include vmmaster/home *
-recursive-include vmmaster/alembic *
-include vmmaster/alembic.ini
-include versioneer.py
-include vmmaster/_version.py

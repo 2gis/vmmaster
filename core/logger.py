@@ -1,6 +1,5 @@
 import os
-import sys
-import json
+import ujson
 import socket
 import traceback
 import logging
@@ -33,11 +32,7 @@ class LogstashFormatter(logging.Formatter):
             'msecs', 'msecs', 'message', 'msg', 'name', 'pathname', 'process',
             'processName', 'relativeCreated', 'thread', 'threadName', 'extra')
 
-        if sys.version_info < (3, 0):
-            easy_types = (basestring, bool, dict, float, int, long, list, type(None))
-        else:
-            easy_types = (str, bool, dict, float, int, list, type(None))
-
+        easy_types = (str, bool, dict, float, int, list, type(None))
         fields = {}
 
         for key, value in record.__dict__.items():
@@ -80,10 +75,7 @@ class LogstashFormatter(logging.Formatter):
 
     @classmethod
     def serialize(cls, message):
-        if sys.version_info < (3, 0):
-            return json.dumps(message)
-        else:
-            return bytes(json.dumps(message), 'utf-8')
+        return bytes(ujson.dumps(message), 'utf-8')
 
     def format(self, record):
         message = {
@@ -168,16 +160,10 @@ def set_loggers(log_type, log_level):
 
 def setup_logging(log_type=None, log_level=None):
     log_level = log_level if log_level else logging.getLevelName(logging.INFO)
+    config = set_loggers(log_type, log_level)
+    log.warning("%s logger initialised." % log_type)
+    return config
 
-    if os.path.exists("logging.ini"):
-        logging.config.fileConfig(
-            "logging.ini", disable_existing_loggers=False
-        )
-        log.warning("logger from logging.ini initialised.")
-    elif log_type:
-        config = set_loggers(log_type, log_level)
-        logging.config.dictConfig(config)
-        log.warning("%s logger initialised." % log_type)
 
 #    @TODO fix me. log does stop writing after uncommenting this. 
 #    sys.stderr = StreamToLogger(logging.getLogger('STDERR'))
