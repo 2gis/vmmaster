@@ -11,18 +11,37 @@ from backend.webdriver.helpers import selenium_error_response
 log = logging.getLogger(__name__)
 
 
+def is_selenium_request(request):
+    return True if "/wd/hub" in request.path else False
+
+
+def is_api_request(request):
+    return True if "/api" in request.path else False
+
+
+async def selenium_request_check(request):
+    if request.method == "POST" and request.path == "/wd/hub/session":
+        platform = await commands.get_platform(request)
+        log.debug("Platform %s check..." % platform)
+        commands.check_platform(platform)
+    else:
+        log.debug("Find session by id...")
+        await helpers.get_vmmaster_session(request)
+
+
+async def request_preprocess(request):
+    if is_selenium_request(request):
+        await selenium_request_check(request)
+    elif is_api_request(request):
+        pass
+
+
 @asyncio.coroutine
 def request_check(app, handler):
     @asyncio.coroutine
     async def middleware(request):
         try:
-            if request.method == "POST" and request.path == "/wd/hub/session":
-                platform = await commands.get_platform(request)
-                log.debug("Platform %s check..." % platform)
-                commands.check_platform(platform)
-            else:
-                log.debug("Find session by id...")
-                await helpers.get_vmmaster_session(request)
+            await request_preprocess(request)
             ret = await handler(request)
         except PlatformException as exc:
             log.exception('%s' % exc, exc_info=False)

@@ -2,6 +2,7 @@ import aioamqp
 import uuid
 import asyncio
 import logging
+from core import utils
 
 
 log = logging.getLogger(__name__)
@@ -76,8 +77,7 @@ class AsyncQueueProducer(object):
 
     def __init__(self, app):
         self.app = app
-        loop = app.loop
-        asyncio.gather(asyncio.ensure_future(self.connect(), loop=loop), loop=loop)
+        asyncio.gather(asyncio.ensure_future(self.connect(), loop=app.loop), loop=app.loop)
 
     async def connect(self):
         params = {
@@ -119,6 +119,7 @@ class AsyncQueueProducer(object):
                 channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
 
     async def add_msg_to_queue(self, queue_name, msg):
+        await utils.async_wait_for(lambda: self.channel, self.app.loop, timeout=60)
         correlation_id = str(uuid.uuid4())
         await self.channel.basic_publish(
             payload=str(msg),

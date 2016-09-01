@@ -1,16 +1,17 @@
 # coding: utf-8
-import ujson
 import logging
-from muffin import Response
+from backend import app
 
 
 BASE_URL = '/api'
 log = logging.getLogger(__name__)
 
 
-def render_json(result, code=200):
-    response = dict()
-    response['metacode'] = code
-    response['result'] = result
-    response = ujson.dumps(response)
-    return Response(body=response, content_type='application/json')
+@app.register("%s/sessions" % BASE_URL, methods=["GET"])
+async def sessions(request):
+    return request.app.sessions
+
+
+@app.register("%s/messages" % BASE_URL, methods=["GET"])
+async def messages(request):
+    return request.app.queue_producer.messages

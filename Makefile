@@ -33,6 +33,9 @@ $(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV)
 test: $(VIRTUAL_ENV)/bin/py.test
 	@$(VIRTUAL_ENV)/bin/py.test -xs backend/tests.py
 
+.PHONY: t
+t: test
+
 .PHONY: backend-run
 backend-run: $(CURDIR)/backend
 	@$(VIRTUAL_ENV)/bin/muffin backend run --bind=0.0.0.0:9000 --config=backend.config.debug --workers=1 --timeout=600 --pid=$(CURDIR)/backend_pid
