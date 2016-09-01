@@ -14,32 +14,38 @@ async def create_session(request):
     return helpers.form_response(status, headers, body)
 
 
-@app.register("%s/session/{session_id}" % BASE_URL, methods=["DELETE"])
+@app.register(r"%s/session/{session_id:\d+}" % BASE_URL, methods=["DELETE"])
 async def delete_session(request):
     session_id = request.match_info.get("session_id")
-    return helpers.form_response(200, {}, "delete session %s" % session_id)
+    session = request.app.sessions[int(session_id)]
+    status, headers, body = await helpers.transparent(request, session)
+    if status == 200:
+        del request.app.sessions[int(session_id)]
+    return helpers.form_response(status, helpers, body)
 
 
-@app.register("%s/session/{session_id}" % BASE_URL, methods=["GET"])
+@app.register(r"%s/session/{session_id:\d+}" % BASE_URL, methods=["GET"])
 async def get_session(request):
     session_id = request.match_info.get("session_id")
-    return helpers.form_response(200, {}, "{'success': 'get session %s'}" % session_id)
+    session = request.app.sessions[int(session_id)]
+    return {"session": session}
 
 
-@app.register("%s/session/{session_id}/vmmaster/runScript" % BASE_URL, methods=["POST"])
+@app.register(r"%s/session/{session_id:\d+}/{url}" % BASE_URL, methods=["GET", "POST", "DELETE"])
+async def proxy_request(request):
+    session_id = request.match_info.get("session_id")
+    session = request.app.sessions[int(session_id)]
+    status, headers, body = await helpers.transparent(request, session)
+    return helpers.form_response(status, headers, body)
+
+
+@app.register(r"%s/session/{session_id:\d+}/vmmaster/runScript" % BASE_URL, methods=["POST"])
 async def agent_command(request):
     session_id = request.match_info.get("session_id")
     return helpers.form_response(200, {}, "agent command %s" % session_id)
 
 
-@app.register("%s/session/{session_id}/vmmaster/vmmasterLabel" % BASE_URL, methods=["POST"])
+@app.register(r"%s/session/{session_id:\d+}/vmmaster/vmmasterLabel" % BASE_URL, methods=["POST"])
 async def vmmaster_command(request):
     session_id = request.match_info.get("session_id")
     return helpers.form_response(200, {}, "vmmaster command %s" % session_id)
-
-
-@app.register("%s/session/{session_id}/{url}" % BASE_URL, methods=["GET", "POST", "DELETE"])
-async def proxy_request(request):
-    session_id = request.match_info.get("session_id")
-    url = request.match_info.get('url')
-    return helpers.form_response(200, {}, "proxy request %s %s" % (session_id, url))

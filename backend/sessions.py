@@ -5,7 +5,6 @@ import ujson
 import logging
 from datetime import datetime
 
-from backend import app as backend_app
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class FakeSession(object):
     endpoint_name = ""
     name = ""
     dc = ""
-    selenium_session = ""
+    selenium_session = "123qwe"
     take_screenshot = False
     run_script = ""
     created = time.time()
@@ -168,28 +167,24 @@ class Session(FakeSession):
 
         return step
 
-    def make_request(self, port, request):
-        status, headers, body = None, None, None
-
+    async def make_request(self, port, request, queue=None):
+        headers = request.headers.copy()
         if request.headers.get("Host"):
-            del request.headers['Host']
+            del headers["Host"]
 
-        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
         parameters = {
             "method": request.method,
-            "url": url,
-            "headers": request.headers,
-            "data": request.data
+            "port": port,
+            "url": request.path,
+            "headers": dict(headers),
+            "data": request.content
         }
+        if not queue:
+            queue = "vmmaster_session_%s" % self.id
+            parameters["session"] = int(self.id)
+
         parameters = ujson.dumps(parameters)
-
-        for response in backend_app.queue_producer.add_msg_to_queue(
-            "vmmaster_session_%s" % self.id,
-            parameters
-        ):
-            if response:
-                response = ujson.loads(response)
-                status, headers, body = response.status_code, response.headers, response.content
-            yield status, headers, body
-
-        yield status, headers, body
+        correlation_id = await request.app.queue_producer.add_msg_to_queue(queue, parameters)
+        response = await request.app.queue_producer.get_message_from_queue(correlation_id)
+        response = ujson.loads(response)
+        return response.get("status"), response.get("headers", "{}"), response.get("content", "{}")

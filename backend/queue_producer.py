@@ -28,25 +28,34 @@ class AsyncQueueProducer(object):
         }
         self.connection = await self.make_connection(params)
         self.channel = await self.connection.channel()
-        self.callback_queue = await self.create_responses_queue(self.channel)
-        await self.start_consuming()
+        await self.create_queue_and_consume()
 
-    @staticmethod
-    async def create_responses_queue(channel):
-        result = await channel.queue_declare(exclusive=True)
+    async def create_queue(self, queue_name=None):
+        if not queue_name:
+            result = await self.channel.queue_declare(exclusive=True)
+        else:
+            result = await self.channel.queue_declare(queue_name=queue_name)
         queue, messages, consumers = result.get('queue'), result.get('message_count'), result.get('consumer_count')
         log.info("Queue %s was declared(messages: %s, consumers: %s)" % (queue, messages, consumers))
         return queue
+
+    async def create_queue_and_consume(self, queue_name=None):
+        if not queue_name:
+            queue_name = await self.create_queue()
+            self.callback_queue = queue_name
+        else:
+            await self.create_queue(queue_name)
+        await self.queue_consume(queue_name)
 
     @staticmethod
     async def make_connection(params):
         transport, connection = await aioamqp.connect(**params)
         return connection
 
-    async def start_consuming(self):
-        log.info("Start consuming for queue %s" % self.callback_queue)
+    async def queue_consume(self, queue_name):
+        log.info("Start consuming for queue %s" % queue_name)
         await self.channel.basic_consume(
-            callback=self.on_message, queue_name=self.callback_queue, no_ack=False
+            callback=self.on_message, queue_name=queue_name, no_ack=False
         )
 
     async def on_message(self, channel, body, envelope, properties):

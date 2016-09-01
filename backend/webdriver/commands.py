@@ -15,8 +15,9 @@ async def create_vmmaster_session(request):
     last_session_id = sessions_keys[-1] if sessions_keys else 0
     log.warn("Sessions %s, last id %s" % (request.app.sessions, last_session_id))
     session = Session(id=int(last_session_id)+1, dc=dc)
-    request.app.sessions[session.id] = session
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
+    request.app.sessions[session.id] = session
+    await request.app.queue_producer.create_queue("vmmaster_session_%s" % session.id)
     return session
 
 
@@ -38,27 +39,10 @@ async def start_vmmaster_session(request, session):
 
 
 async def start_selenium_session(request, session, port):
-    status, headers, body = None, None, None
-
     log.info("Starting selenium-server-standalone session for %s" % session.id)
     log.debug("with %s %s %s %s" % (request.method, request.path, request.headers, request.content))
-
-    if request.headers.get("Host"):
-        headers = request.headers.copy()
-        del headers['Host']
-
-    parameters = ujson.dumps({
-        "method": request.method,
-        "port": port,
-        "url": request.path,
-        "headers": headers,
-        "data": request.content
-    })
-
-    correlation_id = await request.app.queue_producer.add_msg_to_queue(session.platform, parameters)
-    response = await request.app.queue_producer.get_message_from_queue(correlation_id)
-    response = ujson.loads(response)
-    return response.get('status'), response.get('headers', "{}"), response.get('content', "{}")
+    status, headers, body = await session.make_request(port, request, queue=session.platform)
+    return status, headers, body
 
 
 def check_platform(platform):

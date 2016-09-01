@@ -25,7 +25,7 @@ def form_response(code, headers, body):
         headers = {
             'Content-Length': len(body)
         }
-        log.debug(body)
+
     return Response(text=body, status=code, headers=headers)
 
 
@@ -45,19 +45,11 @@ def swap_session(req, desired_session):
     req.path = commands.set_path_session_id(req.path, desired_session)
 
 
-# async def transparent(request):
-#     status, headers, body = None, None, None
-#     swap_session(request, request.session.selenium_session)
-#     async for status, headers, body in request.session.make_request(
-#         config.SELENIUM_PORT,
-#         RequestHelper(
-#             request.method, request.path, request.headers, request.data
-#         )
-#     ):
-#         await status, headers, body
-#
-#     swap_session(request, str(request.session.id))
-#     await status, headers, body
+async def transparent(request, session):
+    # swap_session(request, request.session.selenium_session)
+    status, headers, body = await session.make_request(request.app.cfg.SELENIUM_PORT, request)
+    # swap_session(request, str(request.session.id))
+    await status, headers, body
 
 
 def vmmaster_agent(request, command):
