@@ -8,67 +8,6 @@ from core import utils
 log = logging.getLogger(__name__)
 
 
-class BlockingQueueProducer(object):
-    response = None
-    corr_id = None
-
-    def __init__(self, app):
-        params = {
-            'user': app.cfg.RABBITMQ_USER,
-            'password': app.cfg.RABBITMQ_PASSWORD,
-            'host': app.cfg.RABBITMQ_HOST
-        }
-        self.connect(params)
-
-    def connect(self, params):
-        self.connection = self.make_connection(**params)
-        self.channel = self.connection.channel()
-        self.callback_queue = self.create_responses_queue(self.channel)
-        log.warn("Queue was declared for responses: %s" % self.callback_queue)
-        self.start_listening(self.channel, self.callback_queue, self.on_response)
-
-    @staticmethod
-    def create_responses_queue(channel):
-        result = channel.queue_declare(exclusive=True)
-        return result.method.queue
-
-    @staticmethod
-    def start_listening(channel, queue, on_message):
-        # channel.basic_qos(prefetch_count=1)
-        return channel.basic_consume(on_message, no_ack=True, queue=queue)
-
-    @staticmethod
-    def make_connection(user, password, host, port=5672):
-        credentials = pika.PlainCredentials(user, password)
-        return pika.BlockingConnection(pika.ConnectionParameters(
-            host=host, port=port, credentials=credentials
-        ))
-
-    def on_response(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id:
-            self.response = body
-
-    def add_msg_to_queue(self, queue, msg):
-        self.response = None
-        self.corr_id = str(uuid.uuid4())
-        log.warn("Sending to %s message %s" % (queue, str(msg)))
-        self.channel.basic_publish(
-            exchange='',
-            routing_key=queue,
-            properties=pika.BasicProperties(
-                reply_to=self.callback_queue,
-                correlation_id=self.corr_id,),
-            body=str(msg)
-        )
-        log.info("Message %s was sent to %s" % (queue, str(msg)))
-        while self.response is None:
-            self.connection.process_data_events()
-            yield None
-
-        log.warn("Response from queue %s: %s" % (self.callback_queue, self.response))
-        yield self.response
-
-
 class AsyncQueueProducer(object):
     messages = {}
     connection = None
@@ -85,7 +24,7 @@ class AsyncQueueProducer(object):
             'login': self.app.cfg.RABBITMQ_USER,
             'password': self.app.cfg.RABBITMQ_PASSWORD,
             'host': self.app.cfg.RABBITMQ_HOST,
-            'port': 5672
+            'port': self.app.cfg.RABBITMQ_PORT
         }
         self.connection = await self.make_connection(params)
         self.channel = await self.connection.channel()

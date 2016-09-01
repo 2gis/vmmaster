@@ -44,6 +44,7 @@ keepalive = 2
 RABBITMQ_USER = ''
 RABBITMQ_PASSWORD = ''
 RABBITMQ_HOST = ''
+RABBITMQ_PORT = 5672
 
 # database
 DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"
