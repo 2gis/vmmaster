@@ -76,7 +76,8 @@ class AsyncQueueProducer(object):
 
     def __init__(self, app):
         self.app = app
-        asyncio.ensure_future(self.connect(), loop=app.loop)
+        loop = app.loop
+        asyncio.gather(asyncio.ensure_future(self.connect(), loop=loop), loop=loop)
 
     async def connect(self):
         params = {

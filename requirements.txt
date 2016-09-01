@@ -4,4 +4,4 @@ muffin-debugtoolbar==0.3.0
 muffin-peewee==1.0.13
 muffin-session==0.3.0
 aioamqp==0.8.0
-git+https://github.com/sh0ked/pika.git
+
