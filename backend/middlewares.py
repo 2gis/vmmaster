@@ -1,7 +1,6 @@
-# except (concurrent.futures.CancelledError,
-#                 aiohttp.ClientDisconnectedError):
-
 import asyncio
+from concurrent.futures import CancelledError
+from aiohttp.errors import ClientDisconnectedError
 import logging
 from core.exceptions import PlatformException, SessionException
 from backend.webdriver import commands, helpers
@@ -43,8 +42,11 @@ def request_check(app, handler):
         try:
             await request_preprocess(request)
             ret = await handler(request)
+        except (ClientDisconnectedError, CancelledError):
+            log.error("Client has been disconnected for request %s" % request.path)
         except PlatformException as exc:
             log.exception('%s' % exc, exc_info=False)
+            platform = await commands.get_platform(request)
             return selenium_error_response("Platform %s not found in available platforms" % platform)
         except SessionException as exc:
             log.exception('%s' % exc, exc_info=False)
