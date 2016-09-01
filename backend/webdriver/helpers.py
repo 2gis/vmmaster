@@ -25,7 +25,8 @@ def form_response(code, headers, body):
         headers = {
             'Content-Length': len(body)
         }
-
+    if isinstance(headers, str):
+        headers = ujson.loads(headers)
     return Response(text=body, status=code, headers=headers)
 
 
@@ -49,7 +50,7 @@ async def transparent(request, session):
     # swap_session(request, request.session.selenium_session)
     status, headers, body = await session.make_request(request.app.cfg.SELENIUM_PORT, request)
     # swap_session(request, str(request.session.id))
-    await status, headers, body
+    return status, headers, body
 
 
 def vmmaster_agent(request, command):
