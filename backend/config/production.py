@@ -50,7 +50,7 @@ DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"
 
 # logging
 LOG_TYPE = "plain"
-LOG_LEVEL = "WARN"
+LOG_LEVEL = "INFO"
 LOGGING = setup_logging(log_type=LOG_TYPE, log_level=LOG_LEVEL)
 
 SESSION_TIMEOUT = 60

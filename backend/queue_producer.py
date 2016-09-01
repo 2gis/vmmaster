@@ -1,7 +1,8 @@
+import aioamqp
 import uuid
+import asyncio
 import logging
 
-from pika import ConnectionParameters, PlainCredentials, BasicProperties, BlockingConnection, adapters
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +38,8 @@ class BlockingQueueProducer(object):
 
     @staticmethod
     def make_connection(user, password, host, port=5672):
-        credentials = PlainCredentials(user, password)
-        return BlockingConnection(ConnectionParameters(
+        credentials = pika.PlainCredentials(user, password)
+        return pika.BlockingConnection(pika.ConnectionParameters(
             host=host, port=port, credentials=credentials
         ))
 
@@ -53,7 +54,7 @@ class BlockingQueueProducer(object):
         self.channel.basic_publish(
             exchange='',
             routing_key=queue,
-            properties=BasicProperties(
+            properties=pika.BasicProperties(
                 reply_to=self.callback_queue,
                 correlation_id=self.corr_id,),
             body=str(msg)
@@ -68,70 +69,74 @@ class BlockingQueueProducer(object):
 
 
 class AsyncQueueProducer(object):
+    messages = {}
+    connection = None
     channel = None
-    response = None
-    corr_id = None
+    callback_queue = None
 
-    def __init__(self):
-        print('init')
+    def __init__(self, app):
+        self.app = app
+        asyncio.ensure_future(self.connect(), loop=app.loop)
 
-    def connect(self, loop):
+    async def connect(self):
         params = {
-            'loop': loop,
-            'user': 'n.ustinov',
-            'password': 'Paicae6u',
-            'host': 'mq1.prod.test'
+            'loop': self.app.loop,
+            'login': self.app.cfg.RABBITMQ_USER,
+            'password': self.app.cfg.RABBITMQ_PASSWORD,
+            'host': self.app.cfg.RABBITMQ_HOST,
+            'port': 5672
         }
-        self.connection = yield from self.make_connection(**params)
-        self.channel = yield from self.connection.channel()
-        self.callback_queue = yield from self.create_responses_queue(self.channel)
-        log.info("Queue was declared for responses: %s" % self.callback_queue)
-        ctag = yield from self.start_listening(self.channel, self.callback_queue, self.on_response)
-        return ctag
+        self.connection = await self.make_connection(params)
+        self.channel = await self.connection.channel()
+        self.callback_queue = await self.create_responses_queue(self.channel)
+        await self.start_consuming()
 
     @staticmethod
-    def create_responses_queue(channel):
-        result = yield from channel.queue_declare(exclusive=True)
-        return result.method.queue
+    async def create_responses_queue(channel):
+        result = await channel.queue_declare(exclusive=True)
+        queue, messages, consumers = result.get('queue'), result.get('message_count'), result.get('consumer_count')
+        log.info("Queue %s was declared(messages: %s, consumers: %s)" % (queue, messages, consumers))
+        return queue
 
     @staticmethod
-    def start_listening(channel, queue, on_message):
-        queue, ctag = yield from channel.basic_consume(on_message, no_ack=True, queue=queue)
-        return queue, ctag
-
-    @staticmethod
-    def make_connection(loop, user, password, host, port=5672):
-
-        def connection_factory():
-            credentials = PlainCredentials(user, password)
-            return adapters.asyncio_connection.AsyncioProtocolConnection(ConnectionParameters(
-                host=host, credentials=credentials
-            ), loop=loop)
-
-        transport, connection = yield from loop.create_connection(connection_factory, host, port)
-        yield from connection.ready  # important!
+    async def make_connection(params):
+        transport, connection = await aioamqp.connect(**params)
         return connection
 
-    def on_response(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id:
-            self.response = body
+    async def start_consuming(self):
+        log.info("Start consuming for queue %s" % self.callback_queue)
+        await self.channel.basic_consume(
+            callback=self.on_message, queue_name=self.callback_queue, no_ack=False
+        )
 
-    def add_msg_to_queue(self, queue, msg):
-        self.response = None
-        self.corr_id = str(uuid.uuid4())
+    async def on_message(self, channel, body, envelope, properties):
+        log.debug("Got new message %s" % body)
+        for correlation_id in list(self.messages.keys()):
+            if correlation_id == properties.correlation_id:
+                log.info("Response from queue %s: %s" % (self.callback_queue, body))
+                self.messages[correlation_id]["response"] = body
+                channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
 
-        yield from self.channel.basic_publish(
-            exchange='',
-            routing_key=queue,
-            properties=BasicProperties(
-                reply_to=self.callback_queue,
-                correlation_id=self.corr_id,
-            ),
-            body=str(msg))
+    async def add_msg_to_queue(self, queue_name, msg):
+        correlation_id = str(uuid.uuid4())
+        await self.channel.basic_publish(
+            payload=str(msg),
+            exchange_name='',
+            routing_key=queue_name,
+            properties={
+                "reply_to": self.callback_queue,
+                "correlation_id": correlation_id
+            })
+        log.info("Message(id:%s body: %s) was published to %s" % (correlation_id, msg, queue_name))
+        self.messages[correlation_id] = {"request": msg, "response": None}
+        return correlation_id
 
-        while self.response is None:
-            yield from self.connection.process_data_events()
-
-        ch, method, props, self.response = yield from queue.get()
-        log.warn("Response from queue %s: %s" % (self.callback_queue, self.response))
-        return self.response
+    async def get_message_from_queue(self, correlation_id):
+        from core.utils import async_wait_for
+        log.info("Waiting response for message with id: %s" % correlation_id)
+        response = await async_wait_for(
+            lambda: self.messages.get(correlation_id).get("response"), self.app.loop, timeout=60
+        )
+        del self.messages[correlation_id]
+        log.info("Got response %s for message with id: %s" % (response, correlation_id))
+        return response

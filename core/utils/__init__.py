@@ -3,6 +3,7 @@
 import os
 import time
 import ujson
+import asyncio
 import logging
 
 
@@ -24,6 +25,14 @@ def generator_wait_for(condition, timeout=5):
         yield None
 
     yield condition()
+
+
+async def async_wait_for(condition, loop, timeout=5):
+    start = loop.time()
+    while not condition() and loop.time() - start < timeout:
+        await asyncio.sleep(0.1)
+
+    return condition()
 
 
 def to_json(result):

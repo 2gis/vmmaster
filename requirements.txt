@@ -1,7 +1,7 @@
 muffin==0.9.0
-pika==0.10.0
 ujson==1.35
 muffin-debugtoolbar==0.3.0
 muffin-peewee==1.0.13
 muffin-session==0.3.0
-git+https://github.com/appetito/pika.git@8d2a47e2b4ffe87573b0d664c7cb59c8ed007c7e
+aioamqp==0.8.0
+git+https://github.com/sh0ked/pika.git

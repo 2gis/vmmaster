@@ -47,23 +47,18 @@ async def start_selenium_session(request, session, port):
         headers = request.headers.copy()
         del headers['Host']
 
-    parameters = {
+    parameters = ujson.dumps({
         "method": request.method,
         "port": port,
         "url": request.path,
         "headers": headers,
         "data": request.content
-    }
-    parameters = ujson.dumps(parameters)
+    })
 
-    for response in request.app.queue_producer.add_msg_to_queue(
-        session.platform,
-        parameters
-    ):
-        if response:
-            response = ujson.loads(response)
-            status, headers, body = response.get('status'), response.get('headers', "{}"), response.get('content', "{}")
-    return status, headers, body
+    correlation_id = await request.app.queue_producer.add_msg_to_queue(session.platform, parameters)
+    response = await request.app.queue_producer.get_message_from_queue(correlation_id)
+    response = ujson.loads(response)
+    return response.get('status'), response.get('headers', "{}"), response.get('content', "{}")
 
 
 def check_platform(platform):
