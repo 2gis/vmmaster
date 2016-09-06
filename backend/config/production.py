@@ -45,6 +45,7 @@ RABBITMQ_USER = ''
 RABBITMQ_PASSWORD = ''
 RABBITMQ_HOST = ''
 RABBITMQ_PORT = 5672
+RABBITMQ_COMMAND_QUEUE = "vmmaster_commands"
 
 # database
 DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"

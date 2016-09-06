@@ -17,6 +17,10 @@ class BackendApp(Application):
         self.queue_producer = AsyncQueueProducer(app=self)
         self.sessions = {}
 
+    async def start(self):
+        await self.queue_producer.connect()
+        await super(BackendApp, self).start()
+
 
 def create_app():
     return BackendApp(

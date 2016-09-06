@@ -20,9 +20,9 @@ def is_api_request(request):
 
 async def selenium_request_check(request):
     if request.method == "POST" and request.path == "/wd/hub/session":
-        platform = await commands.get_platform(request)
+        platform = await helpers.get_platform(request)
         log.debug("Platform %s check..." % platform)
-        commands.check_platform(platform)
+        helpers.check_platform(platform)
     else:
         log.debug("Find session by id...")
         await helpers.get_vmmaster_session(request)
@@ -30,9 +30,10 @@ async def selenium_request_check(request):
 
 async def request_preprocess(request):
     if is_selenium_request(request):
+        log.info("is selenium request")
         await selenium_request_check(request)
     elif is_api_request(request):
-        pass
+        log.debug("api request")
 
 
 @asyncio.coroutine
@@ -44,13 +45,14 @@ def request_check(app, handler):
             ret = await handler(request)
         except (ClientDisconnectedError, CancelledError):
             log.error("Client has been disconnected for request %s" % request.path)
+            await commands.service_command_send(request, 'CLIENT_DISCONNECTED')
         except PlatformException as exc:
             log.exception('%s' % exc, exc_info=False)
-            platform = await commands.get_platform(request)
+            platform = await helpers.get_platform(request)
             return selenium_error_response("Platform %s not found in available platforms" % platform)
         except SessionException as exc:
             log.exception('%s' % exc, exc_info=False)
-            session_id = commands.get_session_id(request.path)
+            session_id = helpers.get_session_id(request.path)
             return selenium_error_response("Session %s not found in available active sessions" % session_id)
         else:
             return ret

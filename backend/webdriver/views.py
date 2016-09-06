@@ -14,14 +14,14 @@ async def create_session(request):
     return helpers.form_response(status, headers, body)
 
 
-@app.register(r"%s/session/{session_id:\d+}" % BASE_URL, methods=["DELETE"])
+@app.register("%s/session/{session_id:\d+}" % BASE_URL, methods=["DELETE"])
 async def delete_session(request):
     session_id = request.match_info.get("session_id")
     session = request.app.sessions[int(session_id)]
-    status, headers, body = await helpers.transparent(request, session)
-    if status == 200:
-        del request.app.sessions[int(session_id)]
-    return helpers.form_response(status, helpers, body)
+    status, headers, body = await commands.transparent(request, session)
+    del request.app.sessions[int(session_id)]
+    await request.app.queue_producer.delete_queue("vmmaster_session_%s" % session_id)
+    return helpers.form_response(status, headers, body)
 
 
 @app.register(r"%s/session/{session_id:\d+}" % BASE_URL, methods=["GET"])
@@ -31,11 +31,11 @@ async def get_session(request):
     return {"session": session}
 
 
-@app.register(r"%s/session/{session_id:\d+}/{url}" % BASE_URL, methods=["GET", "POST", "DELETE"])
+@app.register(r"%s/session/{session_id:\d+}/{url:.*}" % BASE_URL, methods=["GET", "POST", "DELETE"])
 async def proxy_request(request):
     session_id = request.match_info.get("session_id")
     session = request.app.sessions[int(session_id)]
-    status, headers, body = await helpers.transparent(request, session)
+    status, headers, body = await commands.transparent(request, session)
     return helpers.form_response(status, headers, body)
 
 

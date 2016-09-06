@@ -4,13 +4,13 @@ import ujson
 import logging
 
 from backend.sessions import Session
-from core.exceptions import PlatformException, SessionException
+from backend.webdriver import helpers
 
 log = logging.getLogger(__name__)
 
 
 async def create_vmmaster_session(request):
-    dc = await get_desired_capabilities(request)
+    dc = await helpers.get_desired_capabilities(request)
     sessions_keys = list(request.app.sessions.keys())
     last_session_id = sessions_keys[-1] if sessions_keys else 0
     log.warn("Sessions %s, last id %s" % (request.app.sessions, last_session_id))
@@ -26,12 +26,11 @@ async def start_vmmaster_session(request, session):
         request, session, request.app.cfg.SELENIUM_PORT
     )
 
-    log.warn("session: %s" % body)
     selenium_session = ujson.loads(body)["sessionId"]
     session.selenium_session = selenium_session
     session.save()
 
-    body = set_body_session_id(body, session.id)
+    body = helpers.set_body_session_id(body, session.id)
     headers = ujson.loads(headers)
     headers["Content-Length"] = len(body)
 
@@ -45,46 +44,26 @@ async def start_selenium_session(request, session, port):
     return status, headers, body
 
 
-def check_platform(platform):
-    if platform not in ["ubuntu-14.04-x64"]:
-        raise PlatformException("Platform %s not found in available platforms")
+async def transparent(request, session):
+    return await session.make_request(request.app.cfg.SELENIUM_PORT, request)
 
 
-async def get_platform(request):
-    dc = await get_desired_capabilities(request)
-    return dc.get('platform')
+async def service_command_send(request, command):
+    session_id = helpers.get_session_id(request.path)
+    log.info("Sending service message for session %s" % session_id)
+    parameters = {
+        "sessionId": session_id,
+        "command": command
+    }
+    parameters = ujson.dumps(parameters)
+    return await request.app.queue_producer.add_msg_to_queue(request.app.cfg.RABBITMQ_COMMAND_QUEUE, parameters)
 
 
-async def get_desired_capabilities(request):
-    dc = None
-    while not dc:
-        body = await request.json(loads=ujson.loads)
-        dc = body['desiredCapabilities']
-    return dc
+def vmmaster_agent(request, command):
+    session = request.session
+    return command(request, session)
 
 
-def get_session_id(path):
-    parts = path.split("/")
-    try:
-        log.warn(parts)
-        pos = parts.index("session")
-        session_id = parts[pos + 1]
-    except IndexError or ValueError:
-        raise SessionException("In request path %s not found session id" % path)
-
-    return session_id
-
-
-def set_body_session_id(body, session_id):
-    if body:
-        body = ujson.loads(body)
-        body["sessionId"] = session_id
-        body = ujson.dumps(body)
-    return body
-
-
-def set_path_session_id(path, session_id):
-    parts = path.split("/")
-    pos = parts.index("session")
-    parts[pos + 1] = str(session_id)
-    return "/".join(parts)
+def internal_exec(request, command):
+    code, headers, body = command(request, request.session)
+    return code, headers, body

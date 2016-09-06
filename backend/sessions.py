@@ -184,7 +184,6 @@ class Session(FakeSession):
             parameters["session"] = int(self.id)
 
         parameters = ujson.dumps(parameters)
-        correlation_id = await request.app.queue_producer.add_msg_to_queue(queue, parameters)
-        response = await request.app.queue_producer.get_message_from_queue(correlation_id)
+        response = await request.app.queue_producer.add_msg_to_queue_with_response(queue, parameters)
         response = ujson.loads(response)
         return response.get("status"), response.get("headers", "{}"), response.get("content", "{}")
