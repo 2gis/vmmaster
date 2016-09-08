@@ -33,12 +33,8 @@ STATIC_FOLDERS = 'backend/static'
 #     'muffin_jinja2',
 # ]
 
-# gunicorn
-bind = '0.0.0.0:9000'
-workers = 1
-worker_connections = 1000
-timeout = 30
-keepalive = 2
+HOST = "0.0.0.0"
+PORT = 9000
 
 # message queue
 RABBITMQ_USER = ''

@@ -1,139 +1,137 @@
-import uuid
 import ujson
 import logging
-import asyncio
-from pika import ConnectionParameters, PlainCredentials, BasicProperties, BlockingConnection, adapters
+import aioamqp
+from core.utils import async_wait_for
 
 
 log = logging.getLogger(__name__)
 
 
-class BlockingQueueConsumer(object):
+class AsyncQueueConsumer(object):
+    connection = None
+    service_channel = None
+    sessions_channel = None
+    platform_channel = None
+    commands_queue = None
+    platforms_messages = dict()
+    sessions_messages = dict()
+    service_messages = dict()
+
     def __init__(self, app):
         self.app = app
-        self.credentials = {
-            'user': app.cfg.RABBITMQ_USER,
-            'password': app.cfg.RABBITMQ_PASSWORD,
-            'host': app.cfg.RABBITMQ_HOST
-        }
-        self.start_consuming_for_platforms()
 
-    def start_consuming_for_platforms(self):
+    async def connect(self):
+        params = {
+            'loop': self.app.loop,
+            'login': self.app.cfg.RABBITMQ_USER,
+            'password': self.app.cfg.RABBITMQ_PASSWORD,
+            'host': self.app.cfg.RABBITMQ_HOST,
+            'port': self.app.cfg.RABBITMQ_PORT
+        }
+        self.connection = await self.make_connection(params)
+        self.service_channel = await self.connection.channel()
+        self.platform_channel = await self.connection.channel()
+        self.sessions_channel = await self.connection.channel()
+        self.commands_queue = await self.create_queue_and_consume(
+            channel=self.service_channel,
+            on_message_method=self.on_service_message,
+            queue_name=self.app.cfg.RABBITMQ_COMMAND_QUEUE
+        )
+        self.platforms_messages = await self.start_consuming_for_platforms()
+
+    async def start_consuming_for_platforms(self):
+        platforms = dict()
         for platform in ["ubuntu-14.04-x64"]:
-            self.parallel_task_run(self.start_consuming, (platform, self.credentials))
+            queue_name = await self.create_queue_and_consume(
+                channel=self.platform_channel,
+                on_message_method=self.on_platform_message,
+                queue_name=platform
+            )
+            platforms[queue_name] = dict()
+        return platforms
 
     @staticmethod
-    def start_consuming(platform, params):
-        connection = make_connection(**params)
-        channel = connection.channel()
-        create_queue(channel, platform)
-        consume(channel, platform, on_message)
-
-    def parallel_task_run(self, task, args):
-        return asyncio.ensure_future(self.app.loop.run_in_executor(self.app.executor, task, *args))
-
-
-def create_queue(channel, queue_name):
-    channel.queue_declare(queue=queue_name)
-    log.info("Queue %s was declared" % queue_name)
-
-
-def make_connection(user, password, host, port=5672):
-    credentials = PlainCredentials(user, password)
-    return BlockingConnection(ConnectionParameters(
-        host=host, port=port, credentials=credentials
-    ))
-
-
-def consume(channel, queue, _on_message):
-    channel.basic_qos(prefetch_count=1)
-    log.info("Starting consume for queue %s (channel:%s)" % (queue, channel.channel_number))
-    channel.basic_consume(_on_message, no_ack=True, queue=queue)
-    channel.start_consuming()
-
-
-def on_message(channel, method, props, body):
-    log.info("Got message %s %s %s (channel:%s)" % (channel, method, props, body))
-    body = ujson.loads(body)
-    body['status'] = 200
-    body['headers'] = '{"Content-Length": 123}'
-    body['content'] = '{"sessionId": "123qwe"}'
-    response = ujson.dumps(body)
-    send_results(channel, props.reply_to, props.correlation_id, response, method.delivery_tag)
-
-
-def send_results(channel, queue, corr_id, message, delivery_tag):
-    # log.info(
-    #     "Sending response on message: \nqueue=%s, \nmessage=%s, \ncorr_id=%s, \ndelivery_tag=%s" %
-    #     channel, queue, corr_id, message, delivery_tag
-    # )
-    channel.basic_publish(
-        exchange='',
-        routing_key=queue,
-        properties=BasicProperties(correlation_id=corr_id),
-        body=str(message))
-    channel.basic_ack(delivery_tag=delivery_tag)
-    log.info("Response was sent")
-
-
-class AsyncQueueConsumer(object):
-    def connect(self, loop, app):
-        self.credentials = {
-            'loop': loop,
-            'user': app.cfg.RABBITMQ_USER,
-            'password': app.cfg.RABBITMQ_PASSWORD,
-            'host': app.cfg.RABBITMQ_HOST
-        }
-        self.connection = yield from self.make_connection(**self.credentials)
-        self.channel = yield from self.connection.channel()
-        self.callback_queue = yield from self.create_responses_queue(self.channel)
-        log.info("Queue was declared for responses: %s" % self.callback_queue)
-        ctag = yield from self.start_listening(self.channel, self.callback_queue, self.on_response)
-        return ctag
+    async def create_queue(channel, queue_name=None):
+        if not queue_name:
+            result = await channel.queue_declare(exclusive=True)
+        else:
+            result = await channel.queue_declare(queue_name=queue_name)
+        queue, messages, consumers = result.get('queue'), result.get('message_count'), result.get('consumer_count')
+        log.info("Queue %s was declared(messages: %s, consumers: %s)" % (queue, messages, consumers))
+        return queue
 
     @staticmethod
-    def create_responses_queue(channel):
-        result = yield from channel.queue_declare(exclusive=True)
-        return result.method.queue
+    async def delete_queue(channel, queue_name):
+        await channel.queue_delete(queue_name)
+        log.info('Queue %s was deleted' % queue_name)
+
+    async def create_queue_and_consume(self, channel, on_message_method, queue_name=None):
+        if not queue_name:
+            queue_name = await self.create_queue(channel)
+        else:
+            await self.create_queue(channel, queue_name)
+        await self.queue_consume(channel, queue_name, on_message_method)
+        return queue_name
 
     @staticmethod
-    def start_listening(channel, queue, on_message):
-        queue, ctag = yield from channel.basic_consume(on_message, no_ack=True, queue=queue)
-        return queue, ctag
-
-    @staticmethod
-    def make_connection(loop, user, password, host, port=5672):
-
-        def connection_factory():
-            credentials = PlainCredentials(user, password)
-            return adapters.asyncio_connection.AsyncioProtocolConnection(ConnectionParameters(
-                host=host, credentials=credentials
-            ), loop=loop)
-
-        transport, connection = yield from loop.create_connection(connection_factory, host, port)
-        yield from connection.ready  # important!
+    async def make_connection(params):
+        transport, connection = await aioamqp.connect(**params)
         return connection
 
-    def on_response(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id:
-            self.response = body
+    @staticmethod
+    async def queue_consume(channel, queue_name, on_message_method):
+        log.info("Start consuming for queue %s" % queue_name)
 
-    def add_msg_to_queue(self, queue, msg):
-        self.response = None
-        self.corr_id = str(uuid.uuid4())
+        await channel.basic_qos(prefetch_count=1)
+        await channel.basic_consume(
+            callback=on_message_method, queue_name=queue_name, no_ack=False
+        )
 
-        yield from self.channel.basic_publish(
-            exchange='',
-            routing_key=queue,
-            properties=BasicProperties(
-                reply_to=self.callback_queue,
-                correlation_id=self.corr_id,
-            ),
-            body=str(msg))
+    @staticmethod
+    async def unwrap_message(channel, _type, msg, envelope, correlation_id):
+        log.info("Got new %s message %s with id: %s" % (_type, msg, correlation_id))
+        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
+        body_json = ujson.loads(msg)
+        return body_json
 
-        while self.response is None:
-            yield from self.connection.process_data_events()
+    async def on_service_message(self, channel, body, envelope, properties):
+        correlation_id = properties.correlation_id
+        msg = await self.unwrap_message(channel, 'service', body, envelope, correlation_id)
+        self.service_messages[correlation_id] = {"request": msg, "response": None}
+        await self.wait_for_response_on_message(self.service_messages[correlation_id], correlation_id)
+        del self.service_messages[correlation_id]
 
-        ch, method, props, self.response = yield from queue.get()
-        log.warn("Response from queue %s: %s" % (self.callback_queue, self.response))
-        return self.response
+    async def on_platform_message(self, channel, body, envelope, properties):
+        correlation_id = properties.correlation_id
+        msg = await self.unwrap_message(channel, 'platform', body, envelope, correlation_id)
+        platform = msg["platform"]
+        self.platforms_messages[platform][correlation_id] = {"request": msg, "response": None}
+        response = await self.wait_for_response_on_message(self.platforms_messages[platform], correlation_id)
+        await self.add_msg_to_queue(self.platform_channel, correlation_id, properties.reply_to, response)
+        del self.platforms_messages[platform][correlation_id]
+
+    async def on_session_message(self, channel, body, envelope, properties):
+        correlation_id = properties.correlation_id
+        msg = await self.unwrap_message(channel, 'session', body, envelope, correlation_id)
+        session_id = msg["sessionId"]
+        self.sessions_messages[session_id][correlation_id] = {"request": msg, "response": None}
+        response = await self.wait_for_response_on_message(self.sessions_messages[session_id], correlation_id)
+        await self.add_msg_to_queue(self.sessions_channel, correlation_id, properties.reply_to, response)
+        del self.sessions_messages[session_id][correlation_id]
+
+    async def add_msg_to_queue(self, channel, correlation_id, queue_name, msg):
+        msg = ujson.dumps(msg) if isinstance(msg, dict) else msg
+        await channel.basic_publish(
+            payload=str(msg),
+            exchange_name='',
+            routing_key=queue_name
+        )
+        log.info("Message(id:%s body: %s) was published to %s" % (correlation_id, msg, queue_name))
+
+    async def wait_for_response_on_message(self, storage, correlation_id):
+        log.info("Waiting response for message with id: %s" % correlation_id)
+        response = await async_wait_for(
+            lambda: storage.get(correlation_id).get("response"), self.app.loop, timeout=60
+        )
+        log.info("Got response %s for message with id: %s" % (response, correlation_id))
+        return response

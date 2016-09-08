@@ -52,6 +52,7 @@ async def service_command_send(request, command):
     session_id = helpers.get_session_id(request.path)
     log.info("Sending service message for session %s" % session_id)
     parameters = {
+        "platform": "ubuntu-14.04-x64",
         "sessionId": session_id,
         "command": command
     }

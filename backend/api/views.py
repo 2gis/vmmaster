@@ -1,17 +1,28 @@
 # coding: utf-8
+import ujson
 import logging
-from backend import app
+from aiohttp import web
+from core import utils
 
 
-BASE_URL = '/api'
 log = logging.getLogger(__name__)
+ROUTES = [
+    ("GET", "/sessions", "get_sessions"),
+    ("GET", "/messages", "get_messages")
+]
 
 
-@app.register("%s/sessions" % BASE_URL, methods=["GET"])
-async def sessions(request):
-    return request.app.sessions
+async def get_sessions(request):
+    return web.Response(
+        body=utils.make_request_body(request.app.sessions),
+        content_type='application/json',
+        status=200
+    )
 
 
-@app.register("%s/messages" % BASE_URL, methods=["GET"])
-async def messages(request):
-    return request.app.queue_producer.messages
+async def get_messages(request):
+    return web.Response(
+        body=utils.make_request_body(request.app.queue_producer.messages),
+        content_type='application/json',
+        status=200
+    )

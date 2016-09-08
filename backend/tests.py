@@ -1,4 +1,5 @@
 import ujson
+from backend.app import create_app
 
 
 CREATE_SESSION_URI = '/wd/hub/session'
@@ -11,12 +12,19 @@ CREATE_SESSION_DATA = ujson.dumps({
     }
 })
 
+# @pytest.fixture
+# def app(loop):
+#     from backend.app import create_app
+#     return create_app(loop=loop)
 
-def test_create_session(client):
-    response = client.post(CREATE_SESSION_URI, CREATE_SESSION_DATA)
-    assert response.status_code == 200
+
+async def test_create_session(test_client):
+    client = await test_client(create_app)
+    response = await client.post(CREATE_SESSION_URI, data=CREATE_SESSION_DATA)
+    assert response.status == 200
 
 
-def test_get_session(client):
-    response = client.get('/wd/hub/session/1')
-    assert response.text
+# def test_get_session(test_client):
+#     # client = yield from test_client()
+#     response = test_client.get('/wd/hub/session/1')
+#     assert response.text

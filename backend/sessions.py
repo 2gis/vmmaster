@@ -173,6 +173,7 @@ class Session(FakeSession):
             del headers["Host"]
 
         parameters = {
+            "platform": "ubuntu-14.04-x64",
             "method": request.method,
             "port": port,
             "url": request.path,
