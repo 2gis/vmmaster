@@ -17,7 +17,6 @@ async def create_vmmaster_session(request):
     session = Session(id=int(last_session_id)+1, dc=dc)
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     request.app.sessions[session.id] = session
-    await request.app.queue_producer.create_queue("vmmaster_session_%s" % session.id)
     return session
 
 
@@ -53,7 +52,7 @@ async def service_command_send(request, command):
     log.info("Sending service message for session %s" % session_id)
     parameters = {
         "platform": "ubuntu-14.04-x64",
-        "sessionId": session_id,
+        "vmmaster_session": session_id,
         "command": command
     }
     parameters = ujson.dumps(parameters)

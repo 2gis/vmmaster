@@ -47,3 +47,7 @@ frontend-run: $(CURDIR)/frontend
 .PHONY: worker-run
 worker-run: $(CURDIR)/worker
 	@$(VIRTUAL_ENV)/bin/gunicorn worker.app:app --bind=0.0.0.0:5000 --workers=1 --pid=$(CURDIR)/worker_pid --worker-class aiohttp.worker.GunicornWebWorker
+
+.PHONY: worker1-run
+worker1-run: $(CURDIR)/worker
+	@$(VIRTUAL_ENV)/bin/gunicorn worker.app:app --bind=0.0.0.0:5001 --workers=1 --pid=$(CURDIR)/worker1_pid --worker-class aiohttp.worker.GunicornWebWorker

@@ -173,6 +173,7 @@ class Session(FakeSession):
             del headers["Host"]
 
         parameters = {
+            "vmmaster_session": int(self.id),
             "platform": "ubuntu-14.04-x64",
             "method": request.method,
             "port": port,
@@ -182,7 +183,6 @@ class Session(FakeSession):
         }
         if not queue:
             queue = "vmmaster_session_%s" % self.id
-            parameters["session"] = int(self.id)
 
         parameters = ujson.dumps(parameters)
         response = await request.app.queue_producer.add_msg_to_queue_with_response(queue, parameters)

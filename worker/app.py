@@ -4,7 +4,6 @@ import asyncio
 import logging
 from core import common, utils
 from worker.queue_consumer import AsyncQueueConsumer
-from worker.manager import Manager
 from worker.api import views as api_views
 
 
@@ -15,7 +14,6 @@ class WorkerApp(common.BaseApplication):
     def __init__(self, name, loop=None, router=None, middlewares=(), **OPTIONS):
         super().__init__(name=name, loop=loop, router=router, middlewares=middlewares, **OPTIONS)
         self.queue_consumer = AsyncQueueConsumer(app=self)
-        # self.manager = Manager(app=self)
         self.sessions = {}
         self.platforms = {}
 
