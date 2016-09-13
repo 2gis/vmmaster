@@ -24,11 +24,9 @@ async def create_session(request):
 
 async def delete_session(request):
     session_id = request.match_info.get("session_id")
-    session = request.app.sessions[int(session_id)]
-    status, headers, body = await commands.transparent(request, session)
+    await commands.service_command_send(request, "SESSION_CLOSING")
     del request.app.sessions[int(session_id)]
-    await request.app.queue_producer.delete_queue("vmmaster_session_%s" % session_id)
-    return helpers.form_response(status, headers, body)
+    return helpers.form_response(200, {}, "Session %s closed" % session_id)
 
 
 async def get_session(request):

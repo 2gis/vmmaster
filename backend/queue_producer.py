@@ -87,7 +87,7 @@ class AsyncQueueProducer(object):
     async def get_message_from_queue(self, correlation_id):
         log.info("Waiting response for message with id: %s" % correlation_id)
         response = await async_wait_for(
-            lambda: self.messages.get(correlation_id).get("response"), self.app.loop, timeout=60
+            lambda: self.messages.get(correlation_id).get("response"), self.app.loop, timeout=120
         )
         del self.messages[correlation_id]
         log.info("Got response %s for message with id: %s" % (response, correlation_id))

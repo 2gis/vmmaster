@@ -15,7 +15,7 @@ class WorkerApp(common.BaseApplication):
         super().__init__(name=name, loop=loop, router=router, middlewares=middlewares, **OPTIONS)
         self.queue_consumer = AsyncQueueConsumer(app=self)
         self.sessions = {}
-        self.platforms = {}
+        self.platforms = {"ubuntu-14.04-x64": 1}
 
 
 def register_routes(_app, views, url_prefix=None, name_prefix=None):

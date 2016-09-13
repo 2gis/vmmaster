@@ -1,10 +1,8 @@
 import ujson
 import logging
-
 import asyncio
-
 import aioamqp
-from core.utils import async_wait_for
+
 from worker import actions
 
 
@@ -23,13 +21,13 @@ class CustomAmqpProtocol(aioamqp.AmqpProtocol):
 class AsyncQueueConsumer(object):
     transport = None
     connection = None
-    service_channel = None
-    sessions_channel = None
-    platform_channel = None
-    commands_queue = None
-    platforms_messages = dict()
-    sessions_messages = dict()
-    service_messages = dict()
+    channels = dict()
+    service_queue = None
+    messages = {
+        "platforms": dict(),
+        "sessions": dict(),
+        "services": dict()
+    }
 
     def __init__(self, app):
         self.app = app
@@ -45,15 +43,8 @@ class AsyncQueueConsumer(object):
             'on_error': error_callback,
         }
         self.transport, self.connection = await self.make_connection(params)
-        self.service_channel = await self.connection.channel()
-        self.platform_channel = await self.connection.channel()
-        self.sessions_channel = await self.connection.channel()
-        self.commands_queue = await self.create_queue_and_consume(
-            channel=self.service_channel,
-            on_message_method=self.on_service_message,
-            queue_name=self.app.cfg.RABBITMQ_COMMAND_QUEUE
-        )
-        self.platforms_messages = await self.start_consuming_for_platforms()
+        self.service_queue = await self.start_consuming_for_commands()
+        await self.start_consuming_for_platforms()
 
     async def disconnect(self):
         log.info("Closing connection...")
@@ -61,22 +52,33 @@ class AsyncQueueConsumer(object):
         self.transport.close()
 
     async def start_consuming_for_platforms(self):
-        platforms = dict()
-        for platform in ["ubuntu-14.04-x64"]:
+        for platform in self.app.platforms:
+            channel = await self.make_channel("platforms")
             queue_name = await self.create_queue_and_consume(
-                channel=self.platform_channel,
+                channel=channel,
                 on_message_method=self.on_platform_message,
                 queue_name=platform
             )
-            platforms[queue_name] = dict()
-        return platforms
+            self.channels[channel.channel_id]["platform"] = platform
+            self.messages["platforms"][queue_name] = dict()
 
     async def start_consuming_for_session(self, session_id):
-        self.sessions_messages[session_id] = dict()
-        await self.create_queue_and_consume(
-            channel=self.service_channel,
+        channel = await self.make_channel("sessions")
+        self.channels[channel.channel_id]["session"] = session_id
+        self.messages["sessions"][session_id] = dict()
+        return await self.create_queue_and_consume(
+            channel=channel,
             on_message_method=self.on_session_message,
-            queue_name="vmmaster_session_%s" % session_id
+            queue_name="%s_%s" % (self.app.cfg.RABBITMQ_SESSION_QUEUE, session_id)
+        )
+
+    async def start_consuming_for_commands(self):
+        service_channel = await self.make_channel("services")
+        self.messages["services"] = dict()
+        return await self.create_queue_and_consume(
+            channel=service_channel,
+            on_message_method=self.on_service_message,
+            queue_name=self.app.cfg.RABBITMQ_COMMAND_QUEUE
         )
 
     @staticmethod
@@ -89,9 +91,8 @@ class AsyncQueueConsumer(object):
         log.info("Queue %s was declared(messages: %s, consumers: %s)" % (queue, messages, consumers))
         return queue
 
-    @staticmethod
-    async def delete_queue(channel, queue_name):
-        await channel.queue_delete(queue_name)
+    async def delete_queue(self, channel, queue_name, no_wait=True):
+        await channel.queue_delete(queue_name, no_wait=no_wait, timeout=self.app.cfg.RABBITMQ_REQUEST_TIMEOUT)
         log.info('Queue %s was deleted' % queue_name)
 
     async def create_queue_and_consume(self, channel, on_message_method, queue_name=None):
@@ -102,6 +103,29 @@ class AsyncQueueConsumer(object):
         await self.queue_consume(channel, queue_name, on_message_method)
         return queue_name
 
+    async def make_channel(self, _type="undefined"):
+        channel = await self.connection.channel()
+        self.channels[channel.channel_id] = {"mute": False, "type": _type, "channel": channel}
+        return channel
+
+    def get_session_channel_by_id(self, session_id):
+        session_channel = None
+        for channel in list(self.channels.values()):
+            if channel["type"] == "sessions" and channel["session"] == int(session_id):
+                session_channel = channel["channel"]
+        return session_channel
+
+    async def get_platform_channel_by_platform(self, platform):
+        platform_channel = None
+        for channel in self.channels:
+            if channel["type"] == "platforms" and channel["platform"] == platform:
+                platform_channel = channel["channel"]
+        return platform_channel
+
+    async def delete_channel(self, channel):
+        del self.channels[channel.channel_id]
+        await channel.close()
+
     @staticmethod
     async def make_connection(params):
         try:
@@ -109,48 +133,75 @@ class AsyncQueueConsumer(object):
         except aioamqp.AmqpClosedConnection:
             log.warn("closed connection")
 
-    @staticmethod
-    async def queue_consume(channel, queue_name, on_message_method):
+    async def queue_consume(self, channel, queue_name, on_message_method):
         log.info("Start consuming for queue %s" % queue_name)
-
-        await channel.basic_qos(prefetch_count=1)
+        await channel.basic_qos(prefetch_count=self.app.cfg.RABBITMQ_PREFETCH_COUNT)
         await channel.basic_consume(
-            callback=on_message_method, queue_name=queue_name, no_ack=False
+            callback=on_message_method,
+            queue_name=queue_name,
+            no_ack=True,
+            timeout=self.app.cfg.RABBITMQ_REQUEST_TIMEOUT
         )
+
+    async def mute_channel(self, channel, consumer_tag, no_wait=True):
+        self.channels[channel.channel_id]["mute"] = True
+        await channel.basic_cancel(
+            consumer_tag=consumer_tag, no_wait=no_wait, timeout=self.app.cfg.RABBITMQ_REQUEST_TIMEOUT
+        )
+        log.info("Channel %s was muted" % channel.channel_id)
+
+    async def unmute_channel(self, channel, callback, queue_name):
+        await self.queue_consume(channel, queue_name, callback)
+        self.channels[channel.channel_id]["mute"] = False
+        log.info("Channel %s was unmuted" % channel.channel_id)
 
     async def on_service_message(self, channel, body, envelope, properties):
         log.info("Got new service message %s with id: %s" % (body, properties.correlation_id))
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
-        msg = ujson.loads(body)
-        self.service_messages[properties.correlation_id] = msg
-        if msg.get("command") == "CLIENT_DISCONNECTED":
-            self.delete_queue(self.sessions_channel, "vmmaster_session_%s" % msg["vmmaster_session"])
-            await actions.make_service_command(msg)
-        del self.service_messages[properties.correlation_id]
+        await self._action_on_service_message(body, properties.correlation_id)
 
     async def on_platform_message(self, channel, body, envelope, properties):
         log.info("Got new platform message %s with id: %s" % (body, properties.correlation_id))
         msg = ujson.loads(body)
-        platform = msg["platform"]
-        session_id = msg["vmmaster_session"]
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
-        self.platforms_messages[platform][properties.correlation_id] = msg
-        response = await actions.start_session(msg)
-        asyncio.ensure_future(self.start_consuming_for_session(session_id), loop=self.app.loop)
-        await self.add_msg_to_queue(self.platform_channel, properties.correlation_id, properties.reply_to, response)
-        del self.platforms_messages[platform][properties.correlation_id]
+        if self.app.platforms[msg["platform"]] <= 0 and not self.channels[channel.channel_id]["mute"]:
+            await self.mute_channel(channel, envelope.consumer_tag)
+            await channel.basic_client_nack(delivery_tag=envelope.delivery_tag, multiple=True, requeue=True)
+
+        if not self.channels[channel.channel_id]["mute"]:
+            self.messages["platforms"][msg["platform"]][properties.correlation_id] = msg
+
+            response = await actions.start_session(msg)
+
+            self.app.platforms[msg["platform"]] -= 1
+            await self.add_msg_to_queue(channel, properties.correlation_id, properties.reply_to, response)
+            del self.messages["platforms"][msg["platform"]][properties.correlation_id]
+            asyncio.ensure_future(self.start_consuming_for_session(msg["vmmaster_session"]), loop=self.app.loop)
 
     async def on_session_message(self, channel, body, envelope, properties):
         log.info("Got new session message %s with id: %s" % (body, properties.correlation_id))
-        await channel.basic_client_ack(delivery_tag=envelope.delivery_tag)
         msg = ujson.loads(body)
-        session_id = msg["vmmaster_session"]
-        self.sessions_messages[session_id][properties.correlation_id] = msg
-        response = await actions.make_request_for_session(msg)
-        await self.add_msg_to_queue(self.sessions_channel, properties.correlation_id, properties.reply_to, response)
-        del self.sessions_messages[session_id][properties.correlation_id]
+        self.messages["sessions"][msg["vmmaster_session"]][properties.correlation_id] = msg
 
-    async def add_msg_to_queue(self, channel, correlation_id, queue_name, msg):
+        response = await actions.make_request_for_session(msg)
+
+        await self.add_msg_to_queue(channel, properties.correlation_id, properties.reply_to, response)
+        del self.messages["sessions"][msg["vmmaster_session"]][properties.correlation_id]
+
+    async def _action_on_service_message(self, body, correlation_id):
+        msg = ujson.loads(body)
+        self.messages["services"][correlation_id] = msg
+        if msg.get("command") in ("CLIENT_DISCONNECTED", "SESSION_CLOSING"):
+            await actions.make_service_command(msg)
+            session_channel = self.get_session_channel_by_id(msg["vmmaster_session"])
+            await self.delete_queue(session_channel, "%s_%s" % (self.app.cfg.RABBITMQ_SESSION_QUEUE, msg["vmmaster_session"]))
+            await session_channel.close()
+            del self.channels[session_channel.channel_id]
+            self.app.platforms[msg["platform"]] += 1
+        else:
+            log.warn("action for undefined command")
+        del self.messages["services"][correlation_id]
+
+    @staticmethod
+    async def add_msg_to_queue(channel, correlation_id, queue_name, msg):
         msg = ujson.dumps(msg) if isinstance(msg, dict) else msg
         await channel.basic_publish(
             payload=str(msg),
@@ -161,11 +212,3 @@ class AsyncQueueConsumer(object):
             }
         )
         log.info("Message(id:%s body: %s) was published to %s" % (correlation_id, msg, queue_name))
-
-    async def wait_for_response_on_message(self, storage, correlation_id):
-        log.info("Waiting response for message with id: %s" % correlation_id)
-        response = await async_wait_for(
-            lambda: storage.get(correlation_id).get("response"), self.app.loop, timeout=60
-        )
-        log.info("Got response %s for message with id: %s" % (response, correlation_id))
-        return response
