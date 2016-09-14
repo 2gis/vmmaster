@@ -1,5 +1,5 @@
 # coding: utf-8
-import ujson
+import json
 import logging
 from aiohttp import web
 
@@ -13,8 +13,15 @@ ROUTES = [
 ]
 
 
+class JSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, object):
+            return str(obj)
+        return super(JSONEncoder, self).default(obj)
+
+
 def make_request_body(data):
-    return ujson.dumps(data).encode('utf-8')
+    return json.dumps(data, cls=JSONEncoder).encode('utf-8')
 
 
 async def get_sessions(request):
