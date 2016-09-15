@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import aioamqp
 import uuid
 import logging

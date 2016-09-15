@@ -2,13 +2,13 @@
 
 import logging
 from uuid import uuid1
-from muffin import Application
+from core import common
 
 
 log = logging.getLogger(__name__)
 
 
-class FrontendApp(Application):
+class FrontendApp(common.BaseApplication):
     def __init__(self, *args, **kwargs):
         super(FrontendApp, self).__init__(*args, **kwargs)
         self.uuid = str(uuid1())
@@ -17,5 +17,5 @@ class FrontendApp(Application):
 def create_app():
     return FrontendApp(
         'frontend',
-        CONFIG='frontend.config.debug'
+        CONFIG='config.debug'
     )

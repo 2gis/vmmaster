@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import ujson
 from backend.app import create_app
 

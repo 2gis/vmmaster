@@ -28,7 +28,7 @@ def create_app(loop=None):
     loop = asyncio.get_event_loop() if not loop else loop
     _app = WorkerApp(
         'worker',
-        CONFIG='worker.config.debug',
+        CONFIG='config.debug',
         loop=loop
     )
     register_routes(_app, api_views, url_prefix='/api')

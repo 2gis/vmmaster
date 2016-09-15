@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import asyncio
 import pytest
 from aiohttp import ClientSession, test_utils

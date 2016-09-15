@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import asyncio
 from concurrent.futures import CancelledError
 from aiohttp.errors import ClientDisconnectedError

@@ -32,7 +32,7 @@ def create_app(loop=None):
     loop = asyncio.get_event_loop() if not loop else loop
     _app = BackendApp(
         'backend',
-        CONFIG='backend.config.debug',
+        CONFIG='config.debug',
         middlewares=[request_check],
         loop=loop
     )

@@ -1,3 +1,4 @@
+# coding: utf-8
 
 
 async def start_session(msg):
