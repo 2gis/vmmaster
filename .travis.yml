@@ -1,13 +1,11 @@
 sudo: true
 language: python
 python:
-  - 3.5.1
-install:
-  - pip install codecov==1.6.3
+  - 3.5
 before_script:
-  - ./git-hooks/run-10-flake8.sh
+  - make lint
 script:
-  - make test
+  - make ctest
 after_success:
   - coverage xml
   - codecov

@@ -13,7 +13,7 @@ $(VIRTUAL_ENV): requirements.txt
 	@touch $(VIRTUAL_ENV)
 
 $(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV)
-	@$(VIRTUAL_ENV)/bin/pip install pytest
+	@$(VIRTUAL_ENV)/bin/pip install -r test_requirements.txt
 	@touch $(VIRTUAL_ENV)/bin/py.test
 
 #(i)
@@ -43,7 +43,7 @@ wr: worker-run
 .PHONY: clean
 #(i) clean - Cleanup project directories
 clean:
-	rm -rf build/ dist/ docs/_build *.egg-info
+	rm -rf coverage/ build/ dist/ docs/_build .cache/ *.egg-info
 	find $(CURDIR) -name "*.py[co]" -delete
 	find $(CURDIR) -name "*.orig" -delete
 	find $(CURDIR)/$(MODULE) -name "__pycache__" | xargs rm -rf
@@ -54,29 +54,48 @@ clean:
 #(i) ==================
 #(i)
 
+.PHONY: lint
+#(i) lint - Runs linting for project
+lint: $(VIRTUAL_ENV)/bin/py.test
+	@$(CURDIR)/git-hooks/run-10-flake8.sh
+
+.PHONY: l
+#(i) l - Short command for lint. Alias for 'lint'
+l: lint
+
 .PHONY: test
 #(i) test - Runs backend all tests
 test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test -xs all
+	@$(VIRTUAL_ENV)/bin/py.test -x tests
+
+.PHONY: ctest
+#(i) ctest - Runs backend all tests with coverage
+ctest: $(VIRTUAL_ENV)/bin/py.test
+	@$(VIRTUAL_ENV)/bin/coverage run tests/run_tests.py
+	@$(VIRTUAL_ENV)/bin/coverage html
 
 .PHONY: backend-test
 #(i) backend-test - Runs backend tests
 backend-test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test -xs backend/tests.py
+	@$(VIRTUAL_ENV)/bin/py.test -x tests/backend/
 
 .PHONY: worker-test
 #(i) worker-test - Runs worker tests
 worker-test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test -xs worker/tests.py
+	@$(VIRTUAL_ENV)/bin/py.test -x tests/worker/
 
 .PHONY: bt
 #(i) bt - Short command for run all tests. Alias for 'backend-test'
-t: backend_test
+bt: backend-test
 
 .PHONY: wt
 #(i) wt - Short command for run all tests. Alias for 'worker-test'
-t: worker_test
+wt: worker-test
 
 .PHONY: t
 #(i) t - Short command for run all tests. Alias for 'test'
-t: backend_test
+t: test
+
+.PHONY: ct
+#(i) ct - Short command for run all tests with coverage. Alias for 'ctest'
+ct: ctest

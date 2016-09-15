@@ -26,7 +26,7 @@ def register_routes(_app, views, url_prefix=None, name_prefix=None):
 
 
 def app(loop=None):
-    loop = asyncio.get_event_loop() if not loop else loop
+    loop = loop if loop else asyncio.get_event_loop()
     _app = WorkerApp(
         'worker',
         CONFIG='config.debug',
@@ -35,5 +35,5 @@ def app(loop=None):
     if _app.cfg.DEBUG:
         aiohttp_debugtoolbar.setup(_app)
     register_routes(_app, api_views, url_prefix='/api')
-    asyncio.ensure_future(_app.queue_consumer.connect())
+    asyncio.ensure_future(_app.queue_consumer.connect(), loop=loop)
     return _app

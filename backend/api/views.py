@@ -13,6 +13,7 @@ ROUTES = [
 
 
 async def get_sessions(request):
+    log.info(request.app.sessions)
     return web.Response(
         body=utils.make_request_body(request.app.sessions),
         content_type='application/json',
