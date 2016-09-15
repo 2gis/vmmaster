@@ -1,4 +1,5 @@
-import os
+# coding: utf-8
+
 import ujson
 import socket
 import traceback
