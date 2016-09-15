@@ -50,11 +50,8 @@ async def get_platform(request):
 
 
 async def get_desired_capabilities(request):
-    dc = None
-    while not dc:
-        body = await request.json(loads=ujson.loads)
-        dc = body['desiredCapabilities']
-    return dc
+    body = await request.json(loads=ujson.loads)
+    return body['desiredCapabilities']
 
 
 def get_session_id(path):

@@ -2,11 +2,6 @@ VIRTUAL_ENV=$(shell echo "$${VIRTUAL_ENV:-'.env3'}")
 
 all: $(VIRTUAL_ENV)
 
-.PHONY: help
-#(i) help - Show available commands
-help:
-	@egrep "^#\(i\)" [Mm]akefile
-
 $(VIRTUAL_ENV): requirements.txt
 	@[ -d $(VIRTUAL_ENV) ] || virtualenv --no-site-packages --python=python3 $(VIRTUAL_ENV)
 	@$(VIRTUAL_ENV)/bin/pip install -r requirements.txt
@@ -15,6 +10,16 @@ $(VIRTUAL_ENV): requirements.txt
 $(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV)
 	@$(VIRTUAL_ENV)/bin/pip install -r test_requirements.txt
 	@touch $(VIRTUAL_ENV)/bin/py.test
+
+#(i)
+#(i) #######################################################################
+#(i) ###################    Makefile help    ###############################
+#(i) #######################################################################
+
+.PHONY: help
+#(i) help - Show available commands
+help:
+	@egrep "^#\(i\)" [Mm]akefile
 
 #(i)
 #(i) ==================
@@ -77,12 +82,12 @@ ctest: $(VIRTUAL_ENV)/bin/py.test
 .PHONY: backend-test
 #(i) backend-test - Runs backend tests
 backend-test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test -x tests/backend/
+	@$(VIRTUAL_ENV)/bin/py.test -xs tests/backend/
 
 .PHONY: worker-test
 #(i) worker-test - Runs worker tests
 worker-test: $(VIRTUAL_ENV)/bin/py.test
-	@$(VIRTUAL_ENV)/bin/py.test -x tests/worker/
+	@$(VIRTUAL_ENV)/bin/py.test -xs tests/worker/
 
 .PHONY: bt
 #(i) bt - Short command for run all tests. Alias for 'backend-test'
@@ -99,3 +104,9 @@ t: test
 .PHONY: ct
 #(i) ct - Short command for run all tests with coverage. Alias for 'ctest'
 ct: ctest
+
+#(i)
+#(i) #######################################################################
+#(i) #######################################################################
+#(i) #######################################################################
+#(i)

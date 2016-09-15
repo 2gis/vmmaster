@@ -27,11 +27,11 @@ def register_routes(_app, views, url_prefix=None, name_prefix=None):
             route(*args)
 
 
-def app(loop=None):
+def app(loop=None, CONFIG='config.debug'):
     loop = loop if loop else asyncio.get_event_loop()
     _app = BackendApp(
         'backend',
-        CONFIG='config.debug',
+        CONFIG=CONFIG,
         middlewares=[request_check],
         loop=loop
     )

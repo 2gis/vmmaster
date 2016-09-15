@@ -3,9 +3,13 @@ import ujson
 from backend.app import app as backend_app
 
 
+def _app(loop):
+    return backend_app(loop=loop, CONFIG='config.tests')
+
+
 async def test_api_get_sessions(test_client):
     dct = {1: {"id": 1}}
-    client = await test_client(backend_app)
+    client = await test_client(_app)
     client.app.sessions = dct
 
     response = await client.get("/api/sessions")
@@ -17,7 +21,7 @@ async def test_api_get_sessions(test_client):
 
 async def test_api_get_messages(test_client):
     dct = {1: {"request": "bla bla", "response": None}}
-    client = await test_client(backend_app)
+    client = await test_client(_app)
     client.app.queue_producer.messages = dct
 
     response = await client.get("/api/messages")

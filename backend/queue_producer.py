@@ -97,6 +97,5 @@ class AsyncQueueProducer(object):
 
     async def add_msg_to_queue_with_response(self, queue_name, msg):
         correlation_id = await self.add_msg_to_queue(queue_name, msg)
-        # response = await self.get_message_from_queue(correlation_id)
-        return None
-        # return response
+        response = await self.get_message_from_queue(correlation_id)
+        return response
