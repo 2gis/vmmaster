@@ -1,7 +1,7 @@
 sudo: true
 language: python
 python:
-  - 2.7
+  - 3.5.1
 install:
   - pip install codecov==1.6.3
 before_script:

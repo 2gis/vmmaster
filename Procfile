@@ -1,3 +1,2 @@
-web: gunicorn backend.app:app --bind=0.0.0.0:$PORT --workers=1 --worker-class aiohttp.worker.GunicornWebWorker
-frontend: gunicorn frontend.app:app --bind=0.0.0.0:5000 --workers=1 --worker-class aiohttp.worker.GunicornWebWorker
-cmd: gunicorn worker.app:app --bind=0.0.0.0:8000 --workers=1 --worker-class aiohttp.worker.GunicornWebWorker
+web: python -m aiohttp.web -H 0.0.0.0 -P 9000 backend.app:app
+cmd: python -m aiohttp.web -H 0.0.0.0 -P 5000 worker.app:app

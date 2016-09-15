@@ -5,8 +5,3 @@ logs/
 .env3
 .tox
 .coverage
-config.py
-vmmaster/screenshots/*
-vmmaster/origins/*
-vmmaster/session/*
-vmmaster/clones/*

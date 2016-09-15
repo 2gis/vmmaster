@@ -38,16 +38,8 @@ t: backend_test
 
 .PHONY: backend-run
 backend-run: $(CURDIR)/backend
-	@$(VIRTUAL_ENV)/bin/gunicorn backend.app:app --bind=0.0.0.0:9000 --workers=1 --pid=$(CURDIR)/backend_pid --worker-class aiohttp.worker.GunicornWebWorker
-
-.PHONY: frontend-run
-frontend-run: $(CURDIR)/frontend
-	@$(VIRTUAL_ENV)/bin/gunicorn frontend.app:app --bind=0.0.0.0:8080 --workers=1 --pid=$(CURDIR)/frontend_pid --worker-class aiohttp.worker.GunicornWebWorker
+	@$(VIRTUAL_ENV)/bin/python -m aiohttp.web -H 0.0.0.0 -P 9000 worker.app:app
 
 .PHONY: worker-run
 worker-run: $(CURDIR)/worker
-	@$(VIRTUAL_ENV)/bin/gunicorn worker.app:app --bind=0.0.0.0:5000 --workers=1 --pid=$(CURDIR)/worker_pid --worker-class aiohttp.worker.GunicornWebWorker
-
-.PHONY: worker1-run
-worker1-run: $(CURDIR)/worker
-	@$(VIRTUAL_ENV)/bin/gunicorn worker.app:app --bind=0.0.0.0:5001 --workers=1 --pid=$(CURDIR)/worker1_pid --worker-class aiohttp.worker.GunicornWebWorker
+	@$(VIRTUAL_ENV)/bin/python -m aiohttp.web -H 0.0.0.0 -P 5000 worker.app:app

@@ -24,7 +24,7 @@ def register_routes(_app, views, url_prefix=None, name_prefix=None):
             route(*args)
 
 
-def create_app(loop=None):
+def app(loop=None):
     loop = asyncio.get_event_loop() if not loop else loop
     _app = WorkerApp(
         'worker',
@@ -34,6 +34,3 @@ def create_app(loop=None):
     register_routes(_app, api_views, url_prefix='/api')
     asyncio.ensure_future(_app.queue_consumer.connect())
     return _app
-
-
-app = create_app()

@@ -28,7 +28,7 @@ def register_routes(_app, views, url_prefix=None, name_prefix=None):
             route(*args)
 
 
-def create_app(loop=None):
+def app(loop=None):
     loop = asyncio.get_event_loop() if not loop else loop
     _app = BackendApp(
         'backend',
@@ -40,10 +40,3 @@ def create_app(loop=None):
     register_routes(_app, selenium_views, url_prefix='/wd/hub')
     asyncio.ensure_future(_app.queue_producer.connect())
     return _app
-
-
-app = create_app()
-# if __name__ == "__main__":
-#     loop = asyncio.get_event_loop()
-#     app = create_app(loop=loop)
-#     web.run_app(app, host=app.cfg.HOST, port=app.cfg.PORT)
