@@ -6,8 +6,7 @@ from core.logger import setup_logging
 
 log = logging.getLogger(__name__)
 
-HOST = "0.0.0.0"
-PORT = 9000
+DEBUG = False
 
 # logging
 LOG_TYPE = "plain"
@@ -31,6 +30,7 @@ RABBITMQ_SESSION_QUEUE = "vmmaster_session"
 RABBITMQ_HEARTBEAT = 10
 RABBITMQ_REQUEST_TIMEOUT = 60
 RABBITMQ_PREFETCH_COUNT = 1
+BACKEND_REQUEST_TIMEOUT = 120
 
 # database
 DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"

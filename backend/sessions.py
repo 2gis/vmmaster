@@ -5,6 +5,7 @@ import ujson
 import logging
 from datetime import datetime
 
+from core.exceptions import TimeoutException
 
 log = logging.getLogger(__name__)
 
@@ -186,5 +187,9 @@ class Session(FakeSession):
 
         parameters = ujson.dumps(parameters)
         response = await request.app.queue_producer.add_msg_to_queue_with_response(queue, parameters)
-        response = ujson.loads(response)
-        return response.get("status"), response.get("headers", "{}"), response.get("content", "{}")
+        if response:
+            response = ujson.loads(response)
+            return response.get("status"), response.get("headers", "{}"), response.get("content", "{}")
+        else:
+            raise TimeoutException("Response is not received in %s seconds"
+                                   % request.app.cfg.BACKEND_REQUEST_TIMEOUT)

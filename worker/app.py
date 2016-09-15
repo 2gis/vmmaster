@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import aiohttp_debugtoolbar
 from core import common, utils
 from worker.queue_consumer import AsyncQueueConsumer
 from worker.api import views as api_views
@@ -31,6 +32,8 @@ def app(loop=None):
         CONFIG='config.debug',
         loop=loop
     )
+    if _app.cfg.DEBUG:
+        aiohttp_debugtoolbar.setup(_app)
     register_routes(_app, api_views, url_prefix='/api')
     asyncio.ensure_future(_app.queue_consumer.connect())
     return _app

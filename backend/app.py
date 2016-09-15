@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import logging.config
-
+import aiohttp_debugtoolbar
 from core import utils, common
 from backend.api import views as api_views
 from backend.webdriver import views as selenium_views
@@ -36,6 +36,8 @@ def app(loop=None):
         middlewares=[request_check],
         loop=loop
     )
+    if _app.cfg.DEBUG:
+        aiohttp_debugtoolbar.setup(_app)
     register_routes(_app, api_views, url_prefix='/api')
     register_routes(_app, selenium_views, url_prefix='/wd/hub')
     asyncio.ensure_future(_app.queue_producer.connect())

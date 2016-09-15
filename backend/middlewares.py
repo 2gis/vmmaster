@@ -4,7 +4,7 @@ import asyncio
 from concurrent.futures import CancelledError
 from aiohttp.errors import ClientDisconnectedError
 import logging
-from core.exceptions import PlatformException, SessionException
+from core.exceptions import PlatformException, SessionException, TimeoutException
 from backend.webdriver import commands, helpers
 from backend.webdriver.helpers import selenium_error_response
 
@@ -56,6 +56,9 @@ def request_check(app, handler):
             log.exception('%s' % exc, exc_info=False)
             session_id = helpers.get_session_id(request.path)
             return selenium_error_response("Session %s not found in available active sessions" % session_id)
+        except TimeoutException:
+            return selenium_error_response("Response is not received in %s seconds"
+                                           % request.app.cfg.BACKEND_REQUEST_TIMEOUT)
         else:
             return ret
     return middleware

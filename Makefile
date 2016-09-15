@@ -25,12 +25,20 @@ $(VIRTUAL_ENV)/bin/py.test: $(VIRTUAL_ENV)
 .PHONY: backend-run
 #(i) backend-run - Runs backend application
 backend-run: $(CURDIR)/backend
-	@$(VIRTUAL_ENV)/bin/python -m aiohttp.web -H 0.0.0.0 -P 9000 worker.app:app
+	@$(VIRTUAL_ENV)/bin/python -m aiohttp.web -H 0.0.0.0 -P 9000 backend.app:app
+
+.PHONY: br
+#(i) br - Short command for run app. Alias for 'backend-run'
+br: backend-run
 
 .PHONY: worker-run
 #(i) worker-run - Runs worker application
 worker-run: $(CURDIR)/worker
 	@$(VIRTUAL_ENV)/bin/python -m aiohttp.web -H 0.0.0.0 -P 5000 worker.app:app
+
+.PHONY: wr
+#(i) wr - Short command for run app. Alias for 'worker-run'
+wr: worker-run
 
 .PHONY: clean
 #(i) clean - Cleanup project directories
@@ -51,14 +59,14 @@ clean:
 test: $(VIRTUAL_ENV)/bin/py.test
 	@$(VIRTUAL_ENV)/bin/py.test -xs all
 
-.PHONY: backend_test
-#(i) backend_test - Runs backend tests
-backend_test: $(VIRTUAL_ENV)/bin/py.test
+.PHONY: backend-test
+#(i) backend-test - Runs backend tests
+backend-test: $(VIRTUAL_ENV)/bin/py.test
 	@$(VIRTUAL_ENV)/bin/py.test -xs backend/tests.py
 
-.PHONY: worker_test
-#(i) worker_test - Runs worker tests
-worker_test: $(VIRTUAL_ENV)/bin/py.test
+.PHONY: worker-test
+#(i) worker-test - Runs worker tests
+worker-test: $(VIRTUAL_ENV)/bin/py.test
 	@$(VIRTUAL_ENV)/bin/py.test -xs worker/tests.py
 
 .PHONY: bt
