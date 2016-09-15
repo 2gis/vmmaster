@@ -5,19 +5,30 @@ Environment
 ===========
 ::
 
-    pip install -r requirements-dev.txt
-    ./install-hooks.sh
+    make
 
 Linting
 =======
 ::
 
-    .tox/bin/flake8 vmmaster/ tests/
+    make lint
 
 Unittests with coverage
 =======================
 ::
 
-    .tox/bin/coverage run --source=vmmaster run_unittests.py
-    .tox/bin/coverage html
-    look for coverage/index.html
+    make ctest
+
+
+Unittests without coverage
+=======================
+::
+
+    make test
+
+
+Help
+=======================
+::
+
+    make help

@@ -11,16 +11,17 @@ Installation
 
 ::
 
-    user@machine: git clone https://github.com/2gis/vmmaster.git
-    user@machine: cd vmmaster
-    user@machine: chmod +x install_dependencies.sh
-    user@machine: ./install_dependencies.sh
-    user@machine: sudo pip install tox
-    user@machine: tox
-    user@machine: mv ./config_template.py config.py
-    user@machine: sudo .tox/bin/python manage.py init
-    user@machine: .tox/bin/python manage.py migrations
-    user@machine: .tox/bin/python manage.py runserver
+    make
+    make (wr|br)
+
+
+Usage in DEIS
+=============
+
+::
+
+   deis create <app_name>
+   git push deis master
 
 
 Extensions
