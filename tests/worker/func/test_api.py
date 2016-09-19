@@ -1,10 +1,15 @@
 # coding: utf-8
 import ujson
+from asyncio import coroutine
+from mock import patch
 from worker.app import app as worker_app
 
 
 def _app(loop):
-    return worker_app(loop=loop, CONFIG='config.tests')
+    with patch(
+        'backend.queue_producer.AsyncQueueProducer.connect', new=coroutine(lambda a: None)
+    ):
+        return worker_app(loop=loop, CONFIG='config.tests')
 
 
 async def test_api_get_sessions(test_client):

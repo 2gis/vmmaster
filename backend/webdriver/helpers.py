@@ -23,8 +23,11 @@ def form_response(code, headers, body):
         headers = {
             'Content-Length': len(body)
         }
+
     if isinstance(headers, str):
         headers = ujson.loads(headers)
+    if isinstance(body, dict):
+        body = ujson.dumps(body)
     return web.Response(text=body, status=code, headers=headers)
 
 

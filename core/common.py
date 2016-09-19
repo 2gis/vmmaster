@@ -52,7 +52,7 @@ class BaseApplication(web.Application):
         ch.setFormatter(logging.Formatter(self.cfg.LOG_FORMAT, self.cfg.LOG_DATE_FORMAT))
         self.logger.addHandler(ch)
         self.logger.setLevel(self.cfg.LOG_LEVEL)
-        self.logger.name = 'backend'
+        self.logger.name = 'application'
         self.logger.propagate = False
 
         LOGGING_CFG = self.cfg.get('LOGGING')

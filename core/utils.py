@@ -33,7 +33,7 @@ def generator_wait_for(condition, timeout=5):
 async def async_wait_for(condition, loop, timeout=5):
     start = loop.time()
     while not condition() and loop.time() - start < timeout:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1, loop=loop)
 
     return condition()
 

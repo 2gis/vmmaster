@@ -12,8 +12,8 @@ ROUTES = [
     ("GET", "session/{session_id:\d+}/{url:.*}", "get_proxy_request"),
     ("POST", "session/{session_id:\d+}/{url:.*}", "post_proxy_request"),
     ("DELETE", "session/{session_id:\d+}/{url:.*}", "delete_proxy_request"),
-    ("POST", "session/{session_id:\d+}/vmmaster/runScript", "agent_command"),
-    ("POST", "session/{session_id:\d+}/vmmaster/vmmasterLabel", "vmmaster_command")
+    ("POST", "vmmaster/runScript/session/{session_id:\d+}", "agent_command"),
+    ("POST", "vmmaster/vmmasterLabel/session/{session_id:\d+}", "vmmaster_command")
 ]
 
 
@@ -33,7 +33,7 @@ async def delete_session(request):
 async def get_session(request):
     session_id = request.match_info.get("session_id")
     session = request.app.sessions[int(session_id)]
-    return {"session": session}
+    return helpers.form_response(200, {}, {"session": session})
 
 
 async def get_proxy_request(request):

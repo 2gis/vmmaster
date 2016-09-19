@@ -124,20 +124,23 @@ class AsyncQueueConsumer(object):
     def get_session_channel_by_id(self, session_id):
         session_channel = None
         for channel in list(self.channels.values()):
-            if channel["type"] == "sessions" and channel["session"] == int(session_id):
+            if channel.get("type") == "sessions" and channel.get("session") == int(session_id):
                 session_channel = channel["channel"]
         return session_channel
 
     def get_platform_channel_by_platform(self, platform):
         platform_channel = None
         for channel in list(self.channels.values()):
-            if channel["type"] == "platforms" and channel["platform"] == platform:
+            if channel.get("type") == "platforms" and channel.get("platform") == platform:
                 platform_channel = channel["channel"]
         return platform_channel
 
     async def delete_channel(self, channel):
-        del self.channels[channel.channel_id]
-        await channel.close()
+        try:
+            del self.channels[channel.channel_id]
+            await channel.close()
+        except Exception:
+            log.exception("Channel was not deleted")
 
     @staticmethod
     async def make_connection(params):

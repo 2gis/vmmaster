@@ -13,6 +13,7 @@ class AsyncQueueProducer(object):
     messages = {}
     connection = None
     channel = None
+    consumer_tag = None
     responses_queue = None
     commands_queue = None
 
@@ -29,7 +30,7 @@ class AsyncQueueProducer(object):
         }
         self.connection = await self.make_connection(params)
         self.channel = await self.connection.channel()
-        self.responses_queue = await self.create_queue_and_consume()
+        self.responses_queue, self.consumer_tag = await self.create_queue_and_consume()
         self.commands_queue = await self.create_queue(self.app.cfg.RABBITMQ_COMMAND_QUEUE)
 
     async def create_queue(self, queue_name=None):
@@ -50,8 +51,8 @@ class AsyncQueueProducer(object):
             queue_name = await self.create_queue()
         else:
             await self.create_queue(queue_name)
-        await self.queue_consume(queue_name)
-        return queue_name
+        consumer_tag = await self.queue_consume(queue_name)
+        return queue_name, consumer_tag
 
     @staticmethod
     async def make_connection(params):
@@ -89,7 +90,9 @@ class AsyncQueueProducer(object):
     async def get_message_from_queue(self, correlation_id):
         log.info("Waiting response for message with id: %s" % correlation_id)
         response = await async_wait_for(
-            lambda: self.messages.get(correlation_id).get("response"), self.app.loop, timeout=120
+            lambda: self.messages.get(correlation_id).get("response"),
+            self.app.loop,
+            timeout=self.app.cfg.BACKEND_REQUEST_TIMEOUT
         )
         del self.messages[correlation_id]
         log.info("Got response %s for message with id: %s" % (response, correlation_id))
