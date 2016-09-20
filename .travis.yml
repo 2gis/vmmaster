@@ -2,6 +2,8 @@ sudo: true
 language: python
 python:
   - 3.5
+install:
+  - pip install codecov==2.0.5
 before_script:
   - make lint
 script:
