@@ -4,25 +4,10 @@ import time
 import ujson
 import logging
 from datetime import datetime
-
 from core.exceptions import TimeoutException
 
+
 log = logging.getLogger(__name__)
-
-
-def getresponse(req, q):
-    try:
-        q.put(req())
-    except Exception as e:
-        q.put(e)
-
-
-def update_log_step(log_step, message=None, control_line=None):
-    if message:
-        log_step.body = message
-    if control_line:
-        log_step.control_line = control_line
-    log_step.save()
 
 
 class FakeSession(object):
@@ -93,8 +78,6 @@ class Session(FakeSession):
 
     def __init__(self, name=None, dc=None, id=None):
         super(Session, self).__init__(name, dc, id)
-        if dc and dc.get('takeScreencast', None):
-            self.take_screencast = True
 
     @property
     def inactivity(self):
@@ -122,20 +105,20 @@ class Session(FakeSession):
             }
         return stat
 
-    def close(self, reason=None):
+    async def close(self, reason=None):
         self.closed = True
         if reason:
             self.reason = "%s" % reason
         self.deleted = datetime.now()
-        self.save()
+        await self.save()
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
-    def succeed(self):
+    async def succeed(self):
         self.status = "succeed"
-        self.close()
+        await self.close()
 
-    def failed(self, tb=None, reason=None):
+    async def failed(self, tb=None, reason=None):
         if self.closed:
             log.warn("Session %s already closed with reason %s. "
                      "In this method call was tb='%s' and reason='%s'"
@@ -144,29 +127,17 @@ class Session(FakeSession):
 
         self.status = "failed"
         self.error = tb
-        self.close(reason)
+        await self.close(reason)
 
-    def run(self):
+    async def run(self):
         self.modified = datetime.now()
         self.status = "running"
         log.info("Session %s starting on %s (%s)." %
                  (self.id, self.endpoint_name, self.endpoint_ip))
 
-    def timeout(self):
+    async def timeout(self):
         self.timeouted = True
-        self.failed(reason="Session timeout. No activity since %s" % str(self.modified))
-
-    def add_sub_step(self, control_line, body=None):
-        if self.current_log_step:
-            return self.current_log_step.add_sub_step(control_line, body)
-
-    def add_session_step(self, control_line, body=None, created=None):
-        step = super(Session, self).add_session_step(
-            control_line=control_line, body=body, created=created
-        )
-        self.current_log_step = step
-
-        return step
+        await self.failed(reason="Session timeout. No activity since %s" % str(self.modified))
 
     async def make_request(self, port, request, queue=None):
         headers = dict(request.headers)

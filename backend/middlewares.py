@@ -1,9 +1,8 @@
 # coding: utf-8
 
-import asyncio
+import logging
 from concurrent.futures import CancelledError
 from aiohttp.errors import ClientDisconnectedError
-import logging
 from core.exceptions import PlatformException, SessionException, TimeoutException
 from backend.webdriver import commands, helpers
 from backend.webdriver.helpers import selenium_error_response
@@ -38,16 +37,14 @@ async def request_preprocess(request):
         log.debug("api request")
 
 
-@asyncio.coroutine
-def request_check(app, handler):
-    @asyncio.coroutine
+async def request_middleware(app, handler):
     async def middleware(request):
         try:
             await request_preprocess(request)
             ret = await handler(request)
         except (ClientDisconnectedError, CancelledError):
             log.error("Client has been disconnected for request %s" % request.path)
-            await commands.service_command_send(request, 'CLIENT_DISCONNECTED')
+            return await commands.service_command_send(request, 'CLIENT_DISCONNECTED')
         except PlatformException as exc:
             log.exception('%s' % exc, exc_info=False)
             platform = await helpers.get_platform(request)

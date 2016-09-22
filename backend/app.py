@@ -4,11 +4,12 @@ import asyncio
 import logging
 import logging.config
 import aiohttp_debugtoolbar
-from core import utils, common
+from uuid import uuid4
+from core import utils, common, database
+from backend import middlewares
 from backend.api import views as api_views
 from backend.webdriver import views as selenium_views
 from backend.queue_producer import AsyncQueueProducer
-from backend.middlewares import request_check
 
 
 log = logging.getLogger(__name__)
@@ -17,8 +18,11 @@ log = logging.getLogger(__name__)
 class BackendApp(common.BaseApplication):
     def __init__(self, name, loop=None, router=None, middlewares=(), **OPTIONS):
         super().__init__(name=name, loop=loop, router=router, middlewares=middlewares, **OPTIONS)
+        self.node = uuid4()
+        self.db = database.Database(app=self)
         self.queue_producer = AsyncQueueProducer(app=self)
         self.sessions = {}
+        # asyncio.ensure_future(self.db.register_platforms(self.node, {}))
 
 
 def register_routes(_app, views, url_prefix=None, name_prefix=None):
@@ -32,7 +36,9 @@ def app(loop=None, CONFIG='settings'):
     _app = BackendApp(
         'backend',
         CONFIG=CONFIG,
-        middlewares=[request_check],
+        middlewares=[
+            middlewares.request_middleware
+        ],
         loop=loop
     )
     if _app.cfg.DEBUG:

@@ -53,6 +53,23 @@ clean:
 	find $(CURDIR) -name "*.orig" -delete
 	find $(CURDIR)/$(MODULE) -name "__pycache__" | xargs rm -rf
 
+
+#(i)
+#(i) ==================
+#(i)     Databases
+#(i) ==================
+#(i)
+
+.PHONY: migrate
+#(i) migrate - Run migrations (requires $DATABASE in enviroment variables)
+migrate: $(VIRTUAL_ENV)
+	PYTHONPATH=$(shell pwd) $(VIRTUAL_ENV)/bin/alembic --config alembic.ini upgrade head
+
+.PHONY: m
+#(i) m - Alias for 'migrate'
+m: migrate
+
+
 #(i)
 #(i) ==================
 #(i)      Testing

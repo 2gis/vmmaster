@@ -7,7 +7,7 @@ echo -en "\033[0m"
 
 FILES=$(git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$')
 if [[ -n $FILES ]]; then
-    .env3/bin/flake8 --max-line-length=120 $FILES
+    flake8 --max-line-length=120 $FILES
     RESULT=$?
 else
     echo "no files to check"

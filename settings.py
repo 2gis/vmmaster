@@ -7,7 +7,10 @@ from core.logger import setup_logging
 
 log = logging.getLogger(__name__)
 if isfile('.env'):
+    log.warning("Setting variables from .env file")
     env.read_envfile('.env')
+else:
+    log.warning(".env file was not found")
 
 DEBUG = env.bool("DEBUG", default=False)
 
@@ -29,4 +32,4 @@ BACKEND_REQUEST_TIMEOUT = env.int("BACKEND_REQUEST_TIMEOUT", default=120)
 SELENIUM_PORT = 4455
 
 # database
-DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"
+DATABASE = env.str("DATABASE", default="postgresql://user:password@localhost/db")
