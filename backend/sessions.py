@@ -169,7 +169,7 @@ class Session(FakeSession):
         return step
 
     async def make_request(self, port, request, queue=None):
-        headers = request.headers.copy()
+        headers = dict(request.headers)
         if request.headers.get("Host"):
             del headers["Host"]
 
