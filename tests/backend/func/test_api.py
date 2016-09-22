@@ -9,7 +9,7 @@ def _app(loop):
     with patch(
         'backend.queue_producer.AsyncQueueProducer.connect', new=coroutine(lambda a: None)
     ):
-        return backend_app(loop=loop, CONFIG='config.tests')
+        return backend_app(loop=loop, CONFIG='settings')
 
 
 async def test_api_get_sessions(test_client):

@@ -25,7 +25,7 @@ def register_routes(_app, views, url_prefix=None, name_prefix=None):
             route(*args)
 
 
-def app(loop=None, CONFIG='config.debug'):
+def app(loop=None, CONFIG='settings'):
     loop = loop if loop else asyncio.get_event_loop()
     _app = WorkerApp(
         'worker',

@@ -8,7 +8,7 @@ from worker.queue_consumer import AsyncQueueConsumer
 
 
 async def test_add_message(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qp = AsyncQueueConsumer(app)
     channel = Mock()
     channel.basic_publish = Mock(side_effect=coroutine(
@@ -21,7 +21,7 @@ async def test_add_message(loop):
 
 async def test_on_platform_message_with_channel_mute(loop):
     with patch('worker.actions.start_session', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 1}
         msg = ujson.dumps({
             "platform": "ubuntu-14.04-x64",
@@ -57,7 +57,7 @@ async def test_on_platform_message_with_channel_mute(loop):
 
 
 async def test_on_platform_message_with_muted_channel(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     app.platforms = {"ubuntu-14.04-x64": 0}
     msg = ujson.dumps({
         "platform": "ubuntu-14.04-x64",
@@ -82,7 +82,7 @@ async def test_on_platform_message_with_muted_channel(loop):
 
 async def test_on_session_message(loop):
     with patch('worker.actions.make_request_for_session', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 1}
         msg = ujson.dumps({
             "platform": "ubuntu-14.04-x64",
@@ -111,7 +111,7 @@ async def test_on_session_message(loop):
 
 async def test_on_service_message_with_CLIENT_DISCONNECTED(loop):
     with patch('worker.actions.make_service_command', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 0}
         msg = ujson.dumps({
             "command": "CLIENT_DISCONNECTED",
@@ -155,7 +155,7 @@ async def test_on_service_message_with_CLIENT_DISCONNECTED(loop):
 
 async def test_on_service_message_with_SESSION_CLOSING(loop):
     with patch('worker.actions.make_service_command', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 0}
         msg = ujson.dumps({
             "command": "SESSION_CLOSING",
@@ -199,7 +199,7 @@ async def test_on_service_message_with_SESSION_CLOSING(loop):
 
 async def test_on_service_message_with_channel_unmuting(loop):
     with patch('worker.actions.make_service_command', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 0}
         msg = ujson.dumps({
             "command": "SESSION_CLOSING",
@@ -246,7 +246,7 @@ async def test_on_service_message_with_channel_unmuting(loop):
 
 async def test_on_service_message_with_unwnown_command(loop):
     with patch('worker.actions.make_service_command', Mock(side_effect=coroutine(lambda msg: "response"))):
-        app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+        app = BaseApplication('app', loop=loop, CONFIG='settings')
         app.platforms = {"ubuntu-14.04-x64": 1}
         msg = ujson.dumps({
             "command": "bla bla",
@@ -301,7 +301,7 @@ async def test_on_service_message_for_other_consumers(loop):
 
 
 async def test_mute_channel(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -318,7 +318,7 @@ async def test_mute_channel(loop):
 
 
 async def test_unmute_channel(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -336,7 +336,7 @@ async def test_unmute_channel(loop):
 
 
 async def test_queue_consume(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -358,7 +358,7 @@ async def test_queue_consume(loop):
 
 
 async def test_get_platform_channel_by_platform(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -372,7 +372,7 @@ async def test_get_platform_channel_by_platform(loop):
 
 
 async def test_get_session_channel_by_id(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -386,7 +386,7 @@ async def test_get_session_channel_by_id(loop):
 
 
 async def test_make_channel(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -401,7 +401,7 @@ async def test_make_channel(loop):
 
 
 async def test_delete_channel(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -418,7 +418,7 @@ async def test_delete_channel(loop):
 
 
 async def test_create_queue_and_consume(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -436,7 +436,7 @@ async def test_create_queue_and_consume(loop):
 
 
 async def test_create_queue_and_consume_with_autoname(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -454,7 +454,7 @@ async def test_create_queue_and_consume_with_autoname(loop):
 
 
 async def test_delete_queue(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -468,7 +468,7 @@ async def test_delete_queue(loop):
 
 
 async def test_create_queue(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -483,7 +483,7 @@ async def test_create_queue(loop):
 
 
 async def test_create_queue_with_autoname(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -498,7 +498,7 @@ async def test_create_queue_with_autoname(loop):
 
 
 async def test_start_consuming_for_commands(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -518,7 +518,7 @@ async def test_start_consuming_for_commands(loop):
 
 
 async def test_start_consuming_for_session(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qc = AsyncQueueConsumer(app)
 
     # mocks
@@ -539,7 +539,7 @@ async def test_start_consuming_for_session(loop):
 
 
 async def test_start_consuming_for_platforms(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     app.platforms = {"ubuntu-14.04-x64": 1}
     qc = AsyncQueueConsumer(app)
 
@@ -560,7 +560,7 @@ async def test_start_consuming_for_platforms(loop):
 
 
 async def test_connect(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     app.platforms = {"ubuntu-14.04-x64": 1}
     qc = AsyncQueueConsumer(app)
 
@@ -585,7 +585,7 @@ async def test_connect(loop):
 
 
 async def test_disconnect(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     app.platforms = {"ubuntu-14.04-x64": 1}
     qc = AsyncQueueConsumer(app)
 

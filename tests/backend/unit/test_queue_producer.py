@@ -7,7 +7,7 @@ from backend.queue_producer import AsyncQueueProducer
 
 
 async def test_add_message_with_response(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     with patch(
         'backend.queue_producer.AsyncQueueProducer.channel', new=Mock()
     ):
@@ -30,7 +30,7 @@ async def test_add_message_with_response(loop):
 
 
 async def test_create_queue_and_consume_with_autoname(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     with patch(
         'backend.queue_producer.AsyncQueueProducer.channel', new=Mock()
     ):
@@ -49,7 +49,7 @@ async def test_create_queue_and_consume_with_autoname(loop):
 
 
 async def test_create_queue_and_consume(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     with patch(
         'backend.queue_producer.AsyncQueueProducer.channel', new=Mock()
     ):
@@ -68,7 +68,7 @@ async def test_create_queue_and_consume(loop):
 
 
 async def test_delete_queue(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     with patch(
         'backend.queue_producer.AsyncQueueProducer.channel', new=Mock()
     ):
@@ -82,7 +82,7 @@ async def test_delete_queue(loop):
 
 
 async def test_make_connection(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     with patch(
         'aioamqp.connect', new=Mock(side_effect=coroutine(lambda: (Mock(), Mock())))
     ) as amqp_connect:
@@ -92,7 +92,7 @@ async def test_make_connection(loop):
 
 
 async def test_connect(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qp = AsyncQueueProducer(app)
     qp.make_connection = Mock(side_effect=coroutine(
         lambda queue_name: Mock(channel=Mock(side_effect=coroutine(lambda: None)))
@@ -111,7 +111,7 @@ async def test_connect(loop):
 
 
 async def test_add_msg_w_response(loop):
-    app = BaseApplication('app', loop=loop, CONFIG='config.tests')
+    app = BaseApplication('app', loop=loop, CONFIG='settings')
     qp = AsyncQueueProducer(app)
     qp.add_msg_to_queue = Mock(side_effect=coroutine(
         lambda q, m: "24d8f597g8utr"
