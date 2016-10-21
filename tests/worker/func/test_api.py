@@ -7,7 +7,9 @@ from worker.app import app as worker_app
 
 def _app(loop):
     with patch(
-        'backend.queue_producer.AsyncQueueProducer.connect', new=coroutine(lambda a: None)
+        'worker.queue_consumer.AsyncQueueConsumer.connect', new=coroutine(lambda a: None)
+    ), patch(
+        'worker.app.on_shutdown', new=coroutine(lambda a: None)
     ):
         return worker_app(loop=loop, CONFIG='settings')
 
@@ -41,11 +43,12 @@ async def test_api_get_messages(test_client):
 
 
 async def test_api_get_platforms(test_client):
-    dct = {"ubuntu-14.04-x64": 1}
+    dct = {"ubuntu-14.04-x64": 2}
     client = await test_client(_app)
-    client.app.platforms = dct
-
-    response = await client.get("/api/platforms")
+    with patch(
+            'core.database.Database.get_platforms', new=coroutine(lambda a, b: dct)
+    ):
+        response = await client.get("/api/platforms")
 
     assert response.status == 200
     text = await response.text()

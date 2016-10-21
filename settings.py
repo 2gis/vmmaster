@@ -33,3 +33,6 @@ SELENIUM_PORT = 4455
 
 # database
 DATABASE = env.str("DATABASE", default="postgresql://user:password@localhost/db")
+PLATFORMS = {
+    "ubuntu-14.04-x64": 2
+}

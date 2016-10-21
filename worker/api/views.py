@@ -34,8 +34,9 @@ async def get_sessions(request):
 
 
 async def get_platforms(request):
+    platforms = await request.app.db.get_platforms(request.app.node)
     return web.Response(
-        body=make_request_body(request.app.platforms),
+        body=make_request_body(platforms),
         content_type='application/json',
         status=200
     )

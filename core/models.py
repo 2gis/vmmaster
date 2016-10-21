@@ -37,5 +37,6 @@ platforms_table = sa.Table(
     metadata,
     sa.Column("id", sa.Integer, primary_key=True),
     sa.Column("node", sa.String(length=100), nullable=False),
-    sa.Column("name", sa.String(length=100), nullable=False)
+    sa.Column("name", sa.String(length=100), nullable=False),
+    sa.Column("count", sa.Integer(), default=0)
 )

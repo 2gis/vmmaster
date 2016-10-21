@@ -1,13 +1,12 @@
 """sessions and platforms
 
 Revision ID: 1d74518ee142
-Revises: 
+Revises: None
 Create Date: 2016-09-22 13:33:31.238779
 
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.schema import Sequence, CreateSequence
 
 
 # revision identifiers, used by Alembic.
@@ -55,4 +54,3 @@ def upgrade():
 def downgrade():
     op.drop_table('platforms')
     op.drop_table('sessions')
-
