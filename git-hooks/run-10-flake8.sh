@@ -6,8 +6,9 @@ echo "running flake8!"
 echo -en "\033[0m"
 
 FILES=$(git diff --diff-filter=ACMRTUXB --name-only HEAD^ | egrep '^.*\.py$')
+FLAKE8_EXIST=$(test flake8)
 if [[ -n $FILES ]]; then
-    .env3/bin/flake8 --max-line-length=120 $FILES
+    python3.5 -m flake8 --max-line-length=120 $FILES
     RESULT=$?
 else
     echo "no files to check"
