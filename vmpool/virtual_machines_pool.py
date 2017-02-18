@@ -6,7 +6,6 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
-from core.network import Network
 
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
@@ -17,7 +16,6 @@ log = logging.getLogger(__name__)
 class VirtualMachinesPool(object):
     pool = list()
     using = list()
-    network = Network()
     lock = Lock()
     platforms = Platforms
     preloader = None
@@ -74,7 +72,6 @@ class VirtualMachinesPool(object):
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete(try_to_rebuild=False)
-        cls.network.delete()
 
     @classmethod
     def count(cls):
@@ -265,8 +262,6 @@ class VirtualMachinesPoolPreloader(Thread):
         already_have = self.pool.count_virtual_machines(self.pool.pool + using)
         platforms = {}
 
-        if config.USE_KVM:
-            platforms.update(config.KVM_PRELOADED)
         if config.USE_OPENSTACK:
             platforms.update(config.OPENSTACK_PRELOADED)
 

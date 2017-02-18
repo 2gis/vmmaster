@@ -7,16 +7,13 @@ import logging
 
 from functools import wraps
 from functools import partial
-from xml.dom import minidom
 from uuid import uuid4
 from threading import Thread
 
 from vmpool import VirtualMachine
 
-from core import dumpxml
-from core import utils
 from core import constants
-from core.exceptions import libvirtError, CreationException
+from core.exceptions import CreationException
 from core.config import config
 from core.utils import network_utils
 
@@ -88,131 +85,6 @@ class Clone(VirtualMachine):
             return False
 
         return True
-
-
-class KVMClone(Clone):
-    dumpxml_file = None
-    drive_path = None
-
-    def __init__(self, origin, prefix, pool):
-        super(KVMClone, self).__init__(origin, prefix, pool)
-
-        self.network = self.pool.network
-        self.conn = self.network.conn
-
-    def delete(self, try_to_rebuild=True):
-        if try_to_rebuild and self.is_preloaded():
-            self.rebuild()
-            return
-
-        log.info("Deleting kvm clone: {}".format(self.name))
-        self.ready = False
-        utils.delete_file(self.drive_path)
-        utils.delete_file(self.dumpxml_file)
-        try:
-            domain = self.conn.lookupByName(self.name)
-            if domain.isActive():
-                domain.destroy()
-            domain.undefine()
-        except libvirtError:
-            # not running
-            pass
-        try:
-            self.network.append_free_mac(self.mac)
-        except ValueError, e:
-            log.warning(e)
-            pass
-        self.pool.remove_vm(self)
-        VirtualMachine.delete(self)
-
-    def create(self):
-        log.info("Creating kvm clone of {platform}".format(
-            platform=self.platform)
-        )
-        self.dumpxml_file = self.clone_origin(self.platform)
-        self.define_clone(self.dumpxml_file)
-        self.start_virtual_machine(self.name)
-        self.ip = self.network.get_ip(self.mac)
-        self.ready = True
-        log.info("Created kvm {clone} on ip: {ip} with mac: {mac}".format(
-            clone=self.name, ip=self.ip, mac=self.mac)
-        )
-        return self
-
-    def rebuild(self):
-        log.info(
-            "Rebuilding kvm clone {clone} ({ip}, {platform})...".format(
-                clone=self.name, ip=self.ip, platform=self.platform)
-        )
-        self.pool.remove_vm(self)
-        self.delete(try_to_rebuild=False)
-
-        try:
-            self.pool.add(
-                self.platform, self.prefix, self.pool.pool)
-        except CreationException:
-            pass
-
-    def clone_origin(self, origin_name):
-        self.drive_path = utils.clone_qcow2_drive(origin_name, self.name)
-        origin_dumpxml = minidom.parseString(self.origin.settings)
-        _dumpxml = self.create_dumpxml(origin_dumpxml)
-        clone_dumpxml_file = utils.write_clone_dumpxml(self.name, _dumpxml)
-
-        return clone_dumpxml_file
-
-    def create_dumpxml(self, clone_xml):
-        dumpxml.set_name(clone_xml, self.name)
-        dumpxml.set_uuid(clone_xml, uuid4())
-        self.mac = self.network.get_free_mac()
-        dumpxml.set_mac(clone_xml, self.mac)
-        dumpxml.set_disk_file(clone_xml, self.drive_path)
-        dumpxml.set_interface_source(clone_xml, self.network.bridge_name)
-        return clone_xml
-
-    def define_clone(self, clone_dumpxml_file):
-        log.info("Defining from {}".format(clone_dumpxml_file))
-        file_handler = open(clone_dumpxml_file, "r")
-        self.conn.defineXML(file_handler.read())
-
-    def start_virtual_machine(self, machine):
-        log.info("Starting {}".format(machine))
-        domain = self.conn.lookupByName(machine)
-        domain.create()
-
-    def shutdown_virtual_machine(self, machine):
-        log.info("Shutting down {}".format(machine))
-        domain = self.conn.lookupByName(machine)
-        domain.shutdown()
-
-    def destroy_clone(self, machine):
-        log.info("Destroying {}".format(machine))
-        domain = self.conn.lookupByName(machine)
-        domain.destroy()
-
-    def undefine_clone(self, machine):
-        log.info("Undefining {}".format(machine))
-        domain = self.conn.lookupByName(machine)
-        domain.undefine()
-
-    def delete_clone_machine(self, machine):
-        self.undefine_clone(machine)
-        utils.delete_clone_drive(machine)
-
-    def get_virtual_machine_dumpxml(self, machine):
-        domain = self.conn.lookupByName(machine)
-        raw_xml_string = domain.XMLDesc(0)
-        xml = minidom.parseString(raw_xml_string)
-        return xml
-
-    def get_origin_dumpxml(self, origin_name):
-        return self.get_virtual_machine_dumpxml(origin_name)
-
-    @property
-    def vnc_port(self):
-        xml = self.get_virtual_machine_dumpxml(self.name)
-        graphics = xml.getElementsByTagName('graphics')[0]
-        return graphics.getAttribute('port')
 
 
 class OpenstackClone(Clone):

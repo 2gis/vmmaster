@@ -20,13 +20,6 @@ class Config(object):
     LOG_TYPE = "logstash"
     LOG_LEVEL = "DEBUG"
 
-    # kvm
-    USE_KVM = True
-    KVM_MAX_VM_COUNT = 2
-    KVM_PRELOADED = {
-        # "ubuntu-14.04-x64": 1
-    }
-
     # openstack
     USE_OPENSTACK = False
     OPENSTACK_MAX_VM_COUNT = 2
