@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import os
 import logging
 
 from core.config import config
@@ -20,21 +19,6 @@ class Platform(object):
     @staticmethod
     def make_clone(origin, prefix, pool):
         raise NotImplementedError
-
-
-class KVMOrigin(Platform):
-    drive = None
-    settings = None
-
-    def __init__(self, name, path):
-        self.name = name
-        self.drive = os.path.join(path, 'drive.qcow2')
-        self.settings = open(os.path.join(path, 'settings.xml'), 'r').read()
-
-    @staticmethod
-    def make_clone(origin, prefix, pool):
-        from clone import KVMClone
-        return KVMClone(origin, prefix, pool)
 
 
 class OpenstackOrigin(Platform):
@@ -76,30 +60,6 @@ class PlatformsInterface(object):
     @staticmethod
     def get_limit(platform):
         raise NotImplementedError
-
-
-class KVMPlatforms(PlatformsInterface):
-    @staticmethod
-    def _discover_origins(origins_dir):
-        origins = [origin for origin in os.listdir(origins_dir)
-                   if os.path.isdir(os.path.join(origins_dir, origin))]
-        return [KVMOrigin(origin, os.path.join(origins_dir, origin))
-                for origin in origins]
-
-    @property
-    def platforms(self):
-        return self._discover_origins(config.ORIGINS_DIR)
-
-    @staticmethod
-    def max_count():
-        if hasattr(config, 'KVM_MAX_VM_COUNT'):
-            return config.KVM_MAX_VM_COUNT
-        else:
-            return UnlimitedCount
-
-    @staticmethod
-    def get_limit(platform):
-        return KVMPlatforms.max_count()
 
 
 class DockerImage(Platform):
@@ -187,18 +147,12 @@ class OpenstackPlatforms(PlatformsInterface):
 
 class Platforms(object):
     platforms = dict()
-    kvm_platforms = None
     openstack_platforms = None
     docker_platforms = None
 
     def __new__(cls, *args, **kwargs):
         log.info("Load platforms...")
         inst = object.__new__(cls)
-        if config.USE_KVM:
-            cls.kvm_platforms = {vm.name: vm for vm in KVMPlatforms().platforms}
-            log.info("KVM platforms: {}".format(
-                cls.kvm_platforms.keys())
-            )
         if config.USE_OPENSTACK:
             cls.openstack_platforms = {vm.short_name: vm for vm in OpenstackPlatforms().platforms}
             log.info("Openstack platforms: {}".format(
@@ -214,8 +168,6 @@ class Platforms(object):
 
     @classmethod
     def _load_platforms(cls):
-        if bool(cls.kvm_platforms):
-            cls.platforms.update(cls.kvm_platforms)
         if bool(cls.openstack_platforms):
             cls.platforms.update(cls.openstack_platforms)
         if bool(cls.docker_platforms):
@@ -226,12 +178,6 @@ class Platforms(object):
     @classmethod
     def max_count(cls):
         m_count = 0
-        if bool(cls.kvm_platforms):
-            kvm_m_count = KVMPlatforms.max_count()
-            if kvm_m_count is UnlimitedCount:
-                return kvm_m_count
-            else:
-                m_count += kvm_m_count
         if bool(cls.openstack_platforms):
             m_count += OpenstackPlatforms.max_count()
         if bool(cls.docker_platforms):
@@ -240,8 +186,6 @@ class Platforms(object):
 
     @classmethod
     def get_limit(cls, platform):
-        if config.USE_KVM and platform in cls.kvm_platforms.keys():
-            return KVMPlatforms.get_limit(platform)
         if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
             return OpenstackPlatforms.get_limit(platform)
         if config.USE_DOCKER and platform in cls.docker_platforms.keys():
@@ -267,10 +211,6 @@ class Platforms(object):
 
     @classmethod
     def cleanup(cls):
-        if bool(cls.kvm_platforms):
-            for platform in cls.kvm_platforms:
-                del cls.platforms[platform]
-            cls.kvm_platforms = None
         if bool(cls.openstack_platforms):
             for platform in cls.openstack_platforms:
                 del cls.platforms[platform]

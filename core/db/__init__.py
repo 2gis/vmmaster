@@ -4,7 +4,6 @@ import logging
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.sessions import Session
 from core.db.models import SessionLogStep, User, Platform
 from core.utils import to_thread
 from core.config import config
@@ -69,6 +68,7 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         if not session_id:
             return None
+        from core.sessions import Session
         return dbsession.query(Session).get(session_id)
 
     @transaction
