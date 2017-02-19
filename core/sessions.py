@@ -69,6 +69,9 @@ class Session(models.Session):
     take_screencast = None
     is_active = True
 
+    def __str__(self):
+        return "Session id=%s status=%s" % (self.id, self.status)
+
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
         if dc and dc.get('takeScreencast', None):

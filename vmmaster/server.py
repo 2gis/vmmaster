@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import time
-import logging
 from Queue import Queue, Empty
 
 from twisted.web.wsgi import WSGIResource
@@ -14,9 +13,8 @@ from twisted.internet.threads import deferToThread
 
 from app import create_app
 from http_proxy import ProxyResource, HTTPChannelWithClient
+from core.logger import log
 from core.config import config
-
-log = logging.getLogger(__name__)
 
 
 def _block_on(d, timeout=None):
@@ -50,6 +48,10 @@ class RootResource(Resource):
 class VMMasterServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
+        self.reactor.addSystemEventTrigger('before', 'shutdown',
+                                           self.before_shutdown)
+        self.reactor.addSystemEventTrigger('during', 'shutdown',
+                                           self.during_shutdown)
         self.app = create_app()
         self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
         self.thread_pool.start()
@@ -63,16 +65,18 @@ class VMMasterServer(object):
         log.info('Server is listening on %s ...' % port)
 
     def run(self):
-        self.reactor.addSystemEventTrigger('before', 'shutdown',
-                                           self.before_shutdown)
         self.reactor.run()
-        del self
 
-    def __del__(self):
-        d = self.bind.stopListening()
-        _block_on(d, 20)
-        self.app.cleanup()
-        self.thread_pool.stop()
+    def stop_services(self):
+        def lets_do_it():
+            d = self.bind.stopListening()
+            _block_on(d, 20)
+            self.app.cleanup()
+            self.thread_pool.stop()
+
+        return deferToThread(lets_do_it).addBoth(
+            lambda i: log.info('All services has been stopped')
+        )
 
     def wait_for_end_active_sessions(self):
         active_sessions = self.app.sessions.active()
@@ -87,11 +91,17 @@ class VMMasterServer(object):
                 log.info("Wait for end %s active session[s]:"
                          " %s" % (len(active_sessions), active_sessions))
 
-        return deferToThread(wait_for, self).addBoth(
+        return deferToThread(wait_for).addBoth(
             lambda i: log.info("All active sessions has been completed")
         )
 
     @inlineCallbacks
     def before_shutdown(self):
         self.app.running = False
-        yield self.wait_for_end_active_sessions()
+        if hasattr(config, 'NO_SHUTDOWN_WITH_SESSIONS') \
+                and config.NO_SHUTDOWN_WITH_SESSIONS:
+            yield self.wait_for_end_active_sessions()
+
+    @inlineCallbacks
+    def during_shutdown(self):
+        yield self.stop_services()
