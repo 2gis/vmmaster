@@ -77,8 +77,6 @@ class Session(models.Session):
         if dc and dc.get('takeScreencast', None):
             self.take_screencast = True
 
-        current_app.sessions.put(self)
-
     @property
     def inactivity(self):
         return (datetime.now() - self.modified).total_seconds()
@@ -132,8 +130,6 @@ class Session(models.Session):
         if self.vnc_helper:
             self.vnc_helper.stop_recording()
             self.vnc_helper.stop_proxy()
-
-        current_app.sessions.remove(self)
 
         if hasattr(self, "ws"):
             self.ws.close()
@@ -248,24 +244,26 @@ class SessionWorker(Thread):
 
 
 class Sessions(object):
-    active_sessions = {}
-
     def __init__(self, app):
         self.app = app
         self.worker = SessionWorker(self)
         self.worker.start()
+
+    @property
+    def active_sessions(self):
+        active_sessions = {}
+        try:
+            for session in self.app.database.get_active_sessions():
+                active_sessions[session["id"]] = session
+        except Exception as e:
+            log.exception(e)
+        return active_sessions
 
     def put(self, session):
         if str(session.id) not in self.active_sessions.keys():
             self.active_sessions[str(session.id)] = session
         else:
             raise SessionException("Duplicate session id: %s" % session.id)
-
-    def remove(self, session):
-        try:
-            del self.active_sessions[str(session.id)]
-        except KeyError:
-            pass
 
     def active(self):
         return self.active_sessions.values()
@@ -280,20 +278,9 @@ class Sessions(object):
         for session in self.active_sessions.values():
             session.close()
 
-    def get_session(self, session_id):
-        try:
-            session = self.active_sessions[str(session_id)]
-        except KeyError:
-            session = current_app.database.get_session(session_id)
-            if session:
-                reason = session.reason
-            else:
-                reason = "Unknown session"
-
-            message = "There is no active session %s" % session_id
-            if reason:
-                message = "%s (%s)" % (message, reason)
-
-            raise SessionException(message)
-
+    @staticmethod
+    def get_session(session_id):
+        session = current_app.database.get_session(session_id)
+        if not session:
+            raise SessionException("There is no active session %s" % session_id)
         return session
