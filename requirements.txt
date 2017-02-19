@@ -18,3 +18,4 @@ websocket-client==0.30.0
 pillow==2.9.0
 vnc2flv==20100207
 websockify==0.7.0
+envparse==0.2.0

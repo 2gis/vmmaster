@@ -4,7 +4,6 @@ logs/
 .env
 .tox
 .coverage
-config.py
 vmmaster/screenshots/*
 vmmaster/origins/*
 vmmaster/session/*
