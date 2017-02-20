@@ -7,7 +7,7 @@ import time
 import logging
 
 from functools import wraps
-from flask import Response, request
+from flask import Response, request, current_app
 
 from core.exceptions import CreationException, ConnectionError, \
     TimeoutException, SessionException
@@ -16,7 +16,6 @@ from core.config import config
 from core import constants
 from core import utils
 from core.sessions import Session, RequestHelper
-from vmpool import endpoint
 from PIL import Image
 
 log = logging.getLogger(__name__)
@@ -179,7 +178,7 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             time.sleep(timeout)
 
 
-def get_endpoint(session_id, dc):
+def get_endpoint(session_id):
     _endpoint = None
     attempt = 0
     attempts = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
@@ -193,17 +192,13 @@ def get_endpoint(session_id, dc):
         wait_time += wait_time_increment
         try:
             log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
-            for vm in endpoint.get_vm(dc):
-                _endpoint = vm
-                yield _endpoint
+            _session = current_app.sessions.get_session(session_id)
+            _endpoint = _session.endpoint
             log.info("Attempt %s to get endpoint %s for session %s was succeed"
                      % (attempt, _endpoint, session_id))
         except CreationException as e:
             log.exception("Attempt %s to get endpoint for session %s was failed: %s"
                           % (attempt, session_id, str(e)))
-            if hasattr(_endpoint, "ready"):
-                if not _endpoint.ready:
-                    _endpoint = None
             if attempt < attempts:
                 time.sleep(wait_time)
             else:
@@ -222,7 +217,7 @@ def get_session():
              (str(session.id), session.name, str(dc)))
     yield session
 
-    for _endpoint in get_endpoint(session.id, dc):
+    for _endpoint in get_endpoint(session.id):
         session.endpoint = _endpoint
         yield session
 

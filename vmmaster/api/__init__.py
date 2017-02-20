@@ -7,7 +7,6 @@ import logging
 from flask import Blueprint, jsonify, request, current_app
 
 from core import constants
-from vmpool.api import helpers as vmpool_helpers
 from core.auth.api_auth import auth
 from core.config import config
 
@@ -33,29 +32,8 @@ def status():
     return render_json({
         'node': helpers.get_node_info(),
         'sessions': helpers.get_sessions(),
-        'queue': helpers.get_queue(),
-        'platforms': vmpool_helpers.get_platforms(),
-        'pool': vmpool_helpers.get_pool()
+        'queue': helpers.get_queue()
     })
-
-
-@api.route('/artifacts')
-def artifacts():
-    queue = vmpool_helpers.get_artifact_collector_queue()
-    return render_json({
-        "amount": len(queue),
-        "queue": queue
-    })
-
-
-@api.route('/platforms')
-def platforms():
-    return render_json(result={'platforms': vmpool_helpers.get_platforms()})
-
-
-@api.route('/pool')
-def pool():
-    return render_json(result={'pool': vmpool_helpers.get_pool()})
 
 
 @api.route('/config', methods=['GET', 'POST'])

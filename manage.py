@@ -33,6 +33,15 @@ def runserver():
 
 
 @manager.command
+def runprovider():
+    """
+    Run provider
+    """
+    from vmpool.server import VMPoolServer
+    VMPoolServer(reactor, config.PORT).run()
+
+
+@manager.command
 def cleanup():
     """
     Run cleanup

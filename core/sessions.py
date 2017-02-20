@@ -247,7 +247,12 @@ class Sessions(object):
     def __init__(self, app):
         self.app = app
         self.worker = SessionWorker(self)
+
+    def start_worker(self):
         self.worker.start()
+
+    def stop_worker(self):
+        self.worker.stop()
 
     @property
     def active_sessions(self):
