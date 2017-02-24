@@ -179,24 +179,27 @@ def check_to_exist_ip(session, tries=10, timeout=5):
 
 
 def get_endpoint(session_id):
-    _endpoint = None
+    _endpoint_id = None
     attempt = 0
-    attempts = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
-                       constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
+    attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
+                       constants.GET_ENDPOINT_ATTEMPTS)
     wait_time = 0
     wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
                                   constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
 
-    while not _endpoint:
+    while not _endpoint_id:
         attempt += 1
         wait_time += wait_time_increment
         try:
             log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
             _session = current_app.sessions.get_session(session_id)
-            _endpoint = _session.endpoint
-            log.info("Attempt %s to get endpoint %s for session %s was succeed"
-                     % (attempt, _endpoint, session_id))
-        except CreationException as e:
+            _endpoint_id = _session.endpoint_id
+            if _endpoint_id:
+                log.info("Attempt %s to get endpoint %s for session %s was succeed"
+                         % (attempt, _endpoint_id, session_id))
+            if attempt < attempts:
+                time.sleep(wait_time)
+        except Exception as e:
             log.exception("Attempt %s to get endpoint for session %s was failed: %s"
                           % (attempt, session_id, str(e)))
             if attempt < attempts:
@@ -204,7 +207,7 @@ def get_endpoint(session_id):
             else:
                 raise e
 
-    yield _endpoint
+    yield _endpoint_id
 
 
 @connection_watcher
@@ -217,9 +220,9 @@ def get_session():
              (str(session.id), session.name, str(dc)))
     yield session
 
-    for _endpoint in get_endpoint(session.id):
-        session.endpoint = _endpoint
+    for _endpoint_id in get_endpoint(session.id):
+        session.endpoint_id = _endpoint_id
         yield session
 
-    session.run(session.endpoint)
+    session.run()
     yield session

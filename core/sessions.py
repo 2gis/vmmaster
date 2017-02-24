@@ -63,7 +63,6 @@ class SimpleResponse:
 
 
 class Session(models.Session):
-    endpoint = None
     current_log_step = None
     vnc_helper = None
     take_screencast = None
@@ -96,10 +95,10 @@ class Session(models.Session):
             "inactivity": self.inactivity,
         }
 
-        if self.endpoint_name:
+        if self.endpoint:
             stat["endpoint"] = {
-                "ip": self.endpoint_ip,
-                "name": self.endpoint_name
+                "ip": self.endpoint.ip,
+                "name": self.endpoint.name
             }
         return stat
 
@@ -134,11 +133,6 @@ class Session(models.Session):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint") and not self.save_artifacts():
-            log.info("Deleting endpoint %s (%s) for session %s" %
-                     (self.endpoint_name, self.endpoint_ip, self.id))
-            self.endpoint.delete()
-
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
     def succeed(self):
@@ -156,23 +150,17 @@ class Session(models.Session):
         self.error = tb
         self.close(reason)
 
-    def set_vm(self, endpoint):
-        self.endpoint_ip = endpoint.ip
-        self.endpoint_name = endpoint.name
-
-    def run(self, endpoint):
+    def run(self):
         self.modified = datetime.now()
-        self.endpoint = endpoint
-        self.set_vm(endpoint)
         self.status = "running"
-        self.vnc_helper = VNCVideoHelper(self.endpoint_ip,
+        self.vnc_helper = VNCVideoHelper(self.endpoint.ip,
                                          filename_prefix=self.id)
 
         if self.take_screencast:
             self.vnc_helper.start_recording()
 
         log.info("Session %s starting on %s (%s)." %
-                 (self.id, self.endpoint_name, self.endpoint_ip))
+                 (self.id, self.endpoint.name, self.endpoint.ip))
 
     def timeout(self):
         self.timeouted = True
@@ -199,7 +187,7 @@ class Session(models.Session):
             del request.headers['Host']
 
         q = Queue()
-        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
+        url = "http://%s:%s%s" % (self.endpoint.ip, port, request.url)
 
         def req():
             return requests.request(method=request.method,
@@ -254,24 +242,8 @@ class Sessions(object):
     def stop_worker(self):
         self.worker.stop()
 
-    @property
-    def active_sessions(self):
-        active_sessions = {}
-        try:
-            for session in self.app.database.get_active_sessions():
-                active_sessions[session["id"]] = session
-        except Exception as e:
-            log.exception(e)
-        return active_sessions
-
-    def put(self, session):
-        if str(session.id) not in self.active_sessions.keys():
-            self.active_sessions[str(session.id)] = session
-        else:
-            raise SessionException("Duplicate session id: %s" % session.id)
-
     def active(self):
-        return self.active_sessions.values()
+        return self.app.database.get_active_sessions()
 
     def running(self):
         return [s for s in self.active() if s.status == "running"]
@@ -280,7 +252,7 @@ class Sessions(object):
         return [s for s in self.active() if s.status == "waiting"]
 
     def kill_all(self):
-        for session in self.active_sessions.values():
+        for session in self.active():
             session.close()
 
     @staticmethod

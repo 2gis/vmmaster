@@ -6,7 +6,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Sequence, String, Enum, \
-    ForeignKey, DateTime, Boolean
+    ForeignKey, DateTime, Boolean, Float
 from sqlalchemy.orm import relationship, backref
 
 from flask import current_app
@@ -23,6 +23,9 @@ class FeaturesMixin(object):
 
     def refresh(self):
         current_app.database.refresh(self)
+
+    def delete(self):
+        current_app.database.delete(self)
 
 
 class SessionLogSubStep(Base, FeaturesMixin):
@@ -89,8 +92,7 @@ class Session(Base, FeaturesMixin):
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
-    endpoint_ip = Column(String)
-    endpoint_name = Column(String)
+    endpoint_id = Column(ForeignKey('endpoints.id', ondelete='SET NULL'), nullable=True)
     name = Column(String)
     dc = Column(String)
     selenium_session = Column(String)
@@ -122,6 +124,9 @@ class Session(Base, FeaturesMixin):
 
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
+
+    def set_endpoint(self, endpoint_id):
+        self.endpoint = current_app.database.get_endpoint(endpoint_id)
 
     def __init__(self, name=None, dc=None):
         if name:
@@ -155,6 +160,35 @@ class Session(Base, FeaturesMixin):
                               body=body,
                               session_id=self.id,
                               created=created)
+
+
+class Endpoint(Base, FeaturesMixin):
+    __tablename__ = 'endpoints'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=True)
+    ip = Column(String, nullable=True)
+    mac = Column(String, nullable=True)
+    platform = Column(String, nullable=False)
+    ready = Column(Boolean, nullable=False)
+    checking = Column(Boolean, nullable=False)
+    deleted = Column(Boolean, nullable=False)
+    created = Column(Float, nullable=False)
+
+    # Relationships
+    sessions = relationship(Session, lazy='subquery', backref="endpoint", passive_deletes=True)
+
+    def __str__(self):
+        return "Endpoint %s(%s)" % (self.name, self.id)
+
+    def __init__(self, name, platform):
+        self.name = name
+        self.platform = platform
+        self.add()
+
+        if not self.name:
+            self.name = "Unnamed endpoint(id=%s, platform=%s)" % (str(self.id), platform)
+            self.save()
 
 
 class User(Base, FeaturesMixin):

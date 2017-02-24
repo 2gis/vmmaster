@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from core.sessions import Session
-from core.db.models import SessionLogStep, User, Platform
+from core.db.models import SessionLogStep, User, Platform, Endpoint
 from core.utils import to_thread
 from core.config import config
 
@@ -73,7 +73,7 @@ class Database(object):
 
     @transaction
     def get_active_sessions(self, dbsession=None):
-        return dbsession.query(Session).filter(not Session.closed).all()
+        return dbsession.query(Session).filter(Session.closed.is_(False)).all()
 
     @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):
@@ -92,6 +92,10 @@ class Database(object):
         elif username:
             return dbsession.query(User).filter_by(username=username).first()
         return None
+
+    @transaction
+    def get_endpoint(self, endpoint_id, dbsession=None):
+        return dbsession.query(Endpoint).get(endpoint_id)
 
     @transaction
     def get_platform(self, name, dbsession=None):

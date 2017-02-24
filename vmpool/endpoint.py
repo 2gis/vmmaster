@@ -1,5 +1,10 @@
 # coding: utf-8
 import logging
+
+import time
+import json
+
+from core import constants
 from core.utils import generator_wait_for
 from core.config import config
 
@@ -29,8 +34,8 @@ def get_platform(desired_caps):
             'Platform parameter for new endpoint not found in dc'
         )
 
-    if not current_app.pool.platforms.check_platform(platform):
-        raise PlatformException('No such platform %s' % platform)
+    # if not current_app.pool.platforms.check_platform(platform):
+    #     raise PlatformException('No such platform %s' % platform)
 
     return platform
 
@@ -51,12 +56,11 @@ def get_vm(desired_caps):
             "Timeout while waiting for vm with platform %s" % platform
         )
 
-    yield vm
-
     for _ in generator_wait_for(
-        lambda: vm.ready, timeout=config.GET_VM_TIMEOUT
+        lambda: vm, timeout=config.GET_VM_TIMEOUT
     ):
-        yield vm
+        if vm.ready:
+            break
 
     if not vm.ready:
         vm.delete(try_to_rebuild=False)
@@ -67,3 +71,37 @@ def get_vm(desired_caps):
 
     log.info('Got vm for request with params: %s' % vm.info)
     yield vm
+
+
+def get_endpoint(session_id, dc):
+    _endpoint = None
+    attempt = 0
+    attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
+                       constants.GET_ENDPOINT_ATTEMPTS)
+    wait_time = 0
+    wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
+                                  constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
+
+    dc = json.loads(dc)
+    while not _endpoint:
+        attempt += 1
+        wait_time += wait_time_increment
+        try:
+            log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
+            for vm in get_vm(dc):
+                _endpoint = vm
+                yield _endpoint
+            if attempt < attempts:
+                time.sleep(wait_time)
+            log.info("Attempt %s to get endpoint %s for session %s was succeed"
+                     % (attempt, _endpoint, session_id))
+        except CreationException as e:
+            log.exception("Attempt %s to get endpoint for session %s was failed: %s"
+                          % (attempt, session_id, str(e)))
+            if hasattr(_endpoint, "ready"):
+                if not _endpoint.ready:
+                    _endpoint = None
+            if attempt > attempts:
+                raise e
+
+    yield _endpoint

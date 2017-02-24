@@ -6,6 +6,7 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
+from vmpool import endpoint
 
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
@@ -20,6 +21,7 @@ class VirtualMachinesPool(object):
     platforms = Platforms
     preloader = None
     artifact_collector = None
+    endpoint_worker = None
 
     def __str__(self):
         return str(self.pool)
@@ -35,9 +37,13 @@ class VirtualMachinesPool(object):
         cls.artifact_collector = ArtifactCollector(cls)
         cls.preloader = VirtualMachinesPoolPreloader(cls)
         cls.preloader.start()
+        cls.endpoint_worker = EndpointWorker(cls)
+        cls.endpoint_worker.start()
 
     @classmethod
     def stop_workers(cls):
+        if cls.endpoint_worker:
+            cls.endpoint_worker.stop()
         if cls.preloader:
             cls.preloader.stop()
         if cls.artifact_collector:
@@ -238,20 +244,22 @@ class VirtualMachinesPool(object):
 class VirtualMachinesPoolPreloader(Thread):
     def __init__(self, pool):
         Thread.__init__(self)
+        self.app = pool.app
         self.running = True
         self.daemon = True
         self.pool = pool
 
     def run(self):
-        while self.running:
-            try:
-                platform = self.need_load()
-                if platform is not None:
-                    self.pool.preload(platform, "preloaded")
-            except Exception as e:
-                log.exception('Exception in preloader: %s', e.message)
+        with self.app.app_context():
+            while self.running:
+                try:
+                    platform = self.need_load()
+                    if platform is not None:
+                        self.pool.preload(platform, "preloaded")
+                except Exception as e:
+                    log.exception('Exception in preloader: %s', e.message)
 
-            time.sleep(config.PRELOADER_FREQUENCY)
+                time.sleep(config.PRELOADER_FREQUENCY)
 
     def need_load(self):
         if self.pool.using is not []:
@@ -274,3 +282,33 @@ class VirtualMachinesPoolPreloader(Thread):
         self.running = False
         self.join(1)
         log.info("Preloader stopped")
+
+
+class EndpointWorker(Thread):
+    def __init__(self, pool):
+        Thread.__init__(self)
+        self.running = True
+        self.daemon = True
+        self.app = pool.app
+        self.sessions = pool.app.sessions
+        self.platforms = pool.platforms
+
+    def run(self):
+        log.info("EndpointWorker starting")
+        with self.app.app_context():
+            while self.running:
+                for session in self.sessions.active():
+                    log.info("Checking for %s" % session)
+                    if not session.endpoint_id and not session.closed:
+                        if self.platforms.check_platform(session.platform):
+                            log.info("Finding endpoint for %s with platform=%s" % (session, session.platform))
+                            for _endpoint in endpoint.get_endpoint(session.id, session.dc):
+                                log.info("Endpoint %s" % _endpoint)
+                                session.set_endpoint(_endpoint.id)
+
+                time.sleep(5)
+
+    def stop(self):
+        self.running = False
+        self.join(1)
+        log.info("EndpointWorker stopped")

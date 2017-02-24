@@ -24,7 +24,8 @@ def threaded_wait(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         def thread_target():
-            return func(self, *args, **kwargs)
+            with self.pool.app.app_context():
+                return func(self, *args, **kwargs)
 
         tr = Thread(target=thread_target)
         tr.daemon = True
@@ -98,6 +99,7 @@ class OpenstackClone(Clone):
 
         self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
+        self.save()
 
     def create(self):
         log.info(
@@ -182,6 +184,7 @@ class OpenstackClone(Clone):
                     method()
                 if self.ping_vm():
                     self.ready = True
+                    self.save()
                     break
                 if ping_retry > config_ping_retry_count:
                     p = config_ping_retry_count * config_ping_timeout
@@ -191,6 +194,7 @@ class OpenstackClone(Clone):
                     log.warn("Try to rebuild vm %s. Attempt %s" % (self.name, rebuild_retry))
                     rebuild_retry += 1
                     self.rebuild()
+                    self.save()
                     break
 
                 ping_retry += 1
@@ -248,10 +252,9 @@ class OpenstackClone(Clone):
     def vm_has_created(self):
         try:
             server = self.nova_client.servers.find(name=self.name)
-        except Exception as e:
+        except:
             log.exception(
-                "An error occurred during addition ip for vm %s: %s" %
-                (self.name, e.message))
+                "An error occurred during addition ip for vm %s" % self.name)
             server = None
 
         if server is not None:
@@ -265,8 +268,8 @@ class OpenstackClone(Clone):
         try:
             server = self.nova_client.servers.find(name=server_name)
             return True if server.name == server_name else False
-        except Exception as e:
-            log.exception("VM does not exist. Error: %s" % e.message)
+        except:
+            log.exception("VM does not exist.")
             return False
 
     def delete(self, try_to_rebuild=True):
@@ -279,9 +282,8 @@ class OpenstackClone(Clone):
         if self.check_vm_exist(self.name):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
-            except Exception as e:
-                log.exception("Delete vm %s was FAILED. %s" %
-                              (self.name, e.message))
+            except:
+                log.exception("Delete vm %s was FAILED." % self.name)
             log.info("Deleted openstack clone: {clone}".format(
                 clone=self.name))
         else:
@@ -301,8 +303,8 @@ class OpenstackClone(Clone):
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
             self._wait_for_activated_service(lambda: log.info(
                 "Rebuilded openstack clone: {clone}".format(clone=self.name)))
-        except Exception as e:
+        except:
             log.exception(
-                "Rebuild vm %s was FAILED. %s" % (self.name, e.message)
+                "Rebuild vm %s was FAILED." % self.name
             )
             self.delete(try_to_rebuild=False)

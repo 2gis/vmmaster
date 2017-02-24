@@ -1,16 +1,18 @@
 # coding: utf-8
 
-from datetime import datetime
+import time
 from core.dispatcher import dispatcher, Signals
+from core.db import models
 
 
-class VirtualMachine(object):
+class VirtualMachine(models.Endpoint):
     def __init__(self, name, platform):
+        super(VirtualMachine, self).__init__(name, platform)
         self.name = name
         self.ip = None
         self.mac = None
         self.platform = platform
-        self.created = datetime.now()
+        self.created = time.time()
         self.ready = False
         self.checking = False
         self.done = False
@@ -29,6 +31,7 @@ class VirtualMachine(object):
     def delete(self):
         dispatcher.send(signal=Signals.DELETE_VIRTUAL_MACHINE, sender=self)
         self.done = True
+        self.delete()
 
     def is_preloaded(self):
         return 'preloaded' in self.name

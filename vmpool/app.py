@@ -25,8 +25,8 @@ class VMPool(Flask):
         self.running = True
         self.uuid = str(uuid1())
         self.database = Database()
-        self.pool = VirtualMachinesPool(self)
         self.sessions = Sessions(self)
+        self.pool = VirtualMachinesPool(self)
         self.json_encoder = JSONEncoder
         self.register()
 
