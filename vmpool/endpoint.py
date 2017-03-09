@@ -3,6 +3,8 @@ import logging
 
 import time
 import json
+from threading import Thread
+from multiprocessing.pool import ThreadPool
 
 from core import constants
 from core.utils import generator_wait_for
@@ -57,7 +59,7 @@ def get_vm(desired_caps):
         )
 
     for _ in generator_wait_for(
-        lambda: vm, timeout=config.GET_VM_TIMEOUT
+        lambda: vm.ready, timeout=config.GET_VM_TIMEOUT
     ):
         if vm.ready:
             break
@@ -90,7 +92,6 @@ def get_endpoint(session_id, dc):
             log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
             for vm in get_vm(dc):
                 _endpoint = vm
-                yield _endpoint
             if attempt < attempts:
                 time.sleep(wait_time)
             log.info("Attempt %s to get endpoint %s for session %s was succeed"
@@ -105,3 +106,138 @@ def get_endpoint(session_id, dc):
                 raise e
 
     yield _endpoint
+
+
+def on_completed_task(session_id):
+    """
+    :param session_id: int
+    """
+    log.debug("Completing task for session %s" % session_id)
+    session = get_session_from_db(session_id)
+
+    if not session:
+        log.error("Task doesn't sucessfully finished for session %s "
+                  "and endpoint doesn't deleted" % session_id)
+        return
+
+    endpoint = current_app.pool.get_by_name(session.endpoint.name)
+    endpoint.delete()
+    log.debug("Task finished for session %s" % session_id)
+
+
+def get_session_from_db(session_id):
+    """
+    :param session_id: int
+    :return: Session
+    """
+    session = None
+    try:
+        session = current_app.database.get_session(session_id)
+    except:
+        log.exception("Session %s not found" % session_id)
+
+    return session
+
+
+class EndpointThreadPool(ThreadPool):
+    def __init__(self, vmpool):
+        super(EndpointThreadPool, self).__init__(processes=config.ENDPOINT_THREADPOOL_PROCESSES)
+        self.in_queue = {}
+        self.vmpool = vmpool
+        log.info("EndpointThreadPool started")
+
+    def __reduce__(self):
+        super(EndpointThreadPool, self).__reduce__()
+
+    def get_queue(self):
+        return self.in_queue.keys()
+
+    def add_task(self, session_id):
+        self.run_task(
+            session_id,
+            self.prepare_endpoint,
+            args=(session_id,)
+        )
+        return True
+
+    def run_task(self, session_id, method, args):
+        apply_result = self.apply_async(method, args=args)
+        log.debug("Apply Result %s" % apply_result)
+        if session_id in self.in_queue:
+            self.in_queue[session_id].append(apply_result)
+        else:
+            self.in_queue[session_id] = [apply_result]
+        log.info("Task for getting artifacts added to queue for session %s" % session_id)
+        log.debug('ArtifactCollector Queue: %s' % str(self.in_queue))
+
+    def del_task(self, session_id):
+        """
+        :param session_id: int
+        """
+        tasks = self.in_queue.get(session_id, list())
+        for task in tasks:
+            if task and not task.ready():
+                task.successful()
+                log.info("Getting artifacts for session %s aborted" % session_id)
+        try:
+            del self.in_queue[session_id]
+        except KeyError:
+            log.exception("Tasks already deleted from queue for session %s" % session_id)
+        log.info("Getting artifacts abort has been failed for "
+                 "session %s because it's already done" % session_id)
+
+    def del_tasks(self, sessions_ids):
+        """
+        :param sessions_ids: list
+        """
+        for session_id in sessions_ids:
+            self.del_task(session_id)
+
+    def prepare_endpoint(self, session_id):
+        with self.vmpool.app.app_context():
+            session = get_session_from_db(session_id=session_id)
+            try:
+                for _endpoint in get_endpoint(session.id, session.dc):
+                    log.info("Endpoint %s" % _endpoint)
+                    session.set_endpoint(_endpoint)
+                    log.info("Endpoint id: %s" % str(session.endpoint.id))
+            finally:
+                self.in_queue.pop(session.id)
+                on_completed_task(session.id)
+
+    def stop(self):
+        self.del_tasks(self.in_queue.keys())
+        self.close()
+        log.info("EndpointThreadPool stopped")
+
+
+class EndpointWorker(Thread):
+    def __init__(self, pool):
+        Thread.__init__(self)
+        self.running = True
+        self.daemon = True
+        self.app = pool.app
+        self.sessions = pool.app.sessions
+        self.platforms = pool.platforms
+        self.queue = EndpointThreadPool(pool)
+
+    def run(self):
+        log.info("EndpointWorker starting")
+        with self.app.app_context():
+            while self.running:
+                for session in self.sessions.active():
+                    log.info("Checking for %s" % session)
+                    if not session.endpoint_id and not session.closed:
+                        if self.platforms.check_platform(session.platform):
+                            in_queue = self.queue.add_task(session.id)
+                            if in_queue:
+                                log.info("Added to queue for preparing endpoint "
+                                         "for %s with platform=%s" % (session, session.platform))
+                            else:
+                                log.warn("Not in queue task for session %s" % session)
+                time.sleep(5)
+
+    def stop(self):
+        self.running = False
+        self.join(1)
+        log.info("EndpointWorker stopped")

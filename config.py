@@ -1,11 +1,17 @@
 import os
 from envparse import env
+from os.path import isfile
+
+
+if isfile('.env'):
+    env.read_envfile('.env')
 
 
 class Config(object):
     BASEDIR = env.str("BASEDIR", default=os.path.dirname(os.path.realpath(__file__)))
     PORT = env.int("PORT", default=9001)
     NO_SHUTDOWN_WITH_SESSIONS = env.bool("NO_SHUTDOWN_WITH_SESSIONS", default=False)
+    ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=1)
 
     # PostgreSQL dbname
     DATABASE = env.str("DATABASE", default="postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb")

@@ -98,7 +98,6 @@ class OpenstackPlatforms(PlatformsInterface):
 
 class Platforms(object):
     platforms = dict()
-    kvm_platforms = None
     openstack_platforms = None
 
     def __new__(cls, *args, **kwargs):
@@ -131,6 +130,8 @@ class Platforms(object):
     def get_limit(cls, platform):
         if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
             return OpenstackPlatforms.get_limit(platform)
+        else:
+            return 0
 
     @classmethod
     def check_platform(cls, platform):

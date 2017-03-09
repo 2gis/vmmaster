@@ -38,6 +38,7 @@ def handle_errors(error):
 def get_vmmaster_session(request):
     if hasattr(request, 'session'):
         session = request.session
+        session.refresh()
     else:
         session_id = commands.get_session_id(request.path)
 
@@ -112,6 +113,7 @@ def verify_token(username, client_token):
 @webdriver.route('/session/<session_id>', methods=['DELETE'])
 def delete_session(session_id):
     request.session = current_app.sessions.get_session(session_id)
+    request.session.refresh()
     status, headers, body = helpers.transparent()
     return helpers.form_response(status, headers, body)
 
@@ -136,6 +138,7 @@ def create_session():
 @webdriver.route("/session/<string:session_id>", methods=['GET'])
 def get_session(session_id):
     request.session = current_app.sessions.get_session(session_id)
+    request.session.refresh()
     status, headers, body = helpers.transparent()
     return helpers.form_response(status, headers, body)
 
@@ -156,7 +159,9 @@ def take_screenshot(status, body):
     "/session/<string:session_id>/vmmaster/runScript", methods=['POST']
 )
 def agent_command(session_id):
-    request.session = current_app.sessions.get_session(session_id)
+    session = current_app.sessions.get_session(session_id)
+    request.session = None
+    request.session = session
 
     status, headers, body = helpers.vmmaster_agent(
         commands.AgentCommands['runScript'])
@@ -170,6 +175,7 @@ def agent_command(session_id):
 )
 def vmmaster_command(session_id):
     request.session = current_app.sessions.get_session(session_id)
+    request.session.refresh()
 
     status, headers, body = helpers.internal_exec(
         commands.InternalCommands['vmmasterLabel'])
@@ -182,6 +188,7 @@ def vmmaster_command(session_id):
                  methods=['GET', 'POST', 'DELETE'])
 def proxy_request(session_id, url=None):
     request.session = current_app.sessions.get_session(session_id)
+    request.session.refresh()
 
     status, headers, body = helpers.transparent()
 

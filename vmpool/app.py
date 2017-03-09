@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import logging
-from uuid import uuid1
 from flask import json, Flask
 from core.config import config
 
@@ -16,6 +15,8 @@ class JSONEncoder(json.JSONEncoder):
 
 
 class VMPool(Flask):
+    id = None
+
     def __init__(self, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
@@ -23,18 +24,23 @@ class VMPool(Flask):
 
         super(VMPool, self).__init__(*args, **kwargs)
         self.running = True
-        self.uuid = str(uuid1())
         self.database = Database()
         self.sessions = Sessions(self)
         self.pool = VirtualMachinesPool(self)
         self.json_encoder = JSONEncoder
-        self.register()
+        self.id = self.register()
+        self.pool.start_workers()
+        log.info("Provider #%s was started..." % self.id)
 
     def register(self):
-        self.database.register_platforms(self.uuid, self.pool.platforms.info())
+        return self.database.register_provider(
+            name="Unnamed provider",
+            url="%s:%s" % ("localhost", config.PORT),
+            platforms=self.pool.platforms.info()
+        )
 
     def unregister(self):
-        self.database.unregister_platforms(self.uuid)
+        self.database.unregister_provider(self.id)
 
     def cleanup(self):
         log.info("Shutting down...")

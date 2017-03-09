@@ -4,8 +4,8 @@ import logging
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.sessions import Session
-from core.db.models import SessionLogStep, User, Platform, Endpoint
+from core.sessions import VMMasterSession
+from core.db.models import SessionLogStep, User, Platform, Endpoint, Provider
 from core.utils import to_thread
 from core.config import config
 
@@ -69,11 +69,11 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         if not session_id:
             return None
-        return dbsession.query(Session).get(session_id)
+        return dbsession.query(VMMasterSession).get(session_id)
 
     @transaction
     def get_active_sessions(self, dbsession=None):
-        return dbsession.query(Session).filter(Session.closed.is_(False)).all()
+        return dbsession.query(VMMasterSession).filter(VMMasterSession.closed.is_(False)).all()
 
     @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):
@@ -95,26 +95,56 @@ class Database(object):
 
     @transaction
     def get_endpoint(self, endpoint_id, dbsession=None):
-        return dbsession.query(Endpoint).get(endpoint_id)
+        from vmpool.clone import OpenstackClone
+        return dbsession.query(OpenstackClone).get(endpoint_id)
+
+    @transaction
+    def get_endpoints(self, provider_id, efilter="all", dbsession=None):
+        from vmpool.clone import OpenstackClone
+        base_query = dbsession.query(OpenstackClone).filter_by(provider_id=provider_id)
+        if efilter == "all":
+            return base_query.all()
+
+        base_query = base_query.filter(OpenstackClone.deleted.is_(False))
+        if efilter == "active":
+            return base_query.all()
+        if efilter == "using":
+            return base_query.filter(OpenstackClone.in_use.is_(True)).all()
+        if efilter == "pool":
+            return base_query.filter(OpenstackClone.in_use.is_(False)).all()
+        else:
+            return []
 
     @transaction
     def get_platform(self, name, dbsession=None):
         return dbsession.query(Platform).filter_by(name=name).first()
 
-    def register_platforms(self, node, platforms):
+    def register_platforms(self, provider_id, platforms):
         for name in platforms:
-            try:
-                self.add(Platform(name, node))
-            except Exception as e:
-                log.exception(
-                    'Error registering platform: %s (%s)' %
-                    (name, e.message)
-                )
+            self.add(Platform(name, provider_id))
 
     @transaction
-    def unregister_platforms(self, uuid, dbsession=None):
-        dbsession.query(Platform).filter_by(node=uuid).delete()
+    def unregister_platforms(self, provider_id, dbsession=None):
+        dbsession.query(Platform).filter_by(provider_id=provider_id).delete()
         dbsession.commit()
+
+    @transaction
+    def register_provider(self, name, url, platforms, dbsession=None):
+        provider = dbsession.query(Provider).filter_by(url=url).first()
+        if provider:
+            provider.active = True
+            self.update(provider)
+        else:
+            provider = self.add(Provider(name=name, url=url))
+        self.register_platforms(provider_id=provider.id, platforms=platforms)
+        return provider.id
+
+    @transaction
+    def unregister_provider(self, provider_id, dbsession=None):
+        provider = dbsession.query(Provider).get(provider_id)
+        provider.active = False
+        self.update(provider)
+        self.unregister_platforms(provider_id=provider.id)
 
     @transaction
     def add(self, obj, dbsession=None):

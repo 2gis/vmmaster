@@ -48,8 +48,6 @@ class VMPoolServer(object):
         self.reactor = reactor
         self.reactor.addSystemEventTrigger('before', 'shutdown',
                                            self.before_shutdown)
-        self.reactor.addSystemEventTrigger('during', 'shutdown',
-                                           self.during_shutdown)
         self.app = create_app()
         self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
         self.thread_pool.start()
@@ -64,23 +62,20 @@ class VMPoolServer(object):
         self.reactor.run()
 
     def stop_services(self):
-        def lets_do_it():
-            d = self.bind.stopListening()
-            _block_on(d, 20)
-            self.app.cleanup()
-            self.thread_pool.stop()
+        # def lets_do_it():
+        self.bind.stopListening()
+        # _block_on(d, 20)
+        self.app.cleanup()
+        self.thread_pool.stop()
 
-        return deferToThread(lets_do_it).addBoth(
-            lambda i: log.info('All services has been stopped')
-        )
+        # return deferToThread(lets_do_it).addBoth(
+        #     lambda i: log.info('All services has been stopped')
+        # )
 
     @inlineCallbacks
     def before_shutdown(self):
         self.app.running = False
+        self.stop_services()
         yield deferToThread(lambda: None).addBoth(
             lambda i: log.info("All before shutdown tasks has been completed")
         )
-
-    @inlineCallbacks
-    def during_shutdown(self):
-        yield self.stop_services()

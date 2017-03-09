@@ -98,7 +98,7 @@ def get_artifact_from_endpoint(session, path):
     :param path: str
     :return: status, headers, body
     """
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip,
+    host = "ws://%s:%s/runScript" % (session.endpoint.ip,
                                      config.VMMASTER_AGENT_PORT)
     script = '{"command": "sudo -S sh", "script": "cat %s"}' % path
     for status, headers, body in run_script(script, host):
@@ -140,7 +140,7 @@ def on_completed_task(session_id):
                   "and endpoint doesn't deleted" % session_id)
         return
 
-    endpoint = current_app.pool.get_by_name(session.endpoint_name)
+    endpoint = current_app.pool.get_by_name(session.endpoint.name)
     endpoint.delete()
     log.debug("Task finished for session %s" % session_id)
 

@@ -19,12 +19,14 @@ class Vmmaster(Flask):
     def __init__(self, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
+        from vmpool.artifact_collector import ArtifactCollector
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
         self.uuid = str(uuid1())
         self.database = Database()
         self.sessions = Sessions(self)
+        self.artifact_collector = ArtifactCollector(self)
         self.sessions.start_worker()
         self.json_encoder = JSONEncoder
 
@@ -37,6 +39,7 @@ class Vmmaster(Flask):
     def cleanup(self):
         log.info("Shutting down...")
         self.sessions.stop_worker()
+        self.artifact_collector.close()
         log.info("Server gracefully shut down.")
 
 

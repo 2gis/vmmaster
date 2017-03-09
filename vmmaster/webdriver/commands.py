@@ -55,9 +55,6 @@ def add_sub_step(session, func):
 def start_session(request, session):
     status, headers, body = None, None, None
 
-    ping_vm(session)
-    yield status, headers, body
-
     selenium_status(request, session, config.SELENIUM_PORT)
     yield status, headers, body
 
@@ -89,30 +86,30 @@ def startup_script(session):
             script_result.get("status"), script_result.get("output")))
 
 
-@connection_watcher
-def ping_vm(session):
-    ip = check_to_exist_ip(session)
-    ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
-
-    log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
-    _ping = partial(network_utils.ping, ip)
-
-    def check():
-        return all(map(_ping, ports))
-    for _ in generator_wait_for(check, config.PING_TIMEOUT):
-        yield False
-
-    result = map(_ping, ports)
-    if not all(result):
-        fails = [port for port, res in zip(ports, result) if res is False]
-        raise CreationException("Failed to ping ports %s" % str(fails))
-
-    if session.closed:
-        raise CreationException("Session was closed while ping")
-
-    log.info("Ping successful: {ip}:{ports}".format(ip=ip, ports=str(ports)))
-
-    yield True
+# @connection_watcher
+# def ping_vm(session):
+#     ip = check_to_exist_ip(session)
+#     ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
+#
+#     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
+#     _ping = partial(network_utils.ping, ip)
+#
+#     def check():
+#         return all(map(_ping, ports))
+#     for _ in generator_wait_for(check, config.PING_TIMEOUT):
+#         yield False
+#
+#     result = map(_ping, ports)
+#     if not all(result):
+#         fails = [port for port, res in zip(ports, result) if res is False]
+#         raise CreationException("Failed to ping ports %s" % str(fails))
+#
+#     if session.closed:
+#         raise CreationException("Session was closed while ping")
+#
+#     log.info("Ping successful: {ip}:{ports}".format(ip=ip, ports=str(ports)))
+#
+#     yield True
 
 
 @connection_watcher
@@ -297,7 +294,7 @@ def run_script_through_websocket(script, session, host):
 
 
 def run_script(request, session):
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip,
+    host = "ws://%s:%s/runScript" % (session.endpoint.ip,
                                      config.VMMASTER_AGENT_PORT)
 
     session.add_sub_step(

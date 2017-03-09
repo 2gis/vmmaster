@@ -109,7 +109,7 @@ class ProxyResource(Resource):
         with self.app.app_context():
             session = self.app.sessions.get_session(session_id)
 
-        host = session.endpoint_ip
+        host = session.endpoint.ip
         client_factory = ClientFactory(request, dest)
         client_factory.server = request.channel
         reactor.connectTCP(host, port, client_factory)

@@ -20,6 +20,7 @@ class FeaturesMixin(object):
 
     def save(self):
         current_app.database.update(self)
+        current_app.database.refresh(self)
 
     def refresh(self):
         current_app.database.refresh(self)
@@ -125,8 +126,11 @@ class Session(Base, FeaturesMixin):
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
 
-    def set_endpoint(self, endpoint_id):
-        self.endpoint = current_app.database.get_endpoint(endpoint_id)
+    def set_endpoint(self, endpoint):
+        self.refresh()
+        endpoint.refresh()
+        self.endpoint = endpoint
+        self.save()
 
     def __init__(self, name=None, dc=None):
         if name:
@@ -166,24 +170,38 @@ class Endpoint(Base, FeaturesMixin):
     __tablename__ = 'endpoints'
 
     id = Column(Integer, primary_key=True)
+    provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'), nullable=False)
+    platform_id = Column(ForeignKey('platforms.id', ondelete='SET NULL'), nullable=False)
     name = Column(String, nullable=True)
     ip = Column(String, nullable=True)
     mac = Column(String, nullable=True)
     platform = Column(String, nullable=False)
-    ready = Column(Boolean, nullable=False)
-    checking = Column(Boolean, nullable=False)
-    deleted = Column(Boolean, nullable=False)
-    created = Column(Float, nullable=False)
+
+    ready = Column(Boolean, default=False)
+    in_use = Column(Boolean, default=False)
+    used = Column(Boolean, default=False)
+    deleted = Column(Boolean, default=False)
+
+    created_time = Column(DateTime, nullable=True)
+    used_time = Column(DateTime, nullable=True)
+    deleted_time = Column(DateTime, nullable=True)
 
     # Relationships
-    sessions = relationship(Session, lazy='subquery', backref="endpoint", passive_deletes=True)
+    sessions = relationship("VMMasterSession",
+                            backref=backref(
+                                "endpoint",
+                                cascade="all",
+                                enable_typechecks=False
+                            ),
+                            passive_deletes=True)
 
     def __str__(self):
         return "Endpoint %s(%s)" % (self.name, self.id)
 
-    def __init__(self, name, platform):
+    def __init__(self, name, platform, provider_id):
         self.name = name
         self.platform = platform
+        self.provider_id = provider_id
         self.add()
 
         if not self.name:
@@ -240,9 +258,30 @@ class Platform(Base):
     __tablename__ = 'platforms'
 
     id = Column(Integer, primary_key=True)
+    provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'), nullable=False)
     name = Column(String(length=100), nullable=False)
-    node = Column(String(length=100), nullable=False)
 
-    def __init__(self, name, node):
+    # Relationships
+    endpoints = relationship(Endpoint, backref="endpoint")
+
+    def __init__(self, name, provider_id):
         self.name = name
-        self.node = node
+        self.provider_id = provider_id
+
+
+class Provider(Base, FeaturesMixin):
+    __tablename__ = 'providers'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(length=200), nullable=True)
+    url = Column(String, nullable=True)
+    active = Column(Boolean, default=False)
+
+    # Relationships
+    platforms = relationship(Platform, backref="platform")
+    endpoints = relationship(Endpoint, backref="endpoints")
+
+    def __init__(self, name, url, active=True):
+        self.name = name
+        self.url = url
+        self.active = active

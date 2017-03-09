@@ -62,7 +62,7 @@ class SimpleResponse:
         self.content = content
 
 
-class Session(models.Session):
+class VMMasterSession(models.Session):
     current_log_step = None
     vnc_helper = None
     take_screencast = None
@@ -72,7 +72,7 @@ class Session(models.Session):
         return "Session id=%s status=%s" % (self.id, self.status)
 
     def __init__(self, name=None, dc=None):
-        super(Session, self).__init__(name, dc)
+        super(VMMasterSession, self).__init__(name, dc)
         if dc and dc.get('takeScreencast', None):
             self.take_screencast = True
 
@@ -101,9 +101,6 @@ class Session(models.Session):
                 "name": self.endpoint.name
             }
         return stat
-
-    def set_user(self, username):
-        self.user = current_app.database.get_user(username=username)
 
     def start_timer(self):
         self.modified = datetime.now()
@@ -161,6 +158,7 @@ class Session(models.Session):
 
         log.info("Session %s starting on %s (%s)." %
                  (self.id, self.endpoint.name, self.endpoint.ip))
+        self.save()
 
     def timeout(self):
         self.timeouted = True
@@ -172,10 +170,13 @@ class Session(models.Session):
             return self.current_log_step.add_sub_step(control_line, body)
 
     def add_session_step(self, control_line, body=None, created=None):
-        step = super(Session, self).add_session_step(
+        step = super(VMMasterSession, self).add_session_step(
             control_line=control_line, body=body, created=created
         )
         self.current_log_step = step
+        self.save()
+        self.refresh()
+        log.warning("LOG STEP: %s" % self.current_log_step.id)
 
         return step
 

@@ -15,7 +15,7 @@ from core.config import config
 
 from core import constants
 from core import utils
-from core.sessions import Session, RequestHelper
+from core.sessions import VMMasterSession, RequestHelper
 from PIL import Image
 
 log = logging.getLogger(__name__)
@@ -166,15 +166,15 @@ def internal_exec(command):
 def check_to_exist_ip(session, tries=10, timeout=5):
     i = 0
     while True:
-        if session.endpoint_ip is not None:
-            return session.endpoint_ip
+        if session.endpoint.ip is not None:
+            return session.endpoint.ip
         else:
             if i > tries:
                 raise CreationException('Error: VM %s have not ip address' %
-                                        session.endpoint_name)
+                                        session.endpoint.name)
             i += 1
             log.info('IP is %s for VM %s, wait for %ss. before next try...' %
-                     (session.endpoint_ip, session.endpoint_name, timeout))
+                     (session.endpoint.ip, session.endpoint.name, timeout))
             time.sleep(timeout)
 
 
@@ -214,7 +214,7 @@ def get_endpoint(session_id):
 def get_session():
     dc = commands.get_desired_capabilities(request)
 
-    session = Session(dc=dc)
+    session = VMMasterSession(dc=dc)
     request.session = session
     log.info("New session %s (%s) for %s" %
              (str(session.id), session.name, str(dc)))
@@ -222,6 +222,7 @@ def get_session():
 
     for _endpoint_id in get_endpoint(session.id):
         session.endpoint_id = _endpoint_id
+        session.refresh()
         yield session
 
     session.run()

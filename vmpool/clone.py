@@ -12,10 +12,9 @@ from threading import Thread
 
 from vmpool import VirtualMachine
 
-from core import constants
 from core.exceptions import CreationException
 from core.config import config
-from core.utils import network_utils
+from core.utils import network_utils, openstack_utils
 
 log = logging.getLogger(__name__)
 
@@ -40,10 +39,10 @@ class Clone(VirtualMachine):
         self.prefix = '%s' % prefix
         self.origin = origin
         self.pool = pool
-        name = "{platform}-clone-{prefix}-{uuid}".format(
-            platform=origin.name, prefix=self.prefix, uuid=self.uuid)
+        name = "p{provider_id}-{prefix}-{uuid}".format(
+            provider_id=pool.app.id, prefix=self.prefix, uuid=self.uuid)
 
-        super(Clone, self).__init__(name=name, platform=origin.name)
+        super(Clone, self).__init__(name=name, platform=origin.name, provider_id=pool.app.id)
 
     def __str__(self):
         return "{name}({ip})".format(name=self.name, ip=self.ip)
@@ -89,19 +88,19 @@ class Clone(VirtualMachine):
 
 
 class OpenstackClone(Clone):
+    nova_client = openstack_utils.nova_client()
+    network_client = openstack_utils.neutron_client()
+    network_id = None
+    network_name = None
+
     def __init__(self, origin, prefix, pool):
         super(OpenstackClone, self).__init__(origin, prefix, pool)
         self.platform = origin.short_name
-
-        from core.utils import openstack_utils
-        self.nova_client = openstack_utils.nova_client()
-        self.network_client = openstack_utils.neutron_client()
-
-        self.network_id = self.get_network_id()
-        self.network_name = self.get_network_name(self.network_id)
         self.save()
 
     def create(self):
+        self.network_id = self.get_network_id()
+        self.network_name = self.get_network_name(self.network_id)
         log.info(
             "Creating openstack clone of {} with image={}, "
             "flavor={}".format(self.name, self.image, self.flavor))
@@ -149,12 +148,9 @@ class OpenstackClone(Clone):
             config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
         config_ping_retry_count, config_ping_timeout = \
             config.OPENSTACK_PING_RETRY_COUNT, config.PING_TIMEOUT
-        rebuild_attempts = getattr(config, "ENDPOINT_REBUILD_ATTEMPTS",
-                                   constants.ENDPOINT_REBUILD_ATTEMPTS)
 
         create_check_retry = 1
         ping_retry = 1
-        rebuild_retry = 1
 
         while True:
             try:
@@ -189,17 +185,14 @@ class OpenstackClone(Clone):
                 if ping_retry > config_ping_retry_count:
                     p = config_ping_retry_count * config_ping_timeout
                     log.info("VM %s pings more than %s seconds..." % (self.name, p))
-                    if rebuild_retry < rebuild_attempts:
-                        raise CreationException("VM %s was created but does not ping" % self.name)
-                    log.warn("Try to rebuild vm %s. Attempt %s" % (self.name, rebuild_retry))
-                    rebuild_retry += 1
                     self.rebuild()
-                    self.save()
                     break
 
                 ping_retry += 1
             else:
-                raise CreationException("VM %s has not been created." % self.name)
+                log.exception("VM %s has not been created." % self.name)
+                self.deleted = True
+                self.save()
 
     @property
     def image(self):
@@ -278,7 +271,7 @@ class OpenstackClone(Clone):
             return
 
         self.ready = False
-        self.pool.remove_vm(self)
+        self.save()
         if self.check_vm_exist(self.name):
             try:
                 self.nova_client.servers.find(name=self.name).delete()
@@ -293,12 +286,8 @@ class OpenstackClone(Clone):
 
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))
-
-        if self.is_preloaded():
-            self.pool.remove_vm(self)
-            self.pool.pool.append(self)
-
         self.ready = False
+        self.save()
         try:
             self.nova_client.servers.find(name=self.name).rebuild(self.image)
             self._wait_for_activated_service(lambda: log.info(

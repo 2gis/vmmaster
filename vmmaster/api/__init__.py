@@ -125,7 +125,7 @@ def get_vnc_info(session_id):
     result, code = {}, 500
 
     _session = helpers.get_session(session_id)
-    if _session and _session.endpoint_ip:
+    if _session and _session.endpoint.ip:
         if _session.vnc_helper.proxy:
             result, code = (
                 {'vnc_proxy_port': _session.vnc_helper.get_proxy_port()}, 200
@@ -148,11 +148,11 @@ def delete_vm_from_pool(endpoint_name):
     if endpoint:
         try:
             endpoint.delete()
-            result = "Endpoint %s was deleted" % endpoint_name
+            result = "Endpoint %s was deleted" % endpoint.name
         except Exception, e:
             log.info("Cannot delete vm %s through api method" % endpoint.name)
             result = "Got error during deleting vm %s. " \
-                     "\n\n %s" % (endpoint_name, e.message)
+                     "\n\n %s" % (endpoint.name, e.message)
 
     return render_json(result=result, code=200)
 
@@ -162,7 +162,7 @@ def delete_all_vm_from_pool():
     results = []
     failed = []
 
-    for endpoint in current_app.pool.pool + current_app.pool.using:
+    for endpoint in current_app.pool.get_endpoints():
         try:
             endpoint.delete()
             results.append(endpoint)
