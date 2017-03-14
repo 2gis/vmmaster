@@ -120,8 +120,6 @@ def on_completed_task(session_id):
                   "and endpoint doesn't deleted" % session_id)
         return
 
-    endpoint = current_app.pool.get_by_name(session.endpoint.name)
-    endpoint.delete()
     log.debug("Task finished for session %s" % session_id)
 
 

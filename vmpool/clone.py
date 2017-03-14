@@ -191,8 +191,8 @@ class OpenstackClone(Clone):
                 ping_retry += 1
             else:
                 log.exception("VM %s has not been created." % self.name)
-                self.deleted = True
-                self.save()
+                self.delete()
+                break
 
     @property
     def image(self):
