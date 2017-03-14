@@ -182,8 +182,8 @@ def check_to_exist_ip(session, tries=10, timeout=5):
 def get_endpoint(session_id, dc):
     _endpoint = None
     attempt = 0
-    attempts = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
-                       constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
+    attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
+                       constants.GET_ENDPOINT_ATTEMPTS)
     wait_time = 0
     wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
                                   constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)

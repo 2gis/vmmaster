@@ -88,7 +88,7 @@ class VirtualMachinesPool(object):
             return True
 
         if cls.count() >= platform_limit:
-            log.warning(
+            log.debug(
                 'Can\'t produce new virtual machine with platform %s: '
                 'not enough Instances resources' % platform
             )

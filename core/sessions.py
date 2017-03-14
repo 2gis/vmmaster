@@ -9,6 +9,7 @@ from threading import Thread
 from datetime import datetime
 from flask import current_app
 
+from core import constants
 from core.db import models
 from core.config import config
 from core.exceptions import SessionException
@@ -119,7 +120,7 @@ class Session(models.Session):
         }
         return self.endpoint.save_artifacts(self, artifacts)
 
-    def close(self, reason=None):
+    def close(self, reason=None, try_delete_endpoint=True):
         self.closed = True
         if reason:
             self.reason = "%s" % reason
@@ -135,9 +136,9 @@ class Session(models.Session):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint") and not self.save_artifacts():
-            log.info("Deleting endpoint %s (%s) for session %s" %
-                     (self.endpoint_name, self.endpoint_ip, self.id))
+        if getattr(self, "endpoint") and not self.save_artifacts() and try_delete_endpoint:
+            log.info("Deleting endpoint %s (%s) for session %s"
+                     % (self.endpoint_name, self.endpoint_ip, self.id))
             self.endpoint.delete()
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
@@ -192,7 +193,7 @@ class Session(models.Session):
 
         return step
 
-    def make_request(self, port, request):
+    def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
         """ Make http request to some port in session
             and return the response. """
 
@@ -206,7 +207,8 @@ class Session(models.Session):
             return requests.request(method=request.method,
                                     url=url,
                                     headers=request.headers,
-                                    data=request.data)
+                                    data=request.data,
+                                    timeout=timeout)
 
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True

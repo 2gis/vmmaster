@@ -53,6 +53,8 @@ def add_sub_step(session, func):
 
 @connection_watcher
 def start_session(request, session):
+    log.info("Start preparing selenium session for %s on %s(%s)"
+             % (session.id, session.endpoint_name, session.endpoint_ip))
     status, headers, body = None, None, None
 
     ping_vm(session)
@@ -126,25 +128,27 @@ def start_selenium_session(request, session, port):
         log.debug("with %s %s %s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
-        wrapped_make_request = add_sub_step(session, session.make_request)
-        for status, headers, body in wrapped_make_request(
-            port, RequestHelper(
-                request.method, request.path, request.headers, request.data
-            )
-        ):
-            yield status, headers, body
-        if status == httplib.OK:
-            log.info("SUCCESS start selenium-server-standalone status for %s" %
-                     session.id)
-            break
-        else:
-            log.info("Attempt %s to start selenium session was FAILED. "
-                     "Trying again..." % attempt_start)
+        try:
+            wrapped_make_request = add_sub_step(session, session.make_request)
+            for status, headers, body in wrapped_make_request(
+                port, RequestHelper(
+                    request.method, request.path, request.headers, request.data
+                ), timeout=30
+            ):
+                yield status, headers, body
+            if status == httplib.OK:
+                log.info("SUCCESS start selenium-server-standalone status for %s" %
+                         session.id)
+                break
+            else:
+                log.error("Attempt %s to start selenium session was FAILED. " % attempt_start)
+        except:
+            log.exception("Attempt %s to start selenium session was FAILED. " % attempt_start)
 
     if status != httplib.OK:
         log.info("FAILED start selenium-server-standalone status "
                  "for %s - %s : %s" % (session.id, status, body))
-        raise CreationException("Failed to start selenium session: %s" % body)
+        session.close(try_delete_endpoint=False)
     yield status, headers, body
 
 

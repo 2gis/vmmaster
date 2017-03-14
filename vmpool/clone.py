@@ -42,7 +42,7 @@ class Clone(VirtualMachine):
         self.prefix = '%s' % prefix
         self.origin = origin
         self.pool = pool
-        name = "{platform}-clone-{prefix}-{uuid}".format(
+        name = "{prefix}-{uuid}".format(
             platform=origin.name, prefix=self.prefix, uuid=self.uuid)
 
         super(Clone, self).__init__(name=name, platform=origin.name)
@@ -275,12 +275,9 @@ class OpenstackClone(Clone):
             config.VM_CREATE_CHECK_ATTEMPTS, config.VM_CREATE_CHECK_PAUSE
         config_ping_retry_count, config_ping_timeout = \
             config.OPENSTACK_PING_RETRY_COUNT, config.PING_TIMEOUT
-        rebuild_attempts = getattr(config, "ENDPOINT_REBUILD_ATTEMPTS",
-                                   constants.ENDPOINT_REBUILD_ATTEMPTS)
 
         create_check_retry = 1
         ping_retry = 1
-        rebuild_retry = 1
 
         while True:
             try:
@@ -306,6 +303,10 @@ class OpenstackClone(Clone):
                 time.sleep(config_create_check_pause)
 
             elif self.vm_has_created():
+                if server.status.lower() in 'error':
+                    log.error("VM %s was errored. Rebuilding..." % server.name)
+                    self.rebuild()
+                    break
                 if method is not None:
                     method()
                 if self.ping_vm():
@@ -314,16 +315,14 @@ class OpenstackClone(Clone):
                 if ping_retry > config_ping_retry_count:
                     p = config_ping_retry_count * config_ping_timeout
                     log.info("VM %s pings more than %s seconds..." % (self.name, p))
-                    if rebuild_retry < rebuild_attempts:
-                        raise CreationException("VM %s was created but does not ping" % self.name)
-                    log.warn("Try to rebuild vm %s. Attempt %s" % (self.name, rebuild_retry))
-                    rebuild_retry += 1
-                    self.rebuild()
+                    self.delete(try_to_rebuild=True)
                     break
 
                 ping_retry += 1
             else:
-                raise CreationException("VM %s has not been created." % self.name)
+                log.error("VM %s has not been created." % self.name)
+                self.delete(try_to_rebuild=False)
+                break
 
     @property
     def image(self):
