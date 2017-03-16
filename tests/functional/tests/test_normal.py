@@ -16,6 +16,7 @@ class TestPositiveCase(TestCase):
         self.driver.get(micro_app_addr)
         go_button = self.driver.find_element_by_xpath("//input[2]")
         go_button.click()
+        self.driver.get("http://2gis.ru")
 
     def test_error(self):
         raise Exception('some client exception')
