@@ -169,10 +169,7 @@ def delete_vm_from_pool(endpoint_name):
 
     if endpoint:
         try:
-            if endpoint.is_preloaded():
-                endpoint.delete()
-            else:
-                endpoint.delete(try_to_rebuild=False)
+            endpoint.delete()
             result = "Endpoint %s was deleted" % endpoint_name
         except Exception, e:
             log.info("Cannot delete vm %s through api method" % endpoint_name)
@@ -189,7 +186,7 @@ def delete_all_vm_from_pool():
 
     for endpoint in current_app.pool.pool + current_app.pool.using:
         try:
-            delete_vm_from_pool(endpoint.name)
+            endpoint.delete()
             results.append(endpoint.name)
         except:
             log.info("Cannot delete vm %s through api method" % endpoint.name)

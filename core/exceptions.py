@@ -11,14 +11,6 @@ class SessionException(Exception):
     pass
 
 
-class ClonesException(Exception):
-    pass
-
-
-class NoMacError(Exception):
-    pass
-
-
 class CreationException(Exception):
     pass
 
@@ -36,12 +28,4 @@ class TimeoutException(Exception):
 
 
 class ConnectionError(Exception):
-    pass
-
-
-class NoSuchEndpoint(Exception):
-    pass
-
-
-class QueueItemNotFound(Exception):
     pass

@@ -118,6 +118,8 @@ class Session(models.Session):
         artifacts = {
             "selenium_server": "/var/log/selenium_server.log"
         }
+        if not self.endpoint_ip:
+            return False
         return self.endpoint.save_artifacts(self, artifacts)
 
     def close(self, reason=None):
@@ -219,8 +221,7 @@ class Session(models.Session):
 
         response = q.get()
         if isinstance(response, requests.Timeout):
-            raise RequestTimeoutException("No response for '%s' in %s sec. Original: %s"
-                                          % (url, timeout, response))
+            raise RequestTimeoutException("No response for '%s' in %s sec. Original: %s" % (url, timeout, response))
         if isinstance(response, Exception):
             raise RequestException("Error for '%s'. Original: %s" % (url, response))
 

@@ -46,9 +46,9 @@ class Config(object):
     OPENSTACK_PING_RETRY_COUNT = 3
     OPENSTACK_DEFAULT_FLAVOR = ''
     OPENASTACK_VM_META_DATA = {
-        'admin_pass': 'testPassw0rd.',
-        'adminPass': 'testPassw0rd.'
+        'admin_pass': 'testPassw0rd.'
     }
+    OPENSTACK_VM_USERDATA_FILE_PATH = "%s/userdata" % os.path.abspath(os.curdir)
 
     VM_CREATE_CHECK_PAUSE = 5
     VM_CREATE_CHECK_ATTEMPTS = 1000
@@ -64,4 +64,3 @@ class Config(object):
     VMMASTER_AGENT_PORT = 9000
 
     THREAD_POOL_MAX = 100
-

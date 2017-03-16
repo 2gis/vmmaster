@@ -41,6 +41,7 @@ class Config(object):
     OPENASTACK_VM_META_DATA = {
         'admin_pass': 'testPassw0rd.'
     }
+    OPENSTACK_VM_USERDATA_FILE_PATH = "%s/tests/unit/data/userdata" % os.path.abspath(os.curdir)
 
     VM_CHECK = False
     VM_CHECK_FREQUENCY = 1800
