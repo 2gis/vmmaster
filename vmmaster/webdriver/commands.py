@@ -53,6 +53,8 @@ def add_sub_step(session, func):
 
 @connection_watcher
 def start_session(request, session):
+    log.info("Start preparing selenium session for %s on %s(%s)"
+             % (session.id, session.endpoint_name, session.endpoint_ip))
     status, headers, body = None, None, None
 
     ping_vm(session)

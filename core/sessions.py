@@ -9,9 +9,10 @@ from threading import Thread
 from datetime import datetime
 from flask import current_app
 
+from core import constants
 from core.db import models
 from core.config import config
-from core.exceptions import SessionException
+from core.exceptions import SessionException, RequestException, RequestTimeoutException
 from core.video import VNCVideoHelper
 
 log = logging.getLogger(__name__)
@@ -192,7 +193,7 @@ class Session(models.Session):
 
         return step
 
-    def make_request(self, port, request):
+    def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
         """ Make http request to some port in session
             and return the response. """
 
@@ -206,7 +207,8 @@ class Session(models.Session):
             return requests.request(method=request.method,
                                     url=url,
                                     headers=request.headers,
-                                    data=request.data)
+                                    data=request.data,
+                                    timeout=timeout)
 
         t = Thread(target=getresponse, args=(req, q))
         t.daemon = True
@@ -216,8 +218,11 @@ class Session(models.Session):
             yield None, None, None
 
         response = q.get()
+        if isinstance(response, requests.Timeout):
+            raise RequestTimeoutException("No response for '%s' in %s sec. Original: %s"
+                                          % (url, timeout, response))
         if isinstance(response, Exception):
-            raise response
+            raise RequestException("Error for '%s'. Original: %s" % (url, response))
 
         yield response.status_code, response.headers, response.content
 
