@@ -46,7 +46,8 @@ class Config(object):
     OPENSTACK_PING_RETRY_COUNT = 3
     OPENSTACK_DEFAULT_FLAVOR = ''
     OPENASTACK_VM_META_DATA = {
-        'admin_pass': 'testPassw0rd.'
+        'admin_pass': 'testPassw0rd.',
+        'adminPass': 'testPassw0rd.'
     }
 
     VM_CREATE_CHECK_PAUSE = 5
