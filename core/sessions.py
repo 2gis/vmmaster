@@ -136,10 +136,16 @@ class Session(models.Session):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint") and not self.save_artifacts():
-            log.info("Deleting endpoint %s (%s) for session %s"
-                     % (self.endpoint_name, self.endpoint_ip, self.id))
-            self.endpoint.delete(move_to_quarantine=dont_delete_endpoint)
+        if getattr(self, "endpoint"):
+            if "failed" in self.status:
+                self.endpoint.delete(move_to_quarantine=dont_delete_endpoint)
+                log.info("Session %s closed. %s. Endpoint %s was moved to quarantine"
+                         % (self.id, self.reason, self.endpoint_name))
+                return
+            if not self.save_artifacts():
+                log.info("Deleting endpoint %s (%s) for session %s"
+                         % (self.endpoint_name, self.endpoint_ip, self.id))
+                self.endpoint.delete()
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 

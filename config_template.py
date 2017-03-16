@@ -49,6 +49,7 @@ class Config(object):
         'admin_pass': 'testPassw0rd.',
         'adminPass': 'testPassw0rd.'
     }
+    OPENSTACK_VM_USERDATA_FILE_PATH = "%s/userdata" % os.path.abspath(os.curdir)
 
     VM_CREATE_CHECK_PAUSE = 5
     VM_CREATE_CHECK_ATTEMPTS = 1000

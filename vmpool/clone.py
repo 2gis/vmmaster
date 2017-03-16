@@ -1,5 +1,5 @@
 # coding: utf-8
-
+import os
 import time
 import netifaces
 import SubnetTree
@@ -15,7 +15,7 @@ from vmpool import VirtualMachine
 
 from core import dumpxml
 from core import utils
-from core import constants
+from core.utils.init import home_dir
 from core.exceptions import libvirtError, CreationException
 from core.config import config
 from core.utils import network_utils
@@ -227,6 +227,14 @@ class OpenstackClone(Clone):
         self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
 
+    def set_userdata(self):
+        file_path = getattr(config, "OPENSTACK_VM_USERDATA_FILE_PATH", "userdata")
+        if os.path.isfile(file_path):
+            try:
+                return open(file_path)
+            except:
+                log.exception("Userdata from %s wasn't applied" % file_path)
+
     def create(self):
         log.info(
             "Creating openstack clone of {} with image={}, "
@@ -237,7 +245,7 @@ class OpenstackClone(Clone):
             'image': self.image,
             'flavor': self.flavor,
             'nics': [{'net-id': self.network_id}],
-            'meta': config.OPENASTACK_VM_META_DATA
+            'userdata': self.set_userdata()
         }
 
         if bool(config.OPENSTACK_ZONE_FOR_VM_CREATE):
