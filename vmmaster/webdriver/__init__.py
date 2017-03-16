@@ -10,6 +10,8 @@ import helpers
 from core.exceptions import SessionException
 from core.auth.custom_auth import auth, anonymous
 from core import utils
+from core.config import config
+
 
 webdriver = Blueprint('webdriver', __name__)
 log = logging.getLogger(__name__)
@@ -77,6 +79,17 @@ def log_response(session, response, created=None):
                              body=response_data, created=created)
 
 
+def log_request_time():
+    if getattr(config, "SHOW_REQUEST_TIME", False):
+        request_time = {
+            "type": "request time",
+            "path": request.path,
+            "method": request.method,
+            "time": (datetime.now() - g.started).total_seconds()
+        }
+        log.info("%s" % request_time)
+
+
 @webdriver.after_request
 def after_request(response):
     log.debug('Response %s %s' % (response.data, response.status_code))
@@ -93,6 +106,7 @@ def after_request(response):
             else:
                 session.start_timer()
 
+    log_request_time()
     return response
 
 
