@@ -50,13 +50,13 @@ class VirtualMachinesPool(object):
         if vm in list(cls.using):
             try:
                 cls.using.remove(vm)
-            except ValueError:
-                log.warning("VM %s not found in using" % vm.name)
+            except:
+                log.exception("VM %s not found in using" % vm.name)
         if vm in list(cls.pool):
             try:
                 cls.pool.remove(vm)
-            except ValueError:
-                log.warning("VM %s not found in pool" % vm.name)
+            except:
+                log.exception("VM %s not found in pool" % vm.name)
 
     @classmethod
     def add_vm(cls, vm, to=None):

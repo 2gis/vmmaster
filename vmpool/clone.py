@@ -389,31 +389,36 @@ class OpenstackClone(Clone):
         return False
 
     def check_vm_exist(self, server_name):
+        return True if self.get_vm(server_name) else False
+
+    def get_vm(self, server_name):
         try:
             server = self.nova_client.servers.find(name=server_name)
-            return True if server.name == server_name else False
-        except Exception as e:
-            log.exception("VM does not exist. Error: %s" % e.message)
-            return False
+            return server if server.name == server_name else None
+        except:
+            log.exception("VM %s does not exist" % server_name)
+            return None
 
-    def delete(self, try_to_rebuild=True):
+    def delete(self, try_to_rebuild=True, move_to_quarantine=False):
         if try_to_rebuild and self.is_preloaded():
             self.rebuild()
             return
 
         self.ready = False
         self.pool.remove_vm(self)
-        if self.check_vm_exist(self.name):
-            try:
-                self.nova_client.servers.find(name=self.name).delete()
-            except Exception as e:
-                log.exception("Delete vm %s was FAILED. %s" %
-                              (self.name, e.message))
-            log.info("Deleted openstack clone: {clone}".format(
-                clone=self.name))
+
+        if move_to_quarantine:
+            server = self.get_vm(self.name)
+            self.nova_client.update(server, name="quarantine-%s" % self.name)
+            return
+
+        server = self.get_vm(self.name)
+        if server:
+            server.delete()
         else:
-            log.warn("VM {clone} can not be removed because "
-                     "it does not exist".format(clone=self.name))
+            log.error("Delete vm %s was FAILED." % self.name)
+
+        log.info("Deleted openstack clone: {0}".format(self.name))
         VirtualMachine.delete(self)
 
     def rebuild(self):

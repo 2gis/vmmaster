@@ -12,7 +12,7 @@ from flask import current_app
 from core import constants
 from core.db import models
 from core.config import config
-from core.exceptions import SessionException
+from core.exceptions import SessionException, RequestException, RequestTimeoutException
 from core.video import VNCVideoHelper
 
 log = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class Session(models.Session):
         }
         return self.endpoint.save_artifacts(self, artifacts)
 
-    def close(self, reason=None, try_delete_endpoint=True):
+    def close(self, reason=None, dont_delete_endpoint=True):
         self.closed = True
         if reason:
             self.reason = "%s" % reason
@@ -136,10 +136,10 @@ class Session(models.Session):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint") and not self.save_artifacts() and try_delete_endpoint:
+        if getattr(self, "endpoint") and not self.save_artifacts():
             log.info("Deleting endpoint %s (%s) for session %s"
                      % (self.endpoint_name, self.endpoint_ip, self.id))
-            self.endpoint.delete()
+            self.endpoint.delete(move_to_quarantine=dont_delete_endpoint)
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
@@ -147,7 +147,7 @@ class Session(models.Session):
         self.status = "succeed"
         self.close()
 
-    def failed(self, tb=None, reason=None):
+    def failed(self, tb=None, reason=None, dont_delete_endpoint=False):
         if self.closed:
             log.warn("Session %s already closed with reason %s. "
                      "In this method call was tb='%s' and reason='%s'"
@@ -156,7 +156,7 @@ class Session(models.Session):
 
         self.status = "failed"
         self.error = tb
-        self.close(reason)
+        self.close(reason, dont_delete_endpoint=dont_delete_endpoint)
 
     def set_vm(self, endpoint):
         self.endpoint_ip = endpoint.ip
@@ -218,8 +218,11 @@ class Session(models.Session):
             yield None, None, None
 
         response = q.get()
+        if isinstance(response, requests.Timeout):
+            raise RequestTimeoutException("No response for '%s' in %s sec. Original: %s"
+                                          % (url, timeout, response))
         if isinstance(response, Exception):
-            raise response
+            raise RequestException("Error for '%s'. Original: %s" % (url, response))
 
         yield response.status_code, response.headers, response.content
 

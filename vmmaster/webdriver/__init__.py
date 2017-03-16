@@ -1,15 +1,19 @@
 # coding: utf-8
 import logging
 from datetime import datetime
-from traceback import format_exc
+from traceback import format_exception
+
+import sys
 from flask import Blueprint, current_app, request, jsonify, g
 
 from vmmaster.webdriver import commands, helpers
 import helpers
 
-from core.exceptions import SessionException
+from core.exceptions import SessionException, RequestTimeoutException
 from core.auth.custom_auth import auth, anonymous
 from core import utils
+from core.config import config
+
 
 webdriver = Blueprint('webdriver', __name__)
 log = logging.getLogger(__name__)
@@ -28,9 +32,18 @@ def selenium_error_response(message, selenium_code=13, status_code=500):
 @webdriver.errorhandler(Exception)
 def handle_errors(error):
     log.exception(error)
-    tb = format_exc()
+    try:
+        exc_type, exc_obj, tb = sys.exc_info()
+        tb = ''.join(format_exception(exc_type, exc_obj, tb))
+    except:
+        exc_type, exc_obj, tb = (None, None, None)
+
     if hasattr(request, 'session'):
-        request.session.failed(tb=tb, reason=error)
+        helpers.swap_session(request, str(request.session.id))
+        if isinstance(exc_obj, RequestTimeoutException):
+            request.session.failed(tb=tb, reason=error, dont_delete_endpoint=True)
+        else:
+            request.session.failed(tb=tb, reason=error)
 
     return selenium_error_response("%s %s" % (error, tb))
 
@@ -59,6 +72,17 @@ def log_request(session, request, created=None):
         body=str(request.data),
         created=created
     )
+
+
+def log_request_time():
+    if getattr(config, "SHOW_REQUEST_TIME", False):
+        request_time = {
+            "type": "request time",
+            "path": request.path,
+            "method": request.method,
+            "time": (datetime.now() - g.started).total_seconds()
+        }
+        log.info("%s" % request_time)
 
 
 @webdriver.before_request
@@ -93,6 +117,7 @@ def after_request(response):
             else:
                 session.start_timer()
 
+    log_request_time()
     return response
 
 

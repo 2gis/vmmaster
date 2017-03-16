@@ -203,6 +203,7 @@ def get_endpoint(session_id, dc):
                           % (attempt, session_id, str(e)))
             if hasattr(_endpoint, "ready"):
                 if not _endpoint.ready:
+                    _endpoint.delete()
                     _endpoint = None
             if attempt < attempts:
                 time.sleep(wait_time)

@@ -128,27 +128,24 @@ def start_selenium_session(request, session, port):
         log.debug("with %s %s %s %s" % (request.method, request.path,
                                         request.headers, request.data))
 
-        try:
-            wrapped_make_request = add_sub_step(session, session.make_request)
-            for status, headers, body in wrapped_make_request(
-                port, RequestHelper(
-                    request.method, request.path, request.headers, request.data
-                ), timeout=30
-            ):
-                yield status, headers, body
-            if status == httplib.OK:
-                log.info("SUCCESS start selenium-server-standalone status for %s" %
-                         session.id)
-                break
-            else:
-                log.error("Attempt %s to start selenium session was FAILED. " % attempt_start)
-        except:
-            log.exception("Attempt %s to start selenium session was FAILED. " % attempt_start)
+        wrapped_make_request = add_sub_step(session, session.make_request)
+        for status, headers, body in wrapped_make_request(
+            port, RequestHelper(
+                request.method, request.path, request.headers, request.data
+            ), timeout=30
+        ):
+            yield status, headers, body
+        if status == httplib.OK:
+            log.info("SUCCESS start selenium-server-standalone status for %s" %
+                     session.id)
+            break
+        else:
+            log.error("Attempt %s to start selenium session was FAILED. " % attempt_start)
 
     if status != httplib.OK:
         log.info("FAILED start selenium-server-standalone status "
                  "for %s - %s : %s" % (session.id, status, body))
-        session.close(try_delete_endpoint=False)
+        raise CreationException("Failed to start selenium session: %s" % body)
     yield status, headers, body
 
 
