@@ -4,7 +4,8 @@ import os
 import logging
 
 from core.config import config
-from core.utils import openstack_utils
+from core.utils import openstack_utils, exception_handler
+from core.clients.docker_client import DockerManageClient
 
 UnlimitedCount = type("UnlimitedCount", (), {})()
 log = logging.getLogger(__name__)
@@ -101,6 +102,55 @@ class KVMPlatforms(PlatformsInterface):
         return KVMPlatforms.max_count()
 
 
+class DockerImage(Platform):
+    def __init__(self, origin):
+        """
+
+        :type origin: Image
+        """
+        self.origin = origin
+
+    @exception_handler()
+    def short_id(self):
+        return self.origin.short_id
+
+    @property
+    @exception_handler()
+    def name(self):
+        tags = self.tags()
+        if isinstance(tags, list) and len(tags):
+            return tags[0].strip()
+
+    @exception_handler()
+    def tags(self):
+        return self.origin.tags
+
+    @staticmethod
+    def make_clone(origin, prefix, pool):
+        from vmpool.clone import DockerClone
+        return DockerClone(origin, prefix, pool)
+
+
+class DockerPlatforms(PlatformsInterface):
+    client = DockerManageClient()
+
+    @classmethod
+    def get(cls, platform):
+        return cls.client.get_image(name=platform)
+
+    @property
+    def platforms(self):
+        return self.client.images()
+
+    @staticmethod
+    def max_count():
+        return config.DOCKER_MAX_COUNT
+
+    @staticmethod
+    def get_limit(platform):
+        return DockerPlatforms.max_count()
+
+
 class OpenstackPlatforms(PlatformsInterface):
     @classmethod
     def limits(cls, if_none):
@@ -139,21 +189,25 @@ class Platforms(object):
     platforms = dict()
     kvm_platforms = None
     openstack_platforms = None
+    docker_platforms = None
 
     def __new__(cls, *args, **kwargs):
         log.info("Load platforms...")
         inst = object.__new__(cls)
         if config.USE_KVM:
-            cls.kvm_platforms = {vm.name: vm for vm in
-                                 KVMPlatforms().platforms}
+            cls.kvm_platforms = {vm.name: vm for vm in KVMPlatforms().platforms}
             log.info("KVM platforms: {}".format(
                 cls.kvm_platforms.keys())
             )
         if config.USE_OPENSTACK:
-            cls.openstack_platforms = {vm.short_name: vm for vm in
-                                       OpenstackPlatforms().platforms}
+            cls.openstack_platforms = {vm.short_name: vm for vm in OpenstackPlatforms().platforms}
             log.info("Openstack platforms: {}".format(
                 cls.openstack_platforms.keys())
+            )
+        if config.USE_DOCKER:
+            cls.docker_platforms = {vm.name: vm for vm in DockerPlatforms().platforms}
+            log.info("Docker platforms: {}".format(
+                cls.docker_platforms.keys())
             )
         cls._load_platforms()
         return inst
@@ -164,6 +218,8 @@ class Platforms(object):
             cls.platforms.update(cls.kvm_platforms)
         if bool(cls.openstack_platforms):
             cls.platforms.update(cls.openstack_platforms)
+        if bool(cls.docker_platforms):
+            cls.platforms.update(cls.docker_platforms)
 
         log.info("Platforms loaded: {}".format(str(cls.platforms.keys())))
 
@@ -178,6 +234,8 @@ class Platforms(object):
                 m_count += kvm_m_count
         if bool(cls.openstack_platforms):
             m_count += OpenstackPlatforms.max_count()
+        if bool(cls.docker_platforms):
+            m_count += DockerPlatforms.max_count()
         return m_count
 
     @classmethod
@@ -186,6 +244,8 @@ class Platforms(object):
             return KVMPlatforms.get_limit(platform)
         if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
             return OpenstackPlatforms.get_limit(platform)
+        if config.USE_DOCKER and platform in cls.docker_platforms.keys():
+            return DockerPlatforms.get_limit(platform)
 
     @classmethod
     def check_platform(cls, platform):
@@ -215,3 +275,7 @@ class Platforms(object):
             for platform in cls.openstack_platforms:
                 del cls.platforms[platform]
             cls.openstack_platforms = None
+        if bool(cls.docker_platforms):
+            for platform in cls.docker_platforms:
+                del cls.platforms[platform]
+            cls.docker_platforms = None

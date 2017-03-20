@@ -30,6 +30,8 @@ class VNCVideoHelper:
             os.mkdir(self.dir_path)
         self.host = host
         self.port = port
+        self.SCREENCAST_FRAMERATE = 5
+        self.SCREENCAST_WIDTH, self.SCREENCAST_HEIGHT = config.SCREENCAST_RESOLUTION
 
     @staticmethod
     def _flvrec(filename, host='localhost', port=5900,
@@ -114,7 +116,7 @@ class VNCVideoHelper:
         if self.proxy and self.proxy.is_alive():
             self.proxy.terminate()
 
-    def start_recording(self, framerate=5, size=(800, 600)):
+    def start_recording(self):
         sys.stderr = sys.stdout = open(os.sep.join([
             self.dir_path, 'vnc_video.log'
         ]), 'w')
@@ -122,8 +124,8 @@ class VNCVideoHelper:
                                        str(self.filename_prefix) + '.flv'])
 
         kwargs = {
-            'framerate': framerate,
-            'clipping': video.str2clip("%sx%s+0-0" % (size[0], size[1])),
+            'framerate': self.SCREENCAST_FRAMERATE,
+            'clipping': video.str2clip("{}x{}+0-0".format(self.SCREENCAST_WIDTH, self.SCREENCAST_HEIGHT)),
             'debug': 1
         }
         self.recorder = multiprocessing.Process(

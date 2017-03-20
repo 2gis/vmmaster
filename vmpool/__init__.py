@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from core.dispatcher import dispatcher, Signals
+from core.config import config
 
 
 class VirtualMachine(object):
@@ -16,11 +17,27 @@ class VirtualMachine(object):
         self.done = False
 
     @property
+    def ports(self):
+        return config.PORTS
+
+    @property
+    def vnc_port(self):
+        return config.VNC_PORT
+
+    @property
+    def selenium_port(self):
+        return config.SELENIUM_PORT
+
+    @property
+    def agent_port(self):
+        return config.VMMASTER_AGENT_PORT
+
+    @property
     def info(self):
         return {
-            "name": str(self.name),
-            "ip": str(self.ip),
-            "platform": str(self.platform)
+            "name": self.name,
+            "ip": self.ip,
+            "platform": self.platform
         }
 
     def create(self):

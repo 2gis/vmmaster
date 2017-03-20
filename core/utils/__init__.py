@@ -203,3 +203,15 @@ def remove_base64_screenshot(response_data):
         content_json["value"]["screen"] = ""
 
     return json.dumps(content_json)
+
+
+def exception_handler(return_on_exc=None):
+    def _exception_handler(func):
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except:
+                log.exception("Error")
+                return return_on_exc
+        return wrapper
+    return _exception_handler

@@ -100,8 +100,7 @@ def get_artifact_from_endpoint(session, path):
     :param path: str
     :return: status, headers, body
     """
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip,
-                                     config.VMMASTER_AGENT_PORT)
+    host = "ws://%s:%s/runScript" % (session.endpoint_ip, session.endpoint.agent_port)
     script = '{"command": "sudo -S sh", "script": "cat %s"}' % path
     log.debug("Run script for session {}, cmd={}".format(session, script))
     for status, headers, body in run_script(script, host):
@@ -110,25 +109,25 @@ def get_artifact_from_endpoint(session, path):
     yield status, headers, body
 
 
-def save_selenium_log(session_id, filename, original_path):
+def save_selenium_log(session, filename, original_path):
     """
-    :param session_id: int
+    :param session: object
     :param filename: str
     :param original_path: str
     """
-    session = get_session_from_db(session_id)
+    session.refresh()
 
     if not session:
-        log.error("Session %s not found and selenium log doesn't saved" % session_id)
+        log.error("Session %s not found and selenium log doesn't saved" % session.id)
         return
 
     log_path = save_artifact(session, filename, original_path)
     if log_path:
         session.selenium_log = log_path
         session.save()
-        log.info("Selenium log saved to %s for session %s" % (log_path, session_id))
+        log.info("Selenium log saved to %s for session %s" % (log_path, session.id))
     else:
-        log.warning("Selenium log doesn't saved for session %s" % session_id)
+        log.warning("Selenium log doesn't saved for session %s" % session.id)
 
 
 def on_completed_task(session_id):
@@ -181,39 +180,39 @@ class ArtifactCollector(ThreadPool):
     def get_queue(self):
         return self.in_queue.keys()
 
-    def add_task(self, session_id, artifact_name, artifact_path):
+    def add_task(self, session, artifact_name, artifact_path):
         """
-        :param session_id: int
+        :param session: object
         :param artifact_name: str
         :param artifact_path: str
         :return: True or False
         """
         if artifact_name == "selenium_server":
             self.run_task(
-                session_id,
+                session,
                 self.save_selenium_log,
-                args=(session_id, artifact_name, artifact_path)
+                args=(session, artifact_name, artifact_path)
             )
             return True
         else:
-            log.warning("Task not found for session %s" % session_id)
+            log.warning("Task not found for session %s" % session.id)
             return False
 
-    def run_task(self, session_id, method, args):
+    def run_task(self, session, method, args):
         apply_result = self.apply_async(method, args=args)
         log.debug("Apply Result %s" % apply_result)
-        self.in_queue[session_id].append(apply_result)
-        log.info("Task for getting artifacts added to queue for session %s" % session_id)
+        self.in_queue[session.id].append(apply_result)
+        log.info("Task for getting artifacts added to queue for session %s" % session.id)
 
-    def add_tasks(self, session_id, artifacts):
+    def add_tasks(self, session, artifacts):
         """
-        :param session_id: int
+        :param session: object
         :param artifacts: dict
         :return: list of True or False
         """
         result = True
         for artifact_name, artifact_path in artifacts.items():
-            completed = self.add_task(session_id, artifact_name, artifact_path)
+            completed = self.add_task(session, artifact_name, artifact_path)
             if not completed:
                 result = False
 
@@ -242,21 +241,21 @@ class ArtifactCollector(ThreadPool):
         for session_id in sessions_ids:
             self.del_task(session_id)
 
-    def save_selenium_log(self, session_id, artifact_name, artifact_path):
+    def save_selenium_log(self, session, artifact_name, artifact_path):
         """
-        :param session_id: int
+        :param session: object
         :param artifact_name: str
         :param artifact_path: str
         """
         with self.vmpool.app.app_context():
             try:
-                save_selenium_log(session_id, artifact_name, artifact_path)
+                save_selenium_log(session, artifact_name, artifact_path)
             except:
                 log.exception("Error saving selenium log for session {} ({}: {})"
-                              .format(session_id, artifact_name, artifact_path))
+                              .format(session.id, artifact_name, artifact_path))
             finally:
-                self.in_queue.pop(session_id)
-                on_completed_task(session_id)
+                self.in_queue.pop(session.id)
+                on_completed_task(session.id)
 
     def wait_for_complete(self):
         start = time.time()

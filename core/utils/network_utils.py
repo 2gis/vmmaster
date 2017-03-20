@@ -1,6 +1,16 @@
+import time
+import logging
 import netifaces
+import requests
+from Queue import Queue
+from threading import Thread
+from core import constants, config
+from core.exceptions import RequestException, RequestTimeoutException
 from . import system_utils
 import socket
+
+
+log = logging.getLogger(__name__)
 
 
 def get_interface_subnet(inteface):
@@ -77,3 +87,53 @@ def ping(ip, port):
         return True
 
     return False
+
+
+def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
+    """ Make http request to some port in session
+                and return the response. """
+    url = "http://%s:%s%s" % (endpoint_ip, port, request.url)
+
+    if request.headers.get("Host"):
+        del request.headers['Host']
+
+    def get_response():
+        try:
+            queue.put(
+                requests.request(
+                    method=request.method,
+                    url=url,
+                    headers=request.headers,
+                    data=request.data,
+                    timeout=timeout
+                )
+            )
+        except Exception as e:
+            queue.put(e)
+
+    attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", 3)
+    for attempt in range(1, attempts + 1):
+        queue = Queue()
+        log.info("Attempt {}. Making user request {}".format(attempt, url))
+        t = Thread(target=get_response)
+        t.daemon = True
+        t.start()
+
+        while t.isAlive():
+            yield None, None, None
+
+        response = queue.get()
+        if attempt >= attempts:
+            if isinstance(response, requests.Timeout):
+                raise RequestTimeoutException(
+                    "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
+                )
+            elif isinstance(response, Exception):
+                raise RequestException("Error for '%s'. Original: %s" % (url, response))
+        elif isinstance(response, requests.Response):
+            yield response.status_code, response.headers, response.content
+            break
+        else:
+            sleep_time = constants.REQUEST_SLEEP_BASE_TIME * attempt
+            log.info("Waiting {} seconds before next attempt to request {}".format(sleep_time, url))
+            time.sleep(sleep_time)

@@ -17,7 +17,7 @@ from tests.unit.helpers import server_is_up, server_is_down, \
 from nose.twistedtools import reactor
 
 
-def ping_vm_true_mock(arg=None):
+def ping_vm_true_mock(arg=None, ports=None):
     yield True
 
 
@@ -25,7 +25,7 @@ def selenium_status_true_mock(arg=None, arg2=None, arg3=None):
     yield 200, {}, ""
 
 
-def ping_vm_false_mock(arg=None):
+def ping_vm_false_mock(arg=None, ports=None):
     yield False
 
 
@@ -61,7 +61,10 @@ class BaseTestServer(BaseTestCase):
     clone_origin=Mock(),
     define_clone=Mock(),
     start_virtual_machine=Mock(),
-    drive_path=Mock()
+    drive_path=Mock(),
+    vnc_port=5900,
+    agent_port=9000,
+    selenium_port=4455
 )
 @patch(
     'vmmaster.webdriver.commands.ping_vm',

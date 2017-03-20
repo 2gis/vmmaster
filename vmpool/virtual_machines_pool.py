@@ -6,7 +6,7 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
-from core.network import Network
+from core.network import Network, DockerNetwork
 
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
@@ -17,7 +17,10 @@ log = logging.getLogger(__name__)
 class VirtualMachinesPool(object):
     pool = list()
     using = list()
-    network = Network()
+    if config.USE_KVM:
+        network = Network()
+    if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
+        network = DockerNetwork()
     lock = Lock()
     platforms = Platforms
     preloader = None
@@ -75,7 +78,8 @@ class VirtualMachinesPool(object):
         for vm in list(cls.pool):
             cls.pool.remove(vm)
             vm.delete(try_to_rebuild=False)
-        cls.network.delete()
+        if config.USE_KVM or (config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS):
+            cls.network.delete()
 
     @classmethod
     def count(cls):
@@ -126,7 +130,7 @@ class VirtualMachinesPool(object):
         if not res:
             return None
 
-        if res.ping_vm():
+        if res.ping_vm(ports=res.ports):
             return res
         else:
             cls.using.remove(res)
@@ -207,8 +211,8 @@ class VirtualMachinesPool(object):
             return vm
 
     @classmethod
-    def save_artifact(cls, session_id, artifacts):
-        return cls.artifact_collector.add_tasks(session_id, artifacts)
+    def save_artifact(cls, session, artifacts):
+        return cls.artifact_collector.add_tasks(session, artifacts)
 
     @classmethod
     def preload(cls, origin_name, prefix=None):
@@ -222,9 +226,14 @@ class VirtualMachinesPool(object):
     @property
     def info(self):
         def print_view(lst):
-            return [{"name": l.name, "ip": l.ip,
-                     "ready": l.ready, "checking": l.checking,
-                     "created": l.created} for l in lst]
+            return [{
+                "name": l.name,
+                "ip": l.ip,
+                "ready": l.ready,
+                "checking": l.checking,
+                "created": l.created,
+                "ports": l.ports
+            } for l in lst]
 
         return {
             "pool": {
@@ -270,6 +279,8 @@ class VirtualMachinesPoolPreloader(Thread):
             platforms.update(config.KVM_PRELOADED)
         if config.USE_OPENSTACK:
             platforms.update(config.OPENSTACK_PRELOADED)
+        if config.USE_DOCKER:
+            platforms.update(config.DOCKER_PRELOADED)
 
         for platform, need in platforms.iteritems():
             have = already_have.get(platform, 0)

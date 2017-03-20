@@ -16,6 +16,7 @@ from flask import Flask
 class CommonCommandsTestCase(BaseTestCase):
     webdriver_server = None
     vmmaster_agent = None
+    vnc_server = None
     host = 'localhost'
 
     @classmethod
@@ -51,6 +52,8 @@ class CommonCommandsTestCase(BaseTestCase):
         cls.webdriver_server.start()
         cls.vmmaster_agent = ServerMock(cls.host, get_free_port())
         cls.vmmaster_agent.start()
+        cls.vnc_server = ServerMock(cls.host, get_free_port())
+        cls.vnc_server.start()
 
         cls.app = Flask(__name__)
         cls.app.database = None
@@ -76,6 +79,9 @@ class CommonCommandsTestCase(BaseTestCase):
             vm = Mock()
             vm.name = 'vm1'
             vm.ip = self.host
+            vm.vnc_port = self.vnc_server.port
+            vm.selenium_port = self.webdriver_server.port
+            vm.agent_port = self.vmmaster_agent.port
 
             self.session.run(vm)
 
@@ -95,10 +101,11 @@ class CommonCommandsTestCase(BaseTestCase):
     def tearDownClass(cls):
         cls.webdriver_server.stop()
         cls.vmmaster_agent.stop()
+        cls.vnc_server.stop()
         del cls.app
 
 
-def ping_vm_mock(arg):
+def ping_vm_mock(arg, ports=None):
     yield None
 
 
@@ -183,7 +190,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
         request.headers.update({"reply": "200"})
 
         status, headers, body = self.commands.start_selenium_session(
-            request, self.session, self.webdriver_server.port
+            request, self.session
         )
 
         self.assertEqual(status, 200)
@@ -206,7 +213,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
 
         def start_selenium_session(req):
             for result in self.commands.start_selenium_session(
-                req, self.session, self.webdriver_server.port
+                req, self.session
             ):
                 pass
 
@@ -224,7 +231,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
 
         self.assertRaises(
             ConnectionError, self.commands.start_selenium_session,
-            request, self.session, self.webdriver_server.port
+            request, self.session
         )
 
     @patch(
@@ -243,7 +250,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
 
         self.assertRaises(
             SessionException, self.commands.start_selenium_session,
-            request, self.session, self.webdriver_server.port
+            request, self.session
         )
 
     @patch(
@@ -262,7 +269,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
 
         self.assertRaises(
             TimeoutException, self.commands.start_selenium_session,
-            request, self.session, self.webdriver_server.port
+            request, self.session
         )
 
 
@@ -277,6 +284,7 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         config.PING_TIMEOUT = 0
         config.SELENIUM_PORT = self.webdriver_server.port
         config.VMMASTER_AGENT_PORT = self.vmmaster_agent.port
+        config.VNC_PORT = self.vnc_server.port
 
         self._handler_get = Handler.do_GET
         self.response_body = "{}"
@@ -294,7 +302,9 @@ class TestCheckVmOnline(CommonCommandsTestCase):
             handler.send_reply(200, self.response_headers,
                                body=self.response_body)
         Handler.do_GET = do_GET
-        result = self.commands.ping_vm(self.session)
+        result = self.commands.ping_vm(self.session, ports=[
+            self.webdriver_server.port, self.vmmaster_agent.port, self.vnc_server.port
+        ])
         self.assertTrue(result)
 
     def test_check_vm_online_ping_failed_timeout(self):
@@ -321,7 +331,7 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
         def selenium_status(req):
             for result in self.commands.selenium_status(
-                req, self.session, self.webdriver_server.port
+                req, self.session
             ):
                 pass
 
@@ -339,7 +349,7 @@ class TestCheckVmOnline(CommonCommandsTestCase):
 
         def selenium_status(req):
             for result in self.commands.selenium_status(
-                req, self.session, self.webdriver_server.port
+                req, self.session
             ):
                 pass
 

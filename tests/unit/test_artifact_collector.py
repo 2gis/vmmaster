@@ -53,7 +53,10 @@ class TestArtifactCollector(BaseTestCase):
             session = Session(dc={'platform': 'test_origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
-            endpoint = Mock(ip='127.0.0.1', name='test_endpoint', delete=Mock())
+            endpoint = Mock(
+                ip='127.0.0.1', name='test_endpoint', delete=Mock(),
+                selenium_port=4455, agent_port=9000, vnc_port=5900
+            )
             session.endpoint = endpoint
             self.app.database.get_session = Mock(return_value=session)
 
@@ -62,7 +65,9 @@ class TestArtifactCollector(BaseTestCase):
             self.app.pool = vmpool
 
             art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(session.id, {'selenium_server': '/var/log/selenium_server.log'})
+            in_queue = art_collector.add_tasks(
+                session, {'selenium_server': '/var/log/selenium_server.log'}
+            )
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
@@ -94,7 +99,10 @@ class TestArtifactCollector(BaseTestCase):
             from core.sessions import Session
             session = Session(dc={'platform': 'test_origin_1'})
             session.id = 1
-            endpoint = Mock(ip='127.0.0.1', name='test_endpoint', delete=Mock())
+            endpoint = Mock(
+                ip='127.0.0.1', name='test_endpoint', delete=Mock(),
+                selenium_port=4455, agent_port=9000, vnc_port=5900
+            )
             session.endpoint = endpoint
             self.app.database.get_session = Mock(return_value=session)
 
@@ -103,7 +111,9 @@ class TestArtifactCollector(BaseTestCase):
             self.app.pool = vmpool
 
             art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(session.id, {'selenium_server': '/var/log/selenium_server.log'})
+            in_queue = art_collector.add_tasks(
+                session, {'selenium_server': '/var/log/selenium_server.log'}
+            )
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
@@ -132,7 +142,10 @@ class TestArtifactCollector(BaseTestCase):
             session = Session(dc={'platform': 'test_origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
-            endpoint = Mock(ip='127.0.0.1', name='test_endpoint', delete=Mock())
+            endpoint = Mock(
+                ip='127.0.0.1', name='test_endpoint', delete=Mock(),
+                selenium_port=4455, agent_port=9000, vnc_port=5900
+            )
             session.endpoint = endpoint
             self.app.database.get_session = Mock(return_value=session)
 
@@ -141,7 +154,9 @@ class TestArtifactCollector(BaseTestCase):
             self.app.pool = vmpool
 
             art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(session.id, {'selenium_server': '/var/log/selenium_server.log'})
+            in_queue = art_collector.add_tasks(
+                session, {'selenium_server': '/var/log/selenium_server.log'}
+            )
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(

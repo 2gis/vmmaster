@@ -1,10 +1,8 @@
 # coding: utf-8
 
 import time
-import requests
 import logging
 
-from Queue import Queue
 from threading import Thread
 from datetime import datetime
 from flask import current_app
@@ -12,8 +10,9 @@ from flask import current_app
 from core import constants
 from core.db import models
 from core.config import config
-from core.exceptions import SessionException, RequestException, RequestTimeoutException
+from core.exceptions import SessionException
 from core.video import VNCVideoHelper
+from core.utils import network_utils
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class RequestHelper(object):
             for key, value in headers.items():
                 if value:
                     _headers[key] = value
-        _headers["Content-Length"] = len(data)
+        _headers["Content-Length"] = str(len(data))
         self.headers = _headers
         self.method = method
         self.url = url
@@ -168,7 +167,9 @@ class Session(models.Session):
         self.endpoint = endpoint
         self.set_vm(endpoint)
         self.status = "running"
-        self.vnc_helper = VNCVideoHelper(self.endpoint_ip, filename_prefix=self.id)
+        self.vnc_helper = VNCVideoHelper(
+            self.endpoint_ip, filename_prefix=self.id, port=self.endpoint.vnc_port
+        )
         self.vnc_helper.start_recording()
 
         log.info("Session %s starting on %s (%s)." %
@@ -192,49 +193,7 @@ class Session(models.Session):
         return step
 
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
-        """ Make http request to some port in session
-            and return the response. """
-        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
-
-        if request.headers.get("Host"):
-            del request.headers['Host']
-
-        def get_response():
-            try:
-                queue.put(
-                    requests.request(
-                        method=request.method,
-                        url=url,
-                        headers=request.headers,
-                        data=request.data,
-                        timeout=timeout
-                    )
-                )
-            except Exception as e:
-                queue.put(e)
-
-        attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", 3)
-        for attempt in range(1, attempts+1):
-            queue = Queue()
-            log.info("Attempt {}. Making user request {}".format(attempt, url))
-            t = Thread(target=get_response)
-            t.daemon = True
-            t.start()
-
-            while t.isAlive():
-                yield None, None, None
-
-            response = queue.get()
-            if attempt >= attempts:
-                if isinstance(response, requests.Timeout):
-                    raise RequestTimeoutException(
-                        "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
-                    )
-                elif isinstance(response, Exception):
-                    raise RequestException("Error for '%s'. Original: %s" % (url, response))
-            elif isinstance(response, requests.Response):
-                yield response.status_code, response.headers, response.content
-                break
+        return network_utils.make_request(self.endpoint_ip, port, request, timeout)
 
 
 class SessionWorker(Thread):

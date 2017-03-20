@@ -40,7 +40,7 @@ def add_sub_step(session, func):
             )
             raise e
         else:
-            content_to_log = utils.remove_base64_screenshot(body)
+            content_to_log = utils.remove_base64_screenshot(body) if body else None
 
             session.add_sub_step(
                 control_line=str(status),
@@ -57,17 +57,17 @@ def start_session(request, session):
              % (session.id, session.endpoint_name, session.endpoint_ip))
     status, headers, body = None, None, None
 
-    ping_vm(session)
+    ping_vm(session, ports=session.endpoint.ports)
     yield status, headers, body
 
-    selenium_status(request, session, config.SELENIUM_PORT)
+    selenium_status(request, session)
     yield status, headers, body
 
     if session.run_script:
         startup_script(session)
 
     status, headers, body = start_selenium_session(
-        request, session, config.SELENIUM_PORT
+        request, session
     )
 
     selenium_session = json.loads(body)["sessionId"]
@@ -92,9 +92,8 @@ def startup_script(session):
 
 
 @connection_watcher
-def ping_vm(session):
+def ping_vm(session, ports=config.PORTS):
     ip = check_to_exist_ip(session)
-    ports = [config.SELENIUM_PORT, config.VMMASTER_AGENT_PORT]
 
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
     _ping = partial(network_utils.ping, ip)
@@ -118,7 +117,7 @@ def ping_vm(session):
 
 
 @connection_watcher
-def start_selenium_session(request, session, port):
+def start_selenium_session(request, session):
     status, headers, body = None, None, None
 
     log.info("Starting selenium-server-standalone session for %s" % session.id)
@@ -127,7 +126,7 @@ def start_selenium_session(request, session, port):
 
     wrapped_make_request = add_sub_step(session, session.make_request)
     for status, headers, body in wrapped_make_request(
-        port, RequestHelper(
+        session.endpoint.selenium_port, RequestHelper(
             request.method, request.path, request.headers, request.data
         )
     ):
@@ -143,7 +142,7 @@ def start_selenium_session(request, session, port):
 
 
 @connection_watcher
-def selenium_status(request, session, port):
+def selenium_status(request, session):
     parts = request.path.split("/")
     parts[-1] = "status"
     status_cmd = "/".join(parts)
@@ -153,7 +152,7 @@ def selenium_status(request, session, port):
 
     wrapped_make_request = add_sub_step(session, session.make_request)
     for status, headers, body in wrapped_make_request(
-        port, RequestHelper("GET", status_cmd)
+        session.endpoint.selenium_port, RequestHelper("GET", status_cmd)
     ):
         yield status, headers, body
     selenium_status_code = json.loads(body).get("status", None)
@@ -212,9 +211,9 @@ def set_path_session_id(path, session_id):
     return "/".join(parts)
 
 
-def take_screenshot(session, port):
+def take_screenshot(session):
     for status, headers, body in session.make_request(
-        port,
+        session.endpoint.agent_port,
         RequestHelper(method="GET", url="/takeScreenshot")
     ):
         yield None
@@ -282,8 +281,7 @@ def run_script_through_websocket(script, session, host):
 
 
 def run_script(request, session):
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip,
-                                     config.VMMASTER_AGENT_PORT)
+    host = "ws://%s:%s/runScript" % (session.endpoint_ip, session.endpoint.agent_port)
 
     session.add_sub_step(
         control_line="%s %s" % (request.method, '/runScript'),
