@@ -5,7 +5,6 @@ from traceback import format_exc
 from flask import Blueprint, current_app, request, jsonify, g
 
 from vmmaster.webdriver import commands, helpers
-import helpers
 
 from core.exceptions import SessionException
 from core.auth.custom_auth import auth, anonymous

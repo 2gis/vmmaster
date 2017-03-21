@@ -285,4 +285,4 @@ class TestApi(BaseTestCase):
             body = json.loads(response.data)
             self.assertEqual(200, body['metacode'])
             self.assertEqual("This endpoints were deleted from pool: "
-                             "[%s]" % vm_name_1, body['result'])
+                             "%s" % [vm_name_1], body['result'])

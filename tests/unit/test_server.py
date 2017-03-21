@@ -371,6 +371,10 @@ class TestServer(BaseTestServer):
         self.assertEqual(json.dumps({"value": "step-label"}), response.content)
         session.close()
 
+    @patch.multiple(
+        'vmmaster.webdriver.helpers',
+        swap_session=Mock()
+    )
     def test_vmmaster_no_such_platform(self):
         desired_caps = {
             'desiredCapabilities': {
@@ -418,6 +422,13 @@ class TestSessionWorker(BaseTestCase):
         session.close()
 
 
+@patch.multiple(
+        "vmpool.clone.KVMClone",
+        clone_origin=Mock(),
+        define_clone=Mock(),
+        start_virtual_machine=Mock(),
+        drive_path=Mock()
+    )
 class TestConnectionClose(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
@@ -509,13 +520,6 @@ class TestConnectionClose(BaseTestServer):
             wait_for(lambda: not q, timeout=2)
             self.assertEqual(len(q), 0)
 
-    @patch.multiple(
-        "vmpool.clone.KVMClone",
-        clone_origin=Mock(),
-        define_clone=Mock(),
-        start_virtual_machine=Mock(),
-        drive_path=Mock()
-    )
     def test_req_closed_when_vm_is_spawning(self):
         """
         - waiting for clone spawning to begin
@@ -695,8 +699,8 @@ class TestServerWithPreloadedVM(BaseTestCase):
         server_is_down(self.address)
         self.ctx.pop()
 
-    @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
-        __name__='vm_has_created',
+    @patch('vmpool.clone.OpenstackClone.is_created', new=Mock(
+        __name__='is_created',
         return_value=True
     ))
     @patch('vmpool.clone.OpenstackClone.ping_vm', new=Mock(
@@ -718,8 +722,8 @@ class TestServerWithPreloadedVM(BaseTestCase):
         self.assertEqual(200, response.status)
         self.assertEqual(1, self.pool.count())
 
-    @patch('vmpool.clone.OpenstackClone.vm_has_created', new=Mock(
-        __name__='vm_has_created',
+    @patch('vmpool.clone.OpenstackClone.is_created', new=Mock(
+        __name__='is_created',
         return_value='False'
     ))
     @patch('vmpool.clone.OpenstackClone.ping_vm', new=Mock(
@@ -738,6 +742,10 @@ class TestServerWithPreloadedVM(BaseTestCase):
         self.assertEqual(1, self.pool.count())
 
 
+@patch.multiple(
+        'vmmaster.webdriver.helpers',
+        swap_session=Mock()
+    )
 class TestSessionSteps(BaseTestServer):
     def setUp(self):
         setup_config('data/config.py')
