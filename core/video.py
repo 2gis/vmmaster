@@ -1,24 +1,24 @@
-##
-##  flvrec.py - VNC to FLV recording tool.
-##
-##  Copyright (c) 2009-2010 by Yusuke Shinyama
-##
+# coding: utf-8
 
+import os
+import sys
+import signal
+import socket
 import logging
+import os.path
+import subprocess
+import websockify
 import multiprocessing
 from twisted.internet import threads
-import websockify
 
 from core.config import config
-
-import sys, socket, os, os.path, subprocess, signal
 from vnc2flv import flv, rfb, video
 from core.utils.network_utils import get_free_port
 
 log = logging.getLogger(__name__)
 
 
-class VNCVideoHelper():
+class VNCVideoHelper:
     recorder = None
     proxy = None
     __proxy_port = None
@@ -33,27 +33,29 @@ class VNCVideoHelper():
         self.host = host
         self.port = port
 
-
     @staticmethod
     def _flvrec(filename, host='localhost', port=5900,
-               framerate=12, keyframe=120,
-               preferred_encoding=(0,),
-               blocksize=32, clipping=None,
-               debug=0, verbose=0):
+                framerate=12, keyframe=120,
+                preferred_encoding=(0,),
+                blocksize=32, clipping=None,
+                debug=0, verbose=0):
         fp = file(filename, 'wb')
-        pwdcache = rfb.PWDCache('%s:%d' % (host,port))
+        pwdcache = rfb.PWDCache('%s:%d' % (host, port))
         writer = flv.FLVWriter(fp, framerate=framerate, debug=debug)
-        sink = video.FLVVideoSink(writer,
-                            blocksize=blocksize, framerate=framerate, keyframe=keyframe,
-                            clipping=clipping, debug=debug)
-        client = rfb.RFBNetworkClient(host, port, sink, timeout=500/framerate,
-                                  pwdcache=pwdcache, preferred_encoding=preferred_encoding,
-                                  debug=debug)
+        sink = video.FLVVideoSink(
+            writer,
+            blocksize=blocksize, framerate=framerate, keyframe=keyframe,
+            clipping=clipping, debug=debug)
+        client = rfb.RFBNetworkClient(
+            host, port, sink, timeout=500/framerate,
+            pwdcache=pwdcache, preferred_encoding=preferred_encoding,
+            debug=debug)
         if verbose:
             log.debug('Start vnc recording to %s' % filename)
         retval = 0
         try:
             def sigint_handler(sig, frame):
+                log.debug("%s %s" % (sig, frame))
                 raise KeyboardInterrupt
             signal.signal(signal.SIGINT, sigint_handler)
             client.open()
@@ -90,7 +92,7 @@ class VNCVideoHelper():
                 "/usr/bin/cpulimit",
                 "-z",
                 "-b",
-                "-l", "15",
+                "-l", getattr(config, "SCREENCAST_CPU_LIMIT", 10),
                 "-p", "%s" % converter.pid
             ], stdin=subprocess.PIPE)
 
@@ -99,7 +101,7 @@ class VNCVideoHelper():
             self.delete_source_video()
 
     def delete_source_video(self):
-        if os.path.isfile('%s.webm' % self.__filepath.split('.flv')[0]):
+        if self.__filepath and os.path.isfile(self.__filepath):
             os.remove(self.__filepath)
             log.debug('Source video %s was deleted' % self.__filepath)
 
@@ -146,9 +148,10 @@ class VNCVideoHelper():
                                                 kwargs=kwargs)
         self.recorder.start()
 
+    def convert_video(self):
+        d = threads.deferToThread(self._flv2webm)
+        d.addBoth(lambda s: None)
+
     def stop_recording(self):
         if self.recorder and self.recorder.is_alive():
             self.recorder.terminate()
-
-            d = threads.deferToThread(self._flv2webm)
-            d.addBoth(lambda s: None)
