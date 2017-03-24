@@ -57,8 +57,6 @@ class TestVNCVideoHelper(BaseTestCase):
             self.session.name = "session1"
             with patch(
                 'core.video.VNCVideoHelper._flvrec', Mock()
-            ), patch(
-                'core.video.VNCVideoHelper._flv2webm', Mock()
             ):
                 self.session.run(endpoint=endpoint)
                 self.assertTrue(

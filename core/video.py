@@ -6,10 +6,8 @@ import signal
 import socket
 import logging
 import os.path
-import subprocess
 import websockify
 import multiprocessing
-from twisted.internet import threads
 
 from core.config import config
 from vnc2flv import flv, rfb, video
@@ -78,28 +76,6 @@ class VNCVideoHelper:
         fp.close()
         return retval
 
-    def _flv2webm(self):
-        args = [
-            "/usr/bin/avconv",
-            "-v", "quiet",
-            "-i", "%s" % self.__filepath,
-            "%s.webm" % self.__filepath.split(".flv")[0]
-        ]
-        converter = subprocess.Popen(args, stdin=subprocess.PIPE)
-
-        if converter.pid:
-            cpulimiter = subprocess.Popen([
-                "/usr/bin/cpulimit",
-                "-z",
-                "-b",
-                "-l", getattr(config, "SCREENCAST_CPU_LIMIT", 10),
-                "-p", "%s" % converter.pid
-            ], stdin=subprocess.PIPE)
-
-            cpulimiter.wait()
-            converter.communicate()
-            self.delete_source_video()
-
     def delete_source_video(self):
         if self.__filepath and os.path.isfile(self.__filepath):
             os.remove(self.__filepath)
@@ -147,10 +123,6 @@ class VNCVideoHelper:
                                                       self.port),
                                                 kwargs=kwargs)
         self.recorder.start()
-
-    def convert_video(self):
-        d = threads.deferToThread(self._flv2webm)
-        d.addBoth(lambda s: None)
 
     def stop_recording(self):
         if self.recorder and self.recorder.is_alive():

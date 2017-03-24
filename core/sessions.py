@@ -132,10 +132,8 @@ class Session(models.Session):
         if self.vnc_helper:
             self.vnc_helper.stop_recording()
             self.vnc_helper.stop_proxy()
-            if self.take_screencast:
-                self.vnc_helper.convert_video()
-            elif getattr(config, "SAVE_SCREENCAST_ON_FAILED", False) and "failed" in self.status:
-                self.vnc_helper.convert_video()
+            if not self.take_screencast and "succeed" in self.status:
+                self.vnc_helper.delete_source_video()
 
         current_app.sessions.remove(self)
 
