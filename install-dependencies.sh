@@ -17,7 +17,3 @@ sudo apt-get -y install libssl-dev libffi-dev
 
 # install postgres dependencies
 sudo apt-get install -y libpq-dev
-
-# install vnc_recorder deps
-sudo apt-get install -y libav-tools
-sudo apt-get install -y cpulimit

@@ -132,6 +132,8 @@ class Session(models.Session):
         if self.vnc_helper:
             self.vnc_helper.stop_recording()
             self.vnc_helper.stop_proxy()
+            if not self.take_screencast and "succeed" in self.status:
+                self.vnc_helper.delete_source_video()
 
         current_app.sessions.remove(self)
 
@@ -169,11 +171,8 @@ class Session(models.Session):
         self.endpoint = endpoint
         self.set_vm(endpoint)
         self.status = "running"
-        self.vnc_helper = VNCVideoHelper(self.endpoint_ip,
-                                         filename_prefix=self.id)
-
-        if self.take_screencast:
-            self.vnc_helper.start_recording()
+        self.vnc_helper = VNCVideoHelper(self.endpoint_ip, filename_prefix=self.id)
+        self.vnc_helper.start_recording()
 
         log.info("Session %s starting on %s (%s)." %
                  (self.id, self.endpoint_name, self.endpoint_ip))
