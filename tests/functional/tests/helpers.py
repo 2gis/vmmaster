@@ -17,7 +17,15 @@ class TestCase(unittest.TestCase):
             cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
         cls.desired_capabilities["name"] = cls.__name__
         cls.desired_capabilities["platform"] = config.platform
-        cls.desired_capabilities["takeScreenshot"] = "true"
+        cls.desired_capabilities["takeScreenshot"] = getattr(config, "take_screenshot", True)
+        cls.desired_capabilities["takeScreencast"] = getattr(config, "take_screencast", False)
+        cls.desired_capabilities["chromeOptions"] = {
+            "args": [
+                "--use-gl",
+                "--ignore-gpu-blacklist"
+            ],
+            "extensions": []
+        }
         return super(TestCase, cls).__new__(cls, *args, **kwargs)
 
     @classmethod
