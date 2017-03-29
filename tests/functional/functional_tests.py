@@ -2,7 +2,6 @@
 
 import os
 import unittest
-import lode_runner
 import subprocess
 
 from StringIO import StringIO
@@ -13,16 +12,18 @@ from os import setsid, killpg
 from signal import SIGTERM
 from netifaces import ifaddresses, AF_INET
 from ConfigParser import RawConfigParser
+from core.utils.network_utils import get_free_port
 
 
 class TestCaseWithMicroApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.app_port = get_free_port()
         path = os.path.dirname(os.path.realpath(__file__))
         cls.p = subprocess.Popen(["gunicorn",
                                   "--log-level=warning",
                                   "-w 2",
-                                  "-b 0.0.0.0:5000",
+                                  "-b 0.0.0.0:{}".format(cls.app_port),
                                   "tests.functional.app.views:app"
                                   ], preexec_fn=setsid)
         config = RawConfigParser()
@@ -33,7 +34,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         except ValueError:
             this_machine_ip = \
                 ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
-        config.set("Network", "addr", "http://%s:5000" % this_machine_ip)
+        config.set("Network", "addr", "http://{}:{}".format(this_machine_ip, cls.app_port))
         with open('%s/tests/config' % path, 'wb') as configfile:
             config.write(configfile)
 
