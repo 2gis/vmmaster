@@ -2,8 +2,8 @@
 
 import os
 import sys
+import time
 import signal
-import socket
 import logging
 import os.path
 import websockify
@@ -36,7 +36,7 @@ class VNCVideoHelper:
                 framerate=12, keyframe=120,
                 preferred_encoding=(0,),
                 blocksize=32, clipping=None,
-                debug=0, verbose=0):
+                debug=0):
         fp = file(filename, 'wb')
         pwdcache = rfb.PWDCache('%s:%d' % (host, port))
         writer = flv.FLVWriter(fp, framerate=framerate, debug=debug)
@@ -48,33 +48,36 @@ class VNCVideoHelper:
             host, port, sink, timeout=500/framerate,
             pwdcache=pwdcache, preferred_encoding=preferred_encoding,
             debug=debug)
-        if verbose:
-            log.debug('Start vnc recording to %s' % filename)
-        retval = 0
+        log.debug('Start vnc recording to %s' % filename)
+        return_code = 0
         try:
-            def sigint_handler(sig, frame):
+            def sigterm_handler(sig, frame):
                 log.debug("%s %s" % (sig, frame))
-                raise KeyboardInterrupt
-            signal.signal(signal.SIGINT, sigint_handler)
+                raise SystemExit
+            signal.signal(signal.SIGTERM, sigterm_handler)
             client.open()
             try:
-                while 1:
+                current_time = time.time()
+                max_duration = getattr(config, "SCREENCAST_RECORDER_MAX_DURATION", 1800)
+                while True:
+                    if time.time() - current_time > max_duration:
+                        log.warning("VNC recorder for {} has been stopped "
+                                    "because max duration({}) was exceeded".format(filename, max_duration))
+                        raise SystemExit
                     client.idle()
             finally:
                 client.close()
-        except KeyboardInterrupt:
-            pass
-        except socket.error, e:
-            log.debug('Socket error: %s' % str(e))
-            retval = 1
-        except rfb.RFBError, e:
-            log.debug('RFB error: %s' % str(e))
-            retval = 1
-        if verbose:
-            log.debug('Stop vnc recording to %s' % filename)
-        writer.close()
-        fp.close()
-        return retval
+        except Exception as e:
+            if isinstance(e, SystemExit):
+                log.info("VNC recorder process({}): Got SIGTERM. stopping...".format(filename))
+            else:
+                log.exception("Error in VNC recorder process({})".format(filename))
+                return_code = 1
+        finally:
+            writer.close()
+            fp.close()
+            exit(return_code)
+            log.info('Stopped vnc recording to %s' % filename)
 
     def delete_source_video(self):
         if self.__filepath and os.path.isfile(self.__filepath):
@@ -114,16 +117,26 @@ class VNCVideoHelper:
         kwargs = {
             'framerate': framerate,
             'clipping': video.str2clip("%sx%s+0-0" % (size[0], size[1])),
-            'debug': 1,
-            'verbose': 1
+            'debug': 1
         }
-        self.recorder = multiprocessing.Process(target=self._flvrec,
-                                                args=(self.__filepath,
-                                                      self.host,
-                                                      self.port),
-                                                kwargs=kwargs)
+        self.recorder = multiprocessing.Process(
+            target=self._flvrec,
+            args=(self.__filepath, self.host, self.port),
+            kwargs=kwargs
+        )
+        self.recorder.daemon = True
         self.recorder.start()
+        log.info(
+            "Started screencast recording(pid:{}) for {}:{} to {}".format(
+                self.recorder.pid, self.host, self.port, self.dir_path
+            )
+        )
 
     def stop_recording(self):
         if self.recorder and self.recorder.is_alive():
             self.recorder.terminate()
+            log.info(
+                "Stopped screencast recording(pid:{}) for {}:{} to {}".format(
+                    self.recorder.pid, self.host, self.port, self.dir_path
+                )
+            )
