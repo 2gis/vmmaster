@@ -83,6 +83,13 @@ class VNCVideoHelper:
         if self.__filepath and os.path.isfile(self.__filepath):
             os.remove(self.__filepath)
             log.debug('Source video %s was deleted' % self.__filepath)
+            self.delete_vnc_log()
+
+    def delete_vnc_log(self):
+        vnc_log = os.sep.join([self.dir_path, 'vnc_video.log'])
+        if os.path.isfile(vnc_log):
+            os.remove(vnc_log)
+            log.debug('File %s was deleted' % vnc_log)
 
     def start_proxy(self):
         self.__proxy_port = get_free_port()

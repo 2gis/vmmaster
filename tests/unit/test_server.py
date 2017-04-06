@@ -21,6 +21,10 @@ def ping_vm_true_mock(arg=None):
     yield True
 
 
+def selenium_status_true_mock(arg=None, arg2=None, arg3=None):
+    yield 200, {}, ""
+
+
 def ping_vm_false_mock(arg=None):
     yield False
 
@@ -37,6 +41,8 @@ class BaseTestServer(BaseTestCase):
             'core.network.Network', Mock()
         ), patch(
             'core.db.Database', DatabaseMock()
+        ), patch(
+            'core.video.VNCVideoHelper', Mock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
         ), patch(
@@ -872,6 +878,10 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestCase):
     @patch(
         'vmmaster.webdriver.commands.ping_vm',
         new=Mock(side_effect=ping_vm_true_mock)
+    )
+    @patch(
+        'vmmaster.webdriver.commands.selenium_status',
+        new=Mock(side_effect=selenium_status_true_mock)
     )
     @patch(
         'requests.request',

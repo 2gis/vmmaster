@@ -18,13 +18,6 @@ from core.video import VNCVideoHelper
 log = logging.getLogger(__name__)
 
 
-def getresponse(req, q):
-    try:
-        q.put(req())
-    except Exception as e:
-        q.put(e)
-
-
 class RequestHelper(object):
     method = None
     url = None
@@ -197,34 +190,47 @@ class Session(models.Session):
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
         """ Make http request to some port in session
             and return the response. """
+        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
 
         if request.headers.get("Host"):
             del request.headers['Host']
 
-        q = Queue()
-        url = "http://%s:%s%s" % (self.endpoint_ip, port, request.url)
+        def get_response():
+            try:
+                queue.put(
+                    requests.request(
+                        method=request.method,
+                        url=url,
+                        headers=request.headers,
+                        data=request.data,
+                        timeout=timeout
+                    )
+                )
+            except Exception as e:
+                queue.put(e)
 
-        def req():
-            return requests.request(method=request.method,
-                                    url=url,
-                                    headers=request.headers,
-                                    data=request.data,
-                                    timeout=timeout)
+        attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", 3)
+        for attempt in range(1, attempts+1):
+            queue = Queue()
+            log.info("Attempt {}. Making user request {}".format(attempt, url))
+            t = Thread(target=get_response)
+            t.daemon = True
+            t.start()
 
-        t = Thread(target=getresponse, args=(req, q))
-        t.daemon = True
-        t.start()
+            while t.isAlive():
+                yield None, None, None
 
-        while t.isAlive():
-            yield None, None, None
-
-        response = q.get()
-        if isinstance(response, requests.Timeout):
-            raise RequestTimeoutException("No response for '%s' in %s sec. Original: %s" % (url, timeout, response))
-        if isinstance(response, Exception):
-            raise RequestException("Error for '%s'. Original: %s" % (url, response))
-
-        yield response.status_code, response.headers, response.content
+            response = queue.get()
+            if attempt >= attempts:
+                if isinstance(response, requests.Timeout):
+                    raise RequestTimeoutException(
+                        "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
+                    )
+                elif isinstance(response, Exception):
+                    raise RequestException("Error for '%s'. Original: %s" % (url, response))
+            elif isinstance(response, requests.Response):
+                yield response.status_code, response.headers, response.content
+                break
 
 
 class SessionWorker(Thread):

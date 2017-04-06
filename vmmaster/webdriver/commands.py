@@ -121,32 +121,24 @@ def ping_vm(session):
 def start_selenium_session(request, session, port):
     status, headers, body = None, None, None
 
-    for attempt_start in range(3):
-        log.info(
-            "Attempt %s. Starting selenium-server-standalone session for %s" %
-            (attempt_start, session.id))
-        log.debug("with %s %s %s %s" % (request.method, request.path,
-                                        request.headers, request.data))
+    log.info("Starting selenium-server-standalone session for %s" % session.id)
+    log.debug("with %s %s %s %s" % (request.method, request.path,
+                                    request.headers, request.data))
 
-        wrapped_make_request = add_sub_step(session, session.make_request)
-        for status, headers, body in wrapped_make_request(
-            port, RequestHelper(
-                request.method, request.path, request.headers, request.data
-            )
-        ):
-            yield status, headers, body
-        if status == httplib.OK:
-            log.info("SUCCESS start selenium-server-standalone status for %s" %
-                     session.id)
-            break
-        else:
-            log.info("Attempt %s to start selenium session was FAILED. "
-                     "Trying again..." % attempt_start)
+    wrapped_make_request = add_sub_step(session, session.make_request)
+    for status, headers, body in wrapped_make_request(
+        port, RequestHelper(
+            request.method, request.path, request.headers, request.data
+        )
+    ):
+        yield status, headers, body
 
     if status != httplib.OK:
         log.info("FAILED start selenium-server-standalone status "
                  "for %s - %s : %s" % (session.id, status, body))
         raise CreationException("Failed to start selenium session: %s" % body)
+
+    log.info("SUCCESS start selenium-server-standalone status for %s" % session.id)
     yield status, headers, body
 
 
@@ -157,29 +149,20 @@ def selenium_status(request, session, port):
     status_cmd = "/".join(parts)
     status, headers, body, selenium_status_code = None, None, None, None
 
-    for attempt in range(3):
-        log.info("Attempt %s. Getting selenium-server-standalone status "
-                 "for %s" % (attempt, session.id))
+    log.info("Getting selenium-server-standalone status for %s" % session.id)
 
-        wrapped_make_request = add_sub_step(session, session.make_request)
-        for status, headers, body in wrapped_make_request(
-            port, RequestHelper("GET", status_cmd)
-        ):
-            yield status, headers, body
-        selenium_status_code = json.loads(body).get("status", None)
-
-        if selenium_status_code == 0:
-            log.info("SUCCESS get selenium-server-standalone status for %s" %
-                     session.id)
-            break
-        else:
-            log.info("Attempt %s to get selenium status was FAILED. "
-                     "Trying again..." % attempt)
+    wrapped_make_request = add_sub_step(session, session.make_request)
+    for status, headers, body in wrapped_make_request(
+        port, RequestHelper("GET", status_cmd)
+    ):
+        yield status, headers, body
+    selenium_status_code = json.loads(body).get("status", None)
 
     if selenium_status_code != 0:
-        log.info("FAIL get selenium-server-standalone status for %s" %
-                 session.id)
+        log.info("FAILED get selenium-server-standalone status for %s" % session.id)
         raise CreationException("Failed to get selenium status: %s" % body)
+
+    log.info("SUCCESS get selenium-server-standalone status for %s" % session.id)
     yield status, headers, body
 
 
