@@ -68,6 +68,7 @@ def before_request():
 
     if session:
         session.stop_timer()
+        log_request(session, request, created=g.started)
 
 
 def log_response(session, response, created=None):
@@ -83,9 +84,8 @@ def after_request(response):
     parts = request.path.split("/")
 
     if session:
-        log_request(session, request, created=g.started)
+        log_response(session, response, created=datetime.now())
         if not session.closed:
-            log_response(session, response, created=datetime.now())
             if request.method == 'DELETE' and parts[-2] == "session" \
                     and parts[-1] == str(session.id):
                 session.succeed()
@@ -120,6 +120,7 @@ def delete_session(session_id):
 def create_session():
     if current_app.running:
         session = helpers.get_session()
+        log_request(session, request, created=g.started)  # because session id required for step
         commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
 
@@ -173,7 +174,6 @@ def vmmaster_command(session_id):
     status, headers, body = helpers.internal_exec(
         commands.InternalCommands['vmmasterLabel'])
 
-    take_screenshot(status, body)
     return helpers.form_response(status, headers, body)
 
 
