@@ -34,7 +34,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         except ValueError:
             this_machine_ip = \
                 ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
-        config.set("Network", "addr", "http://{}:{}".format(this_machine_ip, cls.app_port))
+        config.set("Network", "addr", "http://{}:{}".format("jenkins.auto.ostack.test", cls.app_port))
         with open('%s/tests/config' % path, 'wb') as configfile:
             config.write(configfile)
 
