@@ -1,8 +1,6 @@
 # coding: utf-8
 import os
 import time
-import netifaces
-import SubnetTree
 import logging
 
 from functools import wraps
@@ -223,8 +221,11 @@ class OpenstackClone(Clone):
         self.nova_client = openstack_utils.nova_client()
         self.network_client = openstack_utils.neutron_client()
 
-        self.network_id = self.get_network_id()
         self.network_name = self.get_network_name(self.network_id)
+
+    @property
+    def network_id(self):
+        return getattr(config, "OPENSTACK_NETWORK_ID")
 
     @staticmethod
     def set_userdata():
@@ -338,37 +339,6 @@ class OpenstackClone(Clone):
         else:
             raise CreationException('Can\'t return network name because '
                                     'network_id was %s' % str(network_id))
-
-    def get_network_id(self):
-        try:
-            self_ip = netifaces.ifaddresses('eth0').get(
-                netifaces.AF_INET, [{'addr': None}])[0]['addr']
-        except ValueError:
-            self_ip = None
-
-        if self_ip:
-            stree = SubnetTree.SubnetTree()
-            for subnet in self.network_client.list_subnets().get(
-                    'subnets', []):
-                if subnet['tenant_id'] == config.OPENSTACK_TENANT_ID:
-                    stree[str(subnet['cidr'])] = str(subnet['network_id'])
-                    log.info(
-                        "Associate vm with network id %s and subnet id %s"
-                        % (str(subnet['network_id']), str(subnet['id'])))
-
-            try:
-                net_id = stree[self_ip]
-                log.info(
-                    "Current network id for creating vm: %s" % net_id)
-                return net_id
-            except KeyError:
-                log.warn("Error: Network id not found in your project.")
-                return None
-        else:
-            log.warn("Error: Your server does not have ip address.")
-            return None
-            # fixme
-            # create new network
 
     @staticmethod
     def is_created(server):

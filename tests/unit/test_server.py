@@ -673,7 +673,6 @@ class TestServerWithPreloadedVM(BaseTestCase):
         ), patch.multiple(
             'vmpool.clone.OpenstackClone',
             _wait_for_activated_service=custom_wait,
-            get_network_id=Mock(return_value=1),
             get_network_name=Mock(return_value='Local-Net')
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',

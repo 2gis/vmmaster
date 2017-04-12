@@ -16,8 +16,7 @@ def custom_wait(self, method):
 )
 @patch.multiple(
     'vmpool.clone.OpenstackClone',
-    get_network_name=Mock(return_value='Local-Net'),
-    get_network_id=Mock(return_value=1)
+    get_network_name=Mock(return_value='Local-Net')
 )
 @patch.multiple(
     'core.utils.openstack_utils',
@@ -505,15 +504,12 @@ class TestNetworkGetting(BaseTestCase):
         del self.app.pool
         self.ctx.pop()
 
-    @patch('netifaces.ifaddresses',
-           new=Mock(return_value=Mock(get=Mock(
-               return_value=[{'addr': '10.0.0.1'}]))))
     def test_create_vm_with_getting_network_id_and_name(self):
         """
         - call OpenstackClone.create()
         - ping successful
         - is_created is True
-        - call get_network_id and get_network_name
+        - call get_network_name
 
         Expected: vm has been created
         """
@@ -523,30 +519,13 @@ class TestNetworkGetting(BaseTestCase):
                 get=Mock(
                     return_value=[{'tenant_id': 1,
                                    'cidr': '10.0.0.0/24',
-                                   'network_id': 1,
-                                   'id': 1}]))),
+                                   'network_id': "id",
+                                   'id': "id"}]))),
                 list_networks=Mock(return_value=Mock(
                     get=Mock(return_value=[{'id': 1, 'name': 'Local-Net'}]))))
 
             self.app.pool.add(self.platform)
             self.assertEqual(self.app.pool.count(), 1)
-
-    def test_exception_in_get_network_id(self):
-        """
-        - call OpenstackClone.create()
-        - ping successful
-        - is_created is True
-        - exception in get_network_id
-
-        Expected: vm has not been created
-        """
-        with patch('core.utils.openstack_utils.neutron_client') \
-                as nova:
-            nova.return_value = Mock(list_subnets=Mock(
-                return_value=Mock(get=Mock(side_effect=Exception(
-                    'Exception in get_network_id')))))
-            self.app.pool.add(self.platform)
-            self.assertEqual(self.app.pool.count(), 0)
 
     def test_exception_in_get_network_name(self):
         """
@@ -563,20 +542,20 @@ class TestNetworkGetting(BaseTestCase):
                 return_value=Mock(get=Mock(
                     return_value=[{'tenant_id': 1,
                                    'cidr': '10.0.0.0/24',
-                                   'network_id': 1,
-                                   'id': 1}]))),
+                                   'network_id': "id",
+                                   'id': "id"}]))),
                 list_networks=Mock(side_effect=Exception(
                     'Exception in get_network_name')))
             self.app.pool.add(self.platform)
             self.assertEqual(self.app.pool.count(), 0)
 
-    @patch('vmpool.clone.OpenstackClone.get_network_id', new=Mock(return_value=None))
+    @patch('vmpool.clone.OpenstackClone.network_id', new=Mock(return_value=None))
     def test_none_param_for_get_network_name(self):
         """
         - call OpenstackClone.create()
         - ping successful
         - is_created is True
-        - get_network_id returned None like in case with KeyError in method
+        - self.network_id returned None like in case with KeyError in method
         - call get_network_name(None)
 
         Expected: vm has not been created

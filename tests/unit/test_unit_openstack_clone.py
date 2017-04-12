@@ -7,8 +7,7 @@ from core.config import setup_config
 
 @patch.multiple(
     'vmpool.clone.OpenstackClone',
-    get_network_name=Mock(return_value='Local-Net'),
-    get_network_id=Mock(return_value=1)
+    get_network_name=Mock(return_value='Local-Net')
 )
 @patch.multiple(
     'core.utils.openstack_utils',
