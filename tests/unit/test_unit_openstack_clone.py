@@ -6,14 +6,8 @@ from core.config import setup_config
 
 
 @patch.multiple(
-    'vmpool.clone.OpenstackClone',
-    get_network_name=Mock(return_value='Local-Net')
-)
-@patch.multiple(
     'core.utils.openstack_utils',
-    neutron_client=Mock(return_value=Mock()),
-    nova_client=Mock(return_value=Mock()),
-    glance_client=Mock(return_value=Mock())
+    nova_client=Mock(return_value=Mock())
 )
 class TestOpenstackCloneUnit(BaseTestCase):
     def setUp(self):

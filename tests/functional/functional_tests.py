@@ -5,13 +5,12 @@ import unittest
 import subprocess
 
 from StringIO import StringIO
-
 from multiprocessing.pool import ThreadPool
-
 from os import setsid, killpg
 from signal import SIGTERM
 from netifaces import ifaddresses, AF_INET
 from ConfigParser import RawConfigParser
+
 from core.utils.network_utils import get_free_port
 
 
@@ -97,6 +96,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
+    @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
     def test_run_script_with_install_package_on_session_creation(self):
         from tests.test_normal import \
             TestRunScriptWithInstallPackageOnSessionCreation
@@ -107,6 +107,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
+    @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
     def test_run_script_tests_parallel_run(self):
         from tests.test_normal import\
             TestParallelSlowRunScriptOnSession1, \

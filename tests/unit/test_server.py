@@ -667,13 +667,10 @@ class TestServerWithPreloadedVM(BaseTestCase):
             'core.db.Database', Mock(add=Mock(side_effect=set_primary_key))
         ), patch.multiple(
             'core.utils.openstack_utils',
-            neutron_client=Mock(return_value=Mock()),
-            glance_client=Mock(return_value=Mock()),
             nova_client=Mock(return_value=Mock())
         ), patch.multiple(
             'vmpool.clone.OpenstackClone',
-            _wait_for_activated_service=custom_wait,
-            get_network_name=Mock(return_value='Local-Net')
+            _wait_for_activated_service=custom_wait
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[mocked_image]),

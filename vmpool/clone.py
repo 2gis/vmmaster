@@ -11,8 +11,7 @@ from threading import Thread
 
 from vmpool import VirtualMachine
 
-from core import dumpxml
-from core import utils
+from core import dumpxml, utils
 from core.exceptions import libvirtError, CreationException
 from core.config import config
 from core.utils import network_utils
@@ -26,7 +25,7 @@ def threaded_wait(func):
         def thread_target():
             return func(self, *args, **kwargs)
 
-        tr = Thread(target=thread_target)
+        tr = Thread(target=thread_target, name=getattr(func, "__name__", None))
         tr.daemon = True
         tr.start()
 
@@ -219,9 +218,6 @@ class OpenstackClone(Clone):
 
         from core.utils import openstack_utils
         self.nova_client = openstack_utils.nova_client()
-        self.network_client = openstack_utils.neutron_client()
-
-        self.network_name = self.get_network_name(self.network_id)
 
     @property
     def network_id(self):
@@ -255,29 +251,31 @@ class OpenstackClone(Clone):
         self.nova_client.servers.create(**kwargs)
         self._wait_for_activated_service(self.get_ip)
 
+    def _parse_ip_from_networks(self):
+        server = self.get_vm(self.name)
+        if not server:
+            return
+
+        addresses = server.networks.get(config.OPENSTACK_NETWORK_NAME, None)
+        if addresses is not None:
+            ip = addresses[0]
+            return ip
+        return None
+
     def get_ip(self):
-        if self.ip is None:
-            try:
-                server = self.get_vm(self.name)
-                if not server:
-                    return
-                addresses = server.addresses.get(self.network_name, None)
-                if addresses is not None:
-                    ip = addresses[0].get('addr', None)
-                    self.mac = addresses[0].get('OS-EXT-IPS-MAC:mac_addr',
-                                                None)
+        try:
+            ip = self._parse_ip_from_networks()
+            if ip is not None:
+                self.ip = ip
 
-                    if ip is not None:
-                        self.ip = ip
+            log.info(
+                "Created openstack {clone} with ip {ip}".format(
+                    clone=self.name, ip=self.ip)
+            )
 
-                    log.info(
-                        "Created openstack {clone} with ip {ip}"
-                        " and mac {mac}".format(
-                            clone=self.name, ip=self.ip, mac=self.mac)
-                    )
-            except Exception as e:
-                log.exception("Vm %s does not have address block. Error: %s" %
-                              (self.name, e.message))
+        except Exception as e:
+            log.exception("Vm %s does not have address block. Error: %s" %
+                          (self.name, e.message))
 
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
@@ -325,20 +323,11 @@ class OpenstackClone(Clone):
 
     @property
     def image(self):
-        return self.nova_client.images.find(name=self.origin.name)
+        return self.nova_client.glance.find_image(self.origin.name)
 
     @property
     def flavor(self):
         return self.nova_client.flavors.find(name=self.origin.flavor_name)
-
-    def get_network_name(self, network_id):
-        if network_id:
-            for net in self.network_client.list_networks().get('networks', []):
-                if net['id'] == network_id:
-                    return net['name']
-        else:
-            raise CreationException('Can\'t return network name because '
-                                    'network_id was %s' % str(network_id))
 
     @staticmethod
     def is_created(server):
@@ -383,12 +372,12 @@ class OpenstackClone(Clone):
 
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))
+        self.ready = False
 
         if self.is_preloaded():
             self.pool.remove_vm(self)
             self.pool.pool.append(self)
 
-        self.ready = False
         server = self.get_vm(self.name)
         if server:
             try:

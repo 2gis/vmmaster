@@ -114,7 +114,7 @@ class OpenstackPlatforms(PlatformsInterface):
 
     @staticmethod
     def images():
-        return openstack_utils.glance_client().images.list()
+        return openstack_utils.nova_client().glance.list()
 
     @property
     def platforms(self):

@@ -15,14 +15,8 @@ def custom_wait(self, method):
     new=Mock(return_value=True)
 )
 @patch.multiple(
-    'vmpool.clone.OpenstackClone',
-    get_network_name=Mock(return_value='Local-Net')
-)
-@patch.multiple(
     'core.utils.openstack_utils',
-    neutron_client=Mock(return_value=Mock()),
-    nova_client=Mock(return_value=Mock()),
-    glance_client=Mock(return_value=Mock())
+    nova_client=Mock(return_value=Mock())
 )
 class TestOpenstackClone(BaseTestCase):
     def setUp(self):
@@ -47,9 +41,7 @@ class TestOpenstackClone(BaseTestCase):
             'core.network.Network', Mock()
         ), patch.multiple(
             'core.utils.openstack_utils',
-            neutron_client=Mock(return_value=Mock()),
-            nova_client=Mock(return_value=Mock()),
-            glance_client=Mock(return_value=Mock())
+            nova_client=Mock(return_value=Mock())
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[self.mocked_image]),
@@ -194,8 +186,8 @@ class TestOpenstackClone(BaseTestCase):
         with patch('core.utils.openstack_utils.nova_client') as nova:
             nova.return_value = Mock(servers=Mock(create=Mock(),
                                                   status="active"),
-                                     images=Mock(
-                                         find=Mock(side_effect=Exception(
+                                     glance=Mock(
+                                         find_image=Mock(side_effect=Exception(
                                              'Exception in image'))))
 
             self.app.pool.add(self.platform)
@@ -426,8 +418,8 @@ class TestOpenstackClone(BaseTestCase):
         get_vm=Mock(
             return_value=Mock(
                 status="active",
-                addresses=Mock(get=Mock(
-                    return_value=[{'addr': '127.0.0.1', 'OS-EXT-IPS-MAC:mac_addr': 'test_mac'}]),
+                networks=Mock(get=Mock(
+                    return_value=['127.0.0.1']),
                     status=Mock(lower=Mock(return_value='active')),
                 ))
         )
@@ -445,15 +437,12 @@ class TestOpenstackClone(BaseTestCase):
         self.app.pool.add(self.platform)
         wait_for(lambda: self.app.pool.using[0].ready is True)
         self.assertEqual(self.app.pool.using[0].ip, '127.0.0.1')
-        self.assertEqual(self.app.pool.using[0].mac, 'test_mac')
         self.assertEqual(self.app.pool.count(), 1)
 
 
 @patch.multiple(
     'core.utils.openstack_utils',
-    neutron_client=Mock(return_value=Mock()),
-    nova_client=Mock(return_value=Mock()),
-    glance_client=Mock(return_value=Mock())
+    nova_client=Mock(return_value=Mock())
 )
 @patch.multiple(
     'vmpool.clone.OpenstackClone',
@@ -483,8 +472,6 @@ class TestNetworkGetting(BaseTestCase):
         ), patch.multiple(
             'core.utils.openstack_utils',
             nova_client=Mock(),
-            neutron_client=Mock(return_value=Mock()),
-            glance_client=Mock(return_value=Mock())
         ), patch(
             'vmpool.platforms.OpenstackPlatforms.images',
             Mock(return_value=[mocked_image])
@@ -513,52 +500,5 @@ class TestNetworkGetting(BaseTestCase):
 
         Expected: vm has been created
         """
-        with patch('core.utils.openstack_utils.neutron_client') \
-                as nova:
-            nova.return_value = Mock(list_subnets=Mock(return_value=Mock(
-                get=Mock(
-                    return_value=[{'tenant_id': 1,
-                                   'cidr': '10.0.0.0/24',
-                                   'network_id': "id",
-                                   'id': "id"}]))),
-                list_networks=Mock(return_value=Mock(
-                    get=Mock(return_value=[{'id': 1, 'name': 'Local-Net'}]))))
-
-            self.app.pool.add(self.platform)
-            self.assertEqual(self.app.pool.count(), 1)
-
-    def test_exception_in_get_network_name(self):
-        """
-        - call OpenstackClone.create()
-        - ping successful
-        - is_created is True
-        - exception in get_network_name
-
-        Expected: vm has not been created
-        """
-        with patch('core.utils.openstack_utils.neutron_client') \
-                as nova:
-            nova.return_value = Mock(list_subnets=Mock(
-                return_value=Mock(get=Mock(
-                    return_value=[{'tenant_id': 1,
-                                   'cidr': '10.0.0.0/24',
-                                   'network_id': "id",
-                                   'id': "id"}]))),
-                list_networks=Mock(side_effect=Exception(
-                    'Exception in get_network_name')))
-            self.app.pool.add(self.platform)
-            self.assertEqual(self.app.pool.count(), 0)
-
-    @patch('vmpool.clone.OpenstackClone.network_id', new=Mock(return_value=None))
-    def test_none_param_for_get_network_name(self):
-        """
-        - call OpenstackClone.create()
-        - ping successful
-        - is_created is True
-        - self.network_id returned None like in case with KeyError in method
-        - call get_network_name(None)
-
-        Expected: vm has not been created
-        """
         self.app.pool.add(self.platform)
-        self.assertEqual(self.app.pool.count(), 0)
+        self.assertEqual(self.app.pool.count(), 1)
