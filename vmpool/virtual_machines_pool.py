@@ -43,7 +43,8 @@ class VirtualMachinesPool(object):
         if cls.preloader:
             cls.preloader.stop()
         if cls.artifact_collector:
-            cls.artifact_collector.close()
+            cls.artifact_collector.wait_for_complete()
+            cls.artifact_collector.stop()
 
     @classmethod
     def remove_vm(cls, vm):

@@ -79,6 +79,10 @@ class Session(models.Session):
         return (datetime.now() - self.created).total_seconds()
 
     @property
+    def is_done(self):
+        return self.status in ('failed', 'succeed')
+
+    @property
     def info(self):
         stat = {
             "id": self.id,

@@ -10,13 +10,17 @@ from novaclient import client as novaclient
 from core.config import config
 
 
-OPENSTACK_UTILS_LOG_LEVEL = "WARNING"
+OPENSTACK_UTILS_LOG_LEVEL = logging.WARNING
 
 OPENSTACK_AUTH_URL = '{}:{}/{}'.format(
     config.OPENSTACK_AUTH_URL,
     config.OPENSTACK_PORT,
     config.OPENSTACK_CLIENT_VERSION
 )
+
+logging.getLogger("requests").setLevel(OPENSTACK_UTILS_LOG_LEVEL)
+logging.getLogger("keystoneauth").setLevel(OPENSTACK_UTILS_LOG_LEVEL)
+logging.getLogger("novaclient").setLevel(OPENSTACK_UTILS_LOG_LEVEL)
 
 
 def get_session():
@@ -32,16 +36,11 @@ def get_session():
 
 
 def keystone_client():
-    keystone_log = logging.getLogger("keystoneauth.identity.v3")
-    keystone_log.setLevel(OPENSTACK_UTILS_LOG_LEVEL)
     return ksclient.Client(session=get_session())
 
 
 def nova_client():
-    nova_log = logging.getLogger("novaclient")
-    nova_log.setLevel(OPENSTACK_UTILS_LOG_LEVEL)
     return novaclient.Client(
         version="2",
         session=get_session()
     )
-

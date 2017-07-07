@@ -1,11 +1,13 @@
 # coding: utf-8
-from threading import Thread
 
 import os
 import json
+import time
 import logging
-
 import websocket
+
+from threading import Thread
+from collections import defaultdict
 from flask import current_app
 from multiprocessing.pool import ThreadPool
 
@@ -101,6 +103,7 @@ def get_artifact_from_endpoint(session, path):
     host = "ws://%s:%s/runScript" % (session.endpoint_ip,
                                      config.VMMASTER_AGENT_PORT)
     script = '{"command": "sudo -S sh", "script": "cat %s"}' % path
+    log.debug("Run script for session {}, cmd={}".format(session, script))
     for status, headers, body in run_script(script, host):
         yield None, None, None
 
@@ -125,7 +128,7 @@ def save_selenium_log(session_id, filename, original_path):
         session.save()
         log.info("Selenium log saved to %s for session %s" % (log_path, session_id))
     else:
-        log.info("Selenium log doesn't saved for session %s" % session_id)
+        log.warning("Selenium log doesn't saved for session %s" % session_id)
 
 
 def on_completed_task(session_id):
@@ -141,7 +144,8 @@ def on_completed_task(session_id):
         return
 
     endpoint = current_app.pool.get_by_name(session.endpoint_name)
-    endpoint.delete()
+    if endpoint:
+        endpoint.delete()
     log.debug("Task finished for session %s" % session_id)
 
 
@@ -167,7 +171,7 @@ class ArtifactCollector(ThreadPool):
             )
         else:
             super(ArtifactCollector, self).__init__()
-        self.in_queue = {}
+        self.in_queue = defaultdict(list)
         self.vmpool = vmpool
         log.info("ArtifactCollector started")
 
@@ -198,12 +202,8 @@ class ArtifactCollector(ThreadPool):
     def run_task(self, session_id, method, args):
         apply_result = self.apply_async(method, args=args)
         log.debug("Apply Result %s" % apply_result)
-        if session_id in self.in_queue:
-            self.in_queue[session_id].append(apply_result)
-        else:
-            self.in_queue[session_id] = [apply_result]
+        self.in_queue[session_id].append(apply_result)
         log.info("Task for getting artifacts added to queue for session %s" % session_id)
-        log.debug('ArtifactCollector Queue: %s' % str(self.in_queue))
 
     def add_tasks(self, session_id, artifacts):
         """
@@ -223,7 +223,7 @@ class ArtifactCollector(ThreadPool):
         """
         :param session_id: int
         """
-        tasks = self.in_queue.get(session_id, list())
+        tasks = self.in_queue[session_id]
         for task in tasks:
             if task and not task.ready():
                 task.successful()
@@ -251,11 +251,30 @@ class ArtifactCollector(ThreadPool):
         with self.vmpool.app.app_context():
             try:
                 save_selenium_log(session_id, artifact_name, artifact_path)
+            except:
+                log.exception("Error saving selenium log for session {} ({}: {})"
+                              .format(session_id, artifact_name, artifact_path))
             finally:
                 self.in_queue.pop(session_id)
                 on_completed_task(session_id)
 
+    def wait_for_complete(self):
+        start = time.time()
+        timeout = getattr(config, "COLLECT_ARTIFACTS_WAIT_TIMEOUT", 60)
+
+        while self.in_queue:
+            log.info("Wait for tasks to complete: {}".format(
+                [(session, len(tasks)) for session, tasks in self.in_queue.items()])
+            )
+            time.sleep(1)
+            if time.time() - start > timeout:
+                log.warning("Timeout {} while waiting for tasks".format(timeout))
+                return
+
+        log.info("All tasks completed.")
+
     def stop(self):
+        self.terminate()
         self.del_tasks(self.in_queue.keys())
         self.close()
         log.info("ArtifactCollector stopped")

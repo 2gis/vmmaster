@@ -201,10 +201,9 @@ def get_endpoint(session_id, dc):
         except CreationException as e:
             log.exception("Attempt %s to get endpoint for session %s was failed: %s"
                           % (attempt, session_id, str(e)))
-            if hasattr(_endpoint, "ready"):
-                if not _endpoint.ready:
-                    _endpoint.delete()
-                    _endpoint = None
+            if _endpoint and not _endpoint.ready:
+                _endpoint.delete()
+                _endpoint = None
             if attempt < attempts:
                 time.sleep(wait_time)
             else:
@@ -224,7 +223,8 @@ def get_session():
     yield session
 
     for _endpoint in get_endpoint(session.id, dc):
-        session.endpoint = _endpoint
+        if _endpoint:
+            session.endpoint = _endpoint
         yield session
 
     session.run(session.endpoint)

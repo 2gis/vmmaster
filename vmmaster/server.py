@@ -69,26 +69,32 @@ class VMMasterServer(object):
         del self
 
     def __del__(self):
+        log.info("Shutting down server...")
         d = self.bind.stopListening()
         _block_on(d, 20)
         self.app.cleanup()
         self.thread_pool.stop()
+        log.info("Server gracefully shut down")
 
     def wait_for_end_active_sessions(self):
         active_sessions = self.app.sessions.active()
 
         def wait_for():
             while active_sessions:
+                log.info("Waiting for {} sessions to complete: {}"
+                         .format(len(active_sessions), [(i.id, i.status) for i in active_sessions]))
                 for session in active_sessions:
-                    if session.status in ('failed', 'succeed'):
+                    if session.is_done:
+                        log.debug("Session {} is done".format(session.id))
                         active_sessions.remove(session)
 
                 time.sleep(1)
                 log.info("Wait for end %s active session[s]:"
                          " %s" % (len(active_sessions), active_sessions))
 
-        return deferToThread(wait_for, self).addBoth(
-            lambda i: log.info("All active sessions has been completed")
+        return deferToThread(wait_for).addCallbacks(
+            callback=lambda _: log.info("All active sessions has been completed"),
+            errback=lambda failure: log.error("Error while waiting for active_sessions: {}".format(failure))
         )
 
     @inlineCallbacks
