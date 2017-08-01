@@ -2,28 +2,51 @@
 
 import json
 from datetime import datetime
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from multiprocessing import Process
-from helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for
+from helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for, custom_wait
 from lode_runner import dataprovider
 from core import constants
 
 
+@patch.multiple(
+    'core.utils.openstack_utils',
+    nova_client=Mock(return_value=Mock())
+)
+@patch.multiple(
+    'vmpool.clone.OpenstackClone',
+    _wait_for_activated_service=custom_wait,
+    ping_vm=Mock(return_value=True)
+)
 class TestApi(BaseTestCase):
     def setUp(self):
         from core.config import setup_config
-        setup_config('data/config.py')
+        setup_config('data/config_openstack.py')
+
+        self.mocked_image = Mock(
+            id=1, status='active',
+            get=Mock(return_value='snapshot'),
+            min_disk=20,
+            min_ram=2,
+            instance_type_flavorid=1,
+        )
+        type(self.mocked_image).name = PropertyMock(
+            return_value='test_origin_1')
 
         with patch(
-            'core.network.Network', Mock(name='Network')
-        ), patch(
-            'core.connection.Virsh', Mock(name='Virsh')
-        ), patch(
             'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
         ), patch(
             'core.logger.setup_logging', Mock(return_value=Mock())
         ), patch(
             'core.db.Database', DatabaseMock()
+        ), patch.multiple(
+            'vmpool.platforms.OpenstackPlatforms',
+            images=Mock(return_value=[self.mocked_image]),
+            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
+            limits=Mock(return_value={
+                'maxTotalCores': 10, 'maxTotalInstances': 10,
+                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
+                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
         ):
             from vmmaster.server import create_app
             self.app = create_app()
@@ -70,7 +93,7 @@ class TestApi(BaseTestCase):
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
         platforms = body['result']['platforms']
-        self.assertEqual(2, len(platforms))
+        self.assertEqual(1, len(platforms))
         names = [platform for platform in self.platforms]
         self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])

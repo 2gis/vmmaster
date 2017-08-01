@@ -1,29 +1,23 @@
 # coding: utf-8
 
 from mock import Mock, patch, PropertyMock
-from core.config import setup_config
-from tests.unit.helpers import wait_for, BaseTestCase
-
-
-def custom_wait(self, method):
-    self.ready = True
-    self.checking = False
+from core.config import setup_config, config
+from tests.unit.helpers import wait_for, BaseTestCase, custom_wait
 
 
 @patch(
     'vmpool.virtual_machines_pool.VirtualMachinesPool.can_produce',
     new=Mock(return_value=True)
 )
-@patch.multiple(
-    'core.utils.openstack_utils',
-    nova_client=Mock(return_value=Mock())
+@patch(
+    'core.utils.openstack_utils.nova_client', Mock()
 )
 class TestOpenstackClone(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
 
         self.platform = "origin_1"
-        self.address = ("localhost", 9001)
+        self.address = ("localhost", config.PORT)
 
         self.mocked_image = Mock(
             id=1, status='active',
@@ -36,12 +30,7 @@ class TestOpenstackClone(BaseTestCase):
             return_value='test_origin_1')
 
         with patch(
-            'core.connection.Virsh', Mock(),
-        ), patch(
-            'core.network.Network', Mock()
-        ), patch.multiple(
-            'core.utils.openstack_utils',
-            nova_client=Mock(return_value=Mock())
+            'core.utils.openstack_utils.nova_client', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[self.mocked_image]),
@@ -440,9 +429,8 @@ class TestOpenstackClone(BaseTestCase):
         self.assertEqual(self.app.pool.count(), 1)
 
 
-@patch.multiple(
-    'core.utils.openstack_utils',
-    nova_client=Mock(return_value=Mock())
+@patch(
+    'core.utils.openstack_utils.nova_client', Mock()
 )
 @patch.multiple(
     'vmpool.clone.OpenstackClone',
@@ -466,12 +454,7 @@ class TestNetworkGetting(BaseTestCase):
         type(mocked_image).name = PropertyMock(return_value='test_origin_1')
 
         with patch(
-            'core.network.Network', Mock()
-        ), patch(
-            'core.connection.Virsh', Mock()
-        ), patch.multiple(
-            'core.utils.openstack_utils',
-            nova_client=Mock(),
+            'core.utils.openstack_utils.nova_client', Mock(),
         ), patch(
             'vmpool.platforms.OpenstackPlatforms.images',
             Mock(return_value=[mocked_image])

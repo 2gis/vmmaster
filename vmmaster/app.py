@@ -38,12 +38,15 @@ class Vmmaster(Flask):
 
     def cleanup(self):
         log.info("Cleanup...")
-        self.pool.stop_workers()
-        self.sessions.worker.stop()
-        self.pool.free()
-        self.unregister()
-        self.pool.platforms.cleanup()
-        log.info("Cleanup done")
+        try:
+            self.pool.stop_workers()
+            self.sessions.worker.stop()
+            self.pool.free()
+            self.unregister()
+            self.pool.platforms.cleanup()
+            log.info("Cleanup done")
+        except:
+            log.exception("Cleanup was finished with errors")
 
 
 def register_blueprints(app):

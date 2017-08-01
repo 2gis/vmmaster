@@ -23,7 +23,10 @@ log = logging.getLogger(__name__)
 
 
 def is_request_closed():
-    return request.input_stream._wrapped.closed
+    if getattr(request.input_stream, "_wrapped", None):
+        return request.input_stream._wrapped.closed
+    else:
+        return request.input_stream.closed
 
 
 def is_session_timeouted():

@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import os
 from tests.unit.helpers import BaseTestCase
 from mock import Mock, patch
 from core.config import setup_config
@@ -21,5 +22,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
     def test_success_openstack_set_userdata(self):
         from vmpool.clone import OpenstackClone
         clone = OpenstackClone(self.mocked_origin, "preloaded", self.pool)
-        file_object = clone.set_userdata()
+        file_object = clone.set_userdata(
+            "%s/data/userdata" % os.path.dirname(__file__)
+        )
         self.assertTrue(hasattr(file_object, "read"))

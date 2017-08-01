@@ -8,10 +8,6 @@ class Config(object):
     # PostgreSQL dbname
     DATABASE = "postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb"
 
-    CLONES_DIR = os.sep.join([BASEDIR, "clones"])
-    ORIGINS_DIR = os.sep.join([BASEDIR, "origins"])
-    SESSION_DIR = os.sep.join([BASEDIR, "session"])
-
     # screenshots
     SCREENSHOTS_DIR = os.sep.join([BASEDIR, "screenshots"])
     SCREENSHOTS_DAYS = 7
@@ -84,3 +80,4 @@ class Config(object):
     PORTS = [SELENIUM_PORT, VMMASTER_AGENT_PORT, VNC_PORT]
 
     THREAD_POOL_MAX = 100
+    WAIT_ACTIVE_SESSIONS = False

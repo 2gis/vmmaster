@@ -44,8 +44,6 @@ class Config(object):
     def update(self, new_values):
         self.__dict__.update(new_values)
 
-        create_if_not_exist(self.ORIGINS_DIR)
-        create_if_not_exist(self.CLONES_DIR)
         create_if_not_exist(self.SCREENSHOTS_DIR)
 
 

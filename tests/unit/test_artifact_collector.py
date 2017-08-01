@@ -18,7 +18,7 @@ def failed_run_script_mock(script, host):
 class TestArtifactCollector(BaseTestCase):
     @classmethod
     def setUpClass(cls):
-        setup_config('data/config.py')
+        setup_config('data/config_openstack.py')
         cls.app = Flask(__name__)
         cls.app.database = DatabaseMock()
         cls.app.sessions = Mock()
@@ -43,14 +43,10 @@ class TestArtifactCollector(BaseTestCase):
         """
         from vmpool.artifact_collector import ArtifactCollector
         with patch(
-            "core.network.Network", Mock()
-        ), patch(
-            "core.connection.Virsh", Mock()
-        ), patch(
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'test_origin_1'})
+            session = Session(dc={'platform': 'origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
             endpoint = Mock(
@@ -90,14 +86,10 @@ class TestArtifactCollector(BaseTestCase):
         """
         from vmpool.artifact_collector import ArtifactCollector
         with patch(
-            "core.network.Network", Mock()
-        ), patch(
-            "core.connection.Virsh", Mock()
-        ), patch(
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'test_origin_1'})
+            session = Session(dc={'platform': 'origin_1'})
             session.id = 1
             endpoint = Mock(
                 ip='127.0.0.1', name='test_endpoint', delete=Mock(),
@@ -132,14 +124,10 @@ class TestArtifactCollector(BaseTestCase):
         """
         from vmpool.artifact_collector import ArtifactCollector
         with patch(
-            "core.network.Network", Mock()
-        ), patch(
-            "core.connection.Virsh", Mock()
-        ), patch(
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'test_origin_1'})
+            session = Session(dc={'platform': 'origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
             endpoint = Mock(

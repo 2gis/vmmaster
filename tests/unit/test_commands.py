@@ -21,7 +21,7 @@ class CommonCommandsTestCase(BaseTestCase):
 
     @classmethod
     def setUpClass(cls):
-        setup_config("data/config.py")
+        setup_config("data/config_openstack.py")
         body = {
             "sessionId": None,
             "desiredCapabilities": {
@@ -67,10 +67,6 @@ class CommonCommandsTestCase(BaseTestCase):
             'flask.current_app.database', DatabaseMock()
         ), patch(
             'flask.current_app.sessions', Mock()
-        ), patch(
-            "core.network.Network", Mock()
-        ), patch(
-            "core.connection.Virsh", Mock()
         ):
             from core.sessions import Session
             self.session = Session()

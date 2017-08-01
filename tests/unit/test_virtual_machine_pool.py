@@ -1,42 +1,51 @@
 # coding: utf-8
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from core.config import config, setup_config
-from helpers import BaseTestCase
+from helpers import BaseTestCase, custom_wait
 from flask import Flask
 
 
+@patch('core.utils.openstack_utils.nova_client', Mock())
 @patch.multiple(
-    "vmpool.clone.KVMClone",
-    clone_origin=Mock(),
-    define_clone=Mock(),
-    start_virtual_machine=Mock(),
-    drive_path=Mock(),
-    ping_vm=Mock()
+    'vmpool.clone.OpenstackClone',
+    _wait_for_activated_service=custom_wait,
+    ping_vm=Mock(return_value=True)
 )
 class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
-        setup_config('data/config.py')
-        self.platform = "test_origin_1"
+        setup_config('data/config_openstack.py')
+        self.platform = "origin_1"
 
         self.app = Flask(__name__)
         self.ctx = self.app.app_context()
         self.ctx.push()
 
-        with patch(
-            'core.connection.Virsh', Mock()
-        ), patch(
-            'core.network.Network', Mock()
+        self.mocked_image = Mock(
+            id=1, status='active',
+            get=Mock(return_value='snapshot'),
+            min_disk=20,
+            min_ram=2,
+            instance_type_flavorid=1,
+        )
+        type(self.mocked_image).name = PropertyMock(
+            return_value='test_origin_1')
+
+        with patch.multiple(
+            'vmpool.platforms.OpenstackPlatforms',
+            images=Mock(return_value=[self.mocked_image]),
+            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
+            limits=Mock(return_value={
+                'maxTotalCores': 10, 'maxTotalInstances': 10,
+                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
+                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)
 
     def tearDown(self):
-        with patch(
-            'core.utils.delete_file', Mock()
-        ):
-            self.pool.free()
-            self.ctx.pop()
+        self.pool.free()
+        self.ctx.pop()
 
     def test_pool_count(self):
         self.assertEqual(0, self.pool.count())
@@ -82,13 +91,12 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(1, len(self.pool.pool))
 
         vm = self.pool.get_by_platform(self.platform)
-        with patch('core.utils.delete_file', Mock()):
-            vm.delete()
+        vm.delete()
 
         self.assertEqual(0, self.pool.count())
 
     def test_max_vm_count(self):
-        config.KVM_MAX_VM_COUNT = 2
+        config.OPENSTACK_MAX_VM_COUNT = 2
 
         self.pool.add(self.platform)
         self.pool.add(self.platform)
@@ -97,12 +105,10 @@ class TestVirtualMachinePool(BaseTestCase):
 
     def test_platform_from_config(self):
         desired_caps = {
-            'desiredCapabilities': {
-                'platform': "test_origin_1"
-            }
+            'platform': "origin_2"
         }
 
-        config.PLATFORM = "test_origin_2"
+        config.PLATFORM = "origin_1"
         self.app.pool = self.pool
 
         from vmpool.endpoint import get_vm

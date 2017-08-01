@@ -9,7 +9,7 @@ class TestDockerClient(BaseTestCase):
         with patch("docker.DockerClient", Mock()):
             from core.config import setup_config
             from core.clients.docker_client import DockerManageClient
-            setup_config('data/config.py')
+            setup_config('data/config_openstack.py')
             self.docker_client = DockerManageClient()
 
     @skip

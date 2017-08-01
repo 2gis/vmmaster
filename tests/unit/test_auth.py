@@ -22,7 +22,7 @@ class TestWDAuthPositive(BaseTestCase):
         cls.app.database = None
 
         from core.config import setup_config
-        setup_config('data/config.py')
+        setup_config('data/config_openstack.py')
 
     def setUp(self):
         self.desired_caps = {
@@ -123,7 +123,7 @@ class TestAPIAuthPositive(BaseTestCase):
         cls.app.database = None
 
         from core.config import setup_config
-        setup_config('data/config.py')
+        setup_config('data/config_openstack.py')
 
         cls.method = "GET"
         from base64 import urlsafe_b64encode

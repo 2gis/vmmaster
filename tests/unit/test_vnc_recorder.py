@@ -6,11 +6,12 @@ from tests.unit.helpers import BaseTestCase, DatabaseMock, wait_for
 from multiprocessing import Process
 
 
+@patch('core.utils.openstack_utils.nova_client', Mock())
 class TestVNCVideoHelper(BaseTestCase):
     @classmethod
     def setUpClass(cls):
         from core.config import setup_config
-        setup_config('data/config.py')
+        setup_config('data/config_openstack.py')
 
         cls.app = Flask(__name__)
         cls.app.database = DatabaseMock()
@@ -45,10 +46,6 @@ class TestVNCVideoHelper(BaseTestCase):
 
         with patch(
             'core.db.models.Session', Mock()
-        ), patch(
-            "core.network.Network", Mock()
-        ), patch(
-            "core.connection.Virsh", Mock()
         ), patch(
             'core.db.Database', DatabaseMock()
         ):

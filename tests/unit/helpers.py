@@ -8,18 +8,21 @@ import threading
 import time
 import socket
 import unittest
+from Queue import Queue, Empty
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from nose.twistedtools import reactor
 
 from core.utils.network_utils import get_socket
+from twisted.internet.defer import Deferred, TimeoutError
+from twisted.python.failure import Failure
 
 
 class TimeoutException(Exception):
     pass
 
 
-def wait_for(condition, timeout=5):
+def wait_for(condition, timeout=10):
     start = time.time()
     while not condition() and time.time() - start < timeout:
         time.sleep(0.1)
@@ -31,7 +34,7 @@ def request(host, method, url, headers=None, body=None):
     if headers is None:
         headers = dict()
     import httplib
-    conn = httplib.HTTPConnection(host)
+    conn = httplib.HTTPConnection(host, timeout=20)
     conn.request(method=method, url=url, headers=headers, body=body)
     response = conn.getresponse()
 
@@ -64,31 +67,30 @@ def request_with_drop(address, desired_caps, method=None):
     s.close()
 
 
-def new_session_request(address, desired_caps):
-    return request("%s:%s" % address, "POST",
-                   "/wd/hub/session", body=json.dumps(desired_caps))
+def new_session_request(client, desired_caps):
+    return client.post("/wd/hub/session", data=json.dumps(desired_caps))
 
 
-def delete_session_request(address, session):
-    return request("%s:%s" % address, "DELETE",
-                   "/wd/hub/session/%s" % str(session))
+def delete_session_request(client, session):
+    return client.delete("/wd/hub/session/%s" % str(session))
 
 
-def get_session_request(address, session):
-    return request("%s:%s" % address, "GET",
-                   "/wd/hub/session/%s" % str(session))
+def get_session_request(client, session):
+    return client.get("/wd/hub/session/{}".format(session))
 
 
-def run_script(address, session, script):
-    return request("%s:%s" % address, "POST",
-                   "/wd/hub/session/%s/vmmaster/runScript" % str(session),
-                   body=json.dumps({"script": script}))
+def run_script(client, session, script):
+    return client.post(
+        "/wd/hub/session/%s/vmmaster/runScript" % str(session),
+        data=json.dumps({"script": script})
+    )
 
 
-def vmmaster_label(address, session, label=None):
-    return request("%s:%s" % address, "POST",
-                   "/wd/hub/session/%s/vmmaster/vmmasterLabel" % str(session),
-                   body=json.dumps({"label": label}))
+def vmmaster_label(client, session, label=None):
+    return client.post(
+        "/wd/hub/session/%s/vmmaster/vmmasterLabel" % str(session),
+        data=json.dumps({"label": label})
+    )
 
 
 def server_is_up(address, wait=5):
@@ -211,13 +213,23 @@ class DatabaseMock(Mock):
         self.add = Mock(side_effect=set_primary_key)
 
 
+def custom_wait(self, method):
+    self.ready = True
+    self.checking = False
+
+
 def vmmaster_server_mock(port):
+    mocked_image = Mock(
+        id=1, status='active',
+        get=Mock(return_value='snapshot'),
+        min_disk=20,
+        min_ram=2,
+        instance_type_flavorid=1,
+    )
+    type(mocked_image).name = PropertyMock(
+        return_value='test_origin_1')
+
     with patch(
-        'core.network.Network', Mock(
-            return_value=Mock(get_ip=Mock(return_value='0')))
-    ), patch(
-        'core.connection.Virsh', Mock()
-    ), patch(
         'core.db.Database', DatabaseMock()
     ), patch(
         'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
@@ -225,6 +237,21 @@ def vmmaster_server_mock(port):
         'core.logger.setup_logging', Mock(return_value=Mock())
     ), patch(
         'core.sessions.SessionWorker', Mock()
+    ), patch.multiple(
+        'vmpool.platforms.OpenstackPlatforms',
+        images=Mock(return_value=[mocked_image]),
+        flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
+        limits=Mock(return_value={
+            'maxTotalCores': 10, 'maxTotalInstances': 10,
+            'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
+            'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+    ), patch.multiple(
+        'core.utils.openstack_utils',
+        nova_client=Mock(return_value=Mock())
+    ), patch.multiple(
+        'vmpool.clone.OpenstackClone',
+        _wait_for_activated_service=custom_wait,
+        ping_vm=Mock(return_value=True)
     ):
         from vmmaster.server import VMMasterServer
         return VMMasterServer(reactor, port)
@@ -232,3 +259,18 @@ def vmmaster_server_mock(port):
 
 def request_mock(**kwargs):
     return Mock(status_code=200, headers={}, content=json.dumps({'status': 0}))
+
+
+def wait_deferred(d, timeout=5):
+    _q = Queue()
+    if not isinstance(d, Deferred):
+        return None
+    d.addBoth(_q.put)
+    try:
+        ret = _q.get(timeout is not None, timeout)
+    except Empty:
+        raise TimeoutError
+    if isinstance(ret, Failure):
+        ret.raiseException()
+    else:
+        return ret
