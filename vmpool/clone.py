@@ -322,6 +322,9 @@ class OpenstackClone(Clone):
                 log.error("VM %s was errored. Rebuilding..." % server.name)
                 self.rebuild()
                 break
+            else:
+                log.warning("Something ugly happened {}".format(server.name))
+                break
 
     @property
     def image(self):
