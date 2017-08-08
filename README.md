@@ -2,53 +2,69 @@
 [![Build Status](https://travis-ci.org/2gis/vmmaster.svg?branch=master)](https://travis-ci.org/2gis/vmmaster)
 [![Coverage](https://codecov.io/github/2gis/vmmaster/coverage.svg?branch=master)](https://codecov.io/github/2gis/vmmaster?branch=master)
 
-## dependencies:
+## Dependencies:
++ python 2.7 only
 + tox
 + postgresql
 
-## install
-### manual
+## How to use?
+### Run application
 
-#### run vmmaster
++ install dependencies:
 ```bash
-user@machine: chmod +x install_dependencies.sh
-user@machine: ./install_dependencies.sh
-user@machine: sudo pip install tox
-user@machine: tox
-user@machine: mv ./config_template.py config.py
-user@machine: sudo .tox/bin/python manage.py init
-user@machine: .tox/bin/python manage.py migrations
-user@machine: .tox/bin/python manage.py runserver
+./install_dependencies.sh
+sudo pip install tox
+tox -e base
+```
++ create base config:
+```bash
+cp ./config_template.py config.py
 ```
 
-## commands to create qcow2 VM's origins
-### create qcow2 drive
-
++ migrations and run:
 ```bash
-qemu-img create -f qcow2 -o preallocation=metadata ubuntu-13.04-x64-origin.qcow2 8G
-```
-### install ubuntu from iso
-
-```bash
-sudo virt-install --connect=qemu:///system --name ubuntu-13.04-x64-origin --network=bridge:virbr0 --ram 2048 --vcpus 2 --disk path=$VMMASTER_HOME/origins/ubuntu-13.04-x64/drive.qcow2,format=qcow2,bus=virtio,cache=none --cdrom $ISO_PLACE/ubuntu-13.04-desktop-amd64.iso --vnc --accelerate --os-type=linux --os-variant=generic26 --hvm
+.tox/bin/python manage.py migrations
+.tox/bin/python manage.py runserver
 ```
 
-### generate settings.xml
-TODO
+### Run in docker container
 
-## development
++ image build:
+```bash
+docker build --tag=<image_name>:<image_version> .
+```
 
-### environment
-pip install -r requirements-dev.txt
++ create enviroment variables file or put environment variables in docker run command
+
++ run migrations:
+```bash
+docker run -it --rm --volume /var/run/docker.sock:/var/run/docker.sock --privileged --net=host <image_name>:<images_version> python manage.py migrations
+```
+
++ run container:
+```bash
+docker run -it --rm --volume /var/run/docker.sock:/var/run/docker.sock --privileged --net=host <image_name>:<images_version> python manage.py runserver
+```
+
+## Development
+
+### Environment
+```bash
 ./install-hooks.sh
+```
 
-### linting
-+ .tox/bin/flake8 vmmaster/ tests/
+### Linting
+```bash
+.tox/bin/flake8 vmmaster/ tests/
+```
 
-### unittests with coverage
-+ .tox/bin/coverage run --source=vmmaster,vmpool,core run_unittests.py
-+ .tox/bin/coverage html
-+ look for coverage/index.html
+
+### Unittests with coverage
+```bash
+tox -e unit-with-coverage
+```
+Open coverage/index.html in web browser.
+
 
 ## Documentation
 More [information](http://vmmaster.readthedocs.org)

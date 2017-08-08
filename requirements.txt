@@ -15,3 +15,4 @@ pillow==2.9.0
 vnc2flv==20100207
 websockify==0.7.0
 docker==2.4.2
+envparse==0.2.0
