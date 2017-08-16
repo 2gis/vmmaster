@@ -9,6 +9,7 @@ from twisted.web.resource import Resource
 from twisted.python.threadpool import ThreadPool
 from twisted.internet.defer import inlineCallbacks, maybeDeferred
 from twisted.internet.threads import deferToThread
+from prometheus_client.twisted import MetricsResource
 
 from app import create_app
 from http_proxy import ProxyResource, HTTPChannelWithClient
@@ -42,6 +43,7 @@ class VMMasterServer(object):
 
         root_resource = RootResource(wsgi_resource)
         root_resource.putChild("proxy", ProxyResource(self.app))
+        root_resource.putChild("metrics", MetricsResource())
         site = Site(root_resource)
         site.protocol = HTTPChannelWithClient
         self.bind = self.reactor.listenTCP(port, site)

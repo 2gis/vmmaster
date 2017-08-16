@@ -15,6 +15,7 @@ from core.config import config
 
 from core import constants
 from core import utils
+from core.profiler import profiler
 from core.sessions import Session, RequestHelper
 from vmpool import endpoint
 from PIL import Image
@@ -198,6 +199,7 @@ def get_endpoint(session_id, dc):
             for vm in endpoint.get_vm(dc):
                 _endpoint = vm
                 yield _endpoint
+            profiler.register_success_get_endpoint(attempt)
             log.info("Attempt %s to get endpoint %s for session %s was succeed"
                      % (attempt, _endpoint, session_id))
         except CreationException as e:
@@ -209,6 +211,7 @@ def get_endpoint(session_id, dc):
             if attempt < attempts:
                 time.sleep(wait_time)
             else:
+                profiler.register_fail_get_endpoint()
                 raise e
 
     yield _endpoint
@@ -216,6 +219,7 @@ def get_endpoint(session_id, dc):
 
 @connection_watcher
 def get_session():
+    profiler.register_get_session_call()
     dc = commands.get_desired_capabilities(request)
 
     session = Session(dc=dc)

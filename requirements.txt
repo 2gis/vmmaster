@@ -16,3 +16,4 @@ vnc2flv==20100207
 websockify==0.7.0
 docker==2.4.2
 envparse==0.2.0
+prometheus-client==0.0.20

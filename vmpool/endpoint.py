@@ -2,6 +2,7 @@
 import logging
 from core.utils import generator_wait_for
 from core.config import config
+from core.profiler import profiler
 
 from core.exceptions import PlatformException, CreationException
 
@@ -36,6 +37,7 @@ def get_platform(desired_caps):
 
 
 def get_vm(desired_caps):
+    timer = profiler.functions_duration_manual(get_vm.__name__)
     platform = get_platform(desired_caps)
 
     vm = None
@@ -67,4 +69,5 @@ def get_vm(desired_caps):
         )
 
     log.info('Got vm for request with params: %s' % vm.info)
+    timer.end()
     yield vm

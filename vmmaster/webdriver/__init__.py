@@ -9,6 +9,7 @@ from vmmaster.webdriver import commands, helpers
 from core.exceptions import SessionException
 from core.auth.custom_auth import auth
 from core import utils
+from core.profiler import profiler
 
 webdriver = Blueprint('webdriver', __name__)
 log = logging.getLogger(__name__)
@@ -105,19 +106,19 @@ def delete_session(session_id):
 @webdriver.route('/session', methods=['POST'])
 @auth.login_required
 def create_session():
-    if current_app.running:
+    if not current_app.running:
+        log.info("This request is aborted %s" % request)
+        message = "A new session could not be created " \
+                  "because shutdown server in progress"
+        return selenium_error_response(message, status_code=502)
+
+    with profiler.requests_duration(create_session.__name__):
         session = helpers.get_session()
         log_request(session, request, created=g.started)  # because session id required for step
         commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
 
         return helpers.form_response(status, headers, body)
-    else:
-        log.info("This request is aborted %s" % request)
-        message = "A new session could not be created " \
-                  "because shutdown server in progress"
-
-        return selenium_error_response(message, status_code=502)
 
 
 @webdriver.route("/session/<string:session_id>", methods=['GET'])
