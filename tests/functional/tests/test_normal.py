@@ -30,8 +30,11 @@ class TestRunScriptOnSessionCreation(TestCase):
 
     def test_run_script_on_session_creation(self):
         output = self.vmmaster.run_script("cat ~/hello_file").get("output")
-        self.assertEqual(u"hello\n", output,
-                         msg="%s != %s" % (u"hello\n", output))
+
+        # Virtual machines on origin-ubuntu-16-04 warning message:
+        # "/bin/bash: /tmp/**/libtinfo.so.5: no version information available (required by /bin/bash)"
+        self.assertIn(u"hello\n", output,
+                      msg="%s != %s" % (u"hello\n", output))
 
 
 def parallel_tests_body(self):
