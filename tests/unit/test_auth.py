@@ -44,20 +44,19 @@ class TestWDAuthPositive(BaseTestCase):
         self.ctx.push()
 
     def set_auth_credentials(self, username=None, token=None):
-        self.desired_caps["desiredCapabilities"]["user"] = username
+        if username:
+            self.desired_caps["desiredCapabilities"]["user"] = username
         if token:
             self.desired_caps["desiredCapabilities"]["token"] = token
 
     def test_auth_without_credentials(self):
         from core.auth.custom_auth import auth as wd_auth
-        from core.auth.custom_auth import anonymous
         self.push_to_ctx()
         with patch(
             "flask.current_app.database", new=Mock(
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))
         ):
             wd_auth.login_required(decorate_this)()
-        self.assertEqual(wd_auth.username, anonymous.username)
 
     def test_auth_existing(self):
         from core.auth.custom_auth import auth as wd_auth
@@ -70,12 +69,22 @@ class TestWDAuthPositive(BaseTestCase):
                 get_user=Mock(return_value=Mock(id=1, is_active=True)))
         ):
             wd_auth.login_required(decorate_this)()
-        self.assertEqual(wd_auth.username, anonymous.username)
 
-    def test_auth_not_existing_user(self):
+    def test_auth_token_only(self):
         from core.auth.custom_auth import auth as wd_auth
-        self.set_auth_credentials(username="not_existing_user")
-        # Token doesn't matter
+        from core.auth.custom_auth import anonymous
+        self.set_auth_credentials(token=anonymous.password)
+        self.push_to_ctx()
+        with patch(
+            "flask.current_app.database", new=Mock(
+                get_user=Mock(return_value=Mock(id=1, is_active=True)))
+        ):
+            wd_auth.login_required(decorate_this)()
+
+    def test_auth_wrong_token(self):
+        from core.auth.custom_auth import auth as wd_auth
+        wrong_token = "not_valid_token"
+        self.set_auth_credentials(token=wrong_token)
         self.push_to_ctx()
 
         with patch(
@@ -88,29 +97,6 @@ class TestWDAuthPositive(BaseTestCase):
             "status": 1,
             "value": "User not found in service",
             "message": "Please register in service"
-        }
-        self.assertEqual(resp.status_code, 401)
-        self.assertDictEqual(json.loads(resp.data), success_data)
-
-    def test_auth_wrong_token(self):
-        from core.auth.custom_auth import auth as wd_auth
-        from core.auth.custom_auth import anonymous
-        existing_user = anonymous.username
-        wrong_token = "not" + str(anonymous.password)
-        self.set_auth_credentials(username=existing_user,
-                                  token=wrong_token)
-        self.push_to_ctx()
-
-        with patch(
-            "flask.current_app.database", new=Mock(
-                get_user=Mock(return_value=Mock(id=1, is_active=True)))
-        ):
-            resp = wd_auth.login_required(decorate_this)()
-
-        success_data = {
-            "status": 1,
-            "value": "Authentification was failed",
-            "message": "Please try again"
         }
         self.assertEqual(resp.status_code, 401)
         self.assertDictEqual(json.loads(resp.data), success_data)

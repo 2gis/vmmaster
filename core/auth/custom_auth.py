@@ -9,8 +9,8 @@ from werkzeug.datastructures import Authorization
 anonymous = Authorization('basic', {'username': 'anonymous', 'password': None})
 
 
-def user_exists(username):
-    return current_app.database.get_user(username=username)
+def user_exists(token):
+    return current_app.database.get_user(token=token)
 
 
 def user_not_found():
@@ -36,34 +36,36 @@ def authentificate_failed():
 
 
 class DesiredCapabilitiesAuth(HTTPBasicAuth):
-    def get_auth_from_caps(self):
+    def get_token_from_caps(self):
         try:
             body = loads(request.data)
         except ValueError:
-            return anonymous
+            return None
         try:
             caps = body['desiredCapabilities']
         except KeyError:
-            return anonymous
-        user = caps.get("user", None)
-        if user is None:
-            return anonymous
-        token = caps.get("token", None)
-        return Authorization('basic', {"username": user, "password": token})
+            return None
 
-    @property
-    def username(self):
-        return self.get_auth_from_caps().username
+        return caps.get("token", None)
+
+    def _restore_username(self):
+        body = loads(request.data)
+        desired_capabilities = body["desiredCapabilities"]
+
+        username = current_app.database.get_user(token=desired_capabilities["token"]).username
+        desired_capabilities["user"] = username
+        body["desiredCapabilities"] = desired_capabilities
+
+        request.data = dumps(body)
 
     def login_required(self, f):
         @wraps(f)
         def decorated(*args, **kwargs):
-            _auth = self.get_auth_from_caps()
-            if not user_exists(_auth.username):
-                return user_not_found()
-            token = self.get_password_callback(_auth.username)
-            if not self.authenticate(_auth, token):
-                return authentificate_failed()
+            _token = self.get_token_from_caps()
+            if _token:
+                if not user_exists(_token):
+                    return user_not_found()
+                self._restore_username()
             return f(*args, **kwargs)
         return decorated
 

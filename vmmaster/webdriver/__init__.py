@@ -7,7 +7,7 @@ from flask import Blueprint, current_app, request, jsonify, g
 from vmmaster.webdriver import commands, helpers
 
 from core.exceptions import SessionException
-from core.auth.custom_auth import auth, anonymous
+from core.auth.custom_auth import auth
 from core import utils
 
 webdriver = Blueprint('webdriver', __name__)
@@ -93,19 +93,6 @@ def after_request(response):
                 session.start_timer()
 
     return response
-
-
-@auth.get_password
-def get_token(username):
-    if username == anonymous.username:
-        return anonymous.password
-    else:
-        return current_app.database.get_user(username=username).token
-
-
-@auth.verify_password
-def verify_token(username, client_token):
-    return client_token == get_token(username)
 
 
 @webdriver.route('/session/<session_id>', methods=['DELETE'])

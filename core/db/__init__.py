@@ -82,11 +82,13 @@ class Database(object):
         return dbsession.query(SessionLogStep).get(log_step_id)
 
     @transaction
-    def get_user(self, username=None, user_id=None, dbsession=None):
+    def get_user(self, username=None, user_id=None, token=None, dbsession=None):
         if user_id:
             return dbsession.query(User).get(user_id)
         elif username:
             return dbsession.query(User).filter_by(username=username).first()
+        elif token:
+            return dbsession.query(User).filter_by(token=token).first()
         return None
 
     @transaction

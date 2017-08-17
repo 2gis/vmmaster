@@ -27,11 +27,8 @@ class TestCase(unittest.TestCase):
             "extensions": []
         }
 
-        user = getattr(config, "username", None)
         token = getattr(config, "token", None)
-        if user and token:
-            cls.desired_capabilities["user"] = user
-            cls.desired_capabilities["token"] = token
+        cls.desired_capabilities["token"] = token
         return super(TestCase, cls).__new__(cls, *args, **kwargs)
 
     @classmethod
