@@ -524,61 +524,17 @@ class TestConnectionClose(BaseTestCase):
         ), patch(
             'flask.current_app.pool.can_produce', Mock(return_value=True)
         ):
-            q = self.vmmaster.app.sessions.active_sessions
+            q = self.vmmaster.app.sessions.active()
 
             def wait_for_platform_in_queue():
                 wait_for(lambda: q, timeout=2)
-                self.assertEqual(len(q), 1)
-
-                self.assertEqual(
-                    self.vmmaster.app.sessions.active()[0].dc,
-                    json.dumps(self.desired_caps["desiredCapabilities"])
-                )
+                self.assertEqual(len(q), 0)
 
             request_with_drop(
                 self.address, self.desired_caps, wait_for_platform_in_queue
             )
             wait_for(lambda: not q, timeout=2)
             self.assertEqual(len(q), 0)
-
-    def test_req_closed_when_vm_is_spawning(self):
-        """
-        - waiting for clone spawning to begin
-        - drop request while vm is spawning
-        Expected: queue is empty, vm spawned and then deleted
-        """
-
-        vm_mock = Mock()
-        vm_mock.delete = Mock()
-        vm_mock.save_artifacts = Mock(return_value=False)
-
-        def just_sleep(*args, **kwargs):
-            time.sleep(2)
-            return vm_mock
-
-        with patch(
-            'flask.current_app.pool.has', Mock(return_value=False)
-        ), patch(
-            'flask.current_app.pool.can_produce', Mock(return_value=True)
-        ), patch(
-            'vmpool.platforms.OpenstackOrigin.make_clone', Mock(side_effect=just_sleep)
-        ) as make_clone:
-            q = self.vmmaster.app.sessions.active_sessions
-
-            def wait_for_vm_start_tp_spawn():
-                wait_for(lambda: make_clone.called, timeout=10)
-                self.assertTrue(make_clone.called)
-                self.assertEqual(len(q), 1)
-
-            request_with_drop(
-                self.address, self.desired_caps, wait_for_vm_start_tp_spawn
-            )
-
-            wait_for(lambda: not q, timeout=10)
-            self.assertEqual(len(q), 0)
-
-        wait_for(lambda: vm_mock.delete.called)
-        vm_mock.delete.assert_any_call()
 
 
 @patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))

@@ -175,6 +175,10 @@ class TestApi(BaseTestCase):
     def test_failed_get_vnc_info_with_create_proxy(self):
         from core.sessions import Session
         endpoint = Mock(ip='127.0.0.1')
+        endpoint.vnc_helper = Mock(
+            proxy=Process(target=lambda: None),
+            get_proxy_port=Mock(return_value=5900)
+        )
         session = Session()
         session.name = "session1"
         session.created = session.modified = datetime.now()
@@ -182,8 +186,8 @@ class TestApi(BaseTestCase):
         expected = 5901
 
         with patch(
-            'flask.current_app.sessions.active',
-            Mock(return_value=[session])
+            'flask.current_app.sessions.get_session',
+            Mock(return_value=session)
         ), patch(
                 'websockify.websocketproxy.websockify_init', Mock()
         ):
@@ -197,28 +201,34 @@ class TestApi(BaseTestCase):
         vnc_proxy_port = body['result']['vnc_proxy_port']
         self.assertEqual(type(expected), type(vnc_proxy_port))
         self.assertEqual(200, body['metacode'])
-        self.assertTrue(isinstance(session.vnc_helper.proxy, Process))
+        self.assertTrue(isinstance(session.endpoint.vnc_helper.proxy, Process))
 
         session.close()
         self.assertTrue(wait_for(
-            lambda: not session.vnc_helper.proxy.is_alive()))
+            lambda: not session.endpoint.vnc_helper.proxy.is_alive()))
 
     def test_get_vnc_info_for_running_proxy(self):
         from core.sessions import Session
         endpoint = Mock(ip='127.0.0.1')
+        endpoint.vnc_helper = Mock(
+            proxy=Process(target=lambda: None),
+            get_proxy_port=Mock(return_value=5900)
+        )
         session = Session()
         session.name = "session1"
         session.created = session.modified = datetime.now()
-        session.run(endpoint)
-        session.vnc_helper = Mock(proxy=Mock(),
-                                  get_proxy_port=Mock(return_value=5900))
+        with patch(
+                'flask.current_app.sessions.get_session',
+                Mock(return_value=session)
+        ):
+            session.run(endpoint)
 
-        expected = {
-            'vnc_proxy_port': 5900
-        }
+            expected = {
+                'vnc_proxy_port': 5900
+            }
 
-        response = self.vmmaster_client.get(
-            '/api/session/%s/vnc_info' % session.id)
+            response = self.vmmaster_client.get(
+                '/api/session/%s/vnc_info' % session.id)
 
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)

@@ -11,7 +11,6 @@ from core import constants
 from core.db import models
 from core.config import config
 from core.exceptions import SessionException
-from core.video import VNCVideoHelper
 from core.utils import network_utils
 
 log = logging.getLogger(__name__)
@@ -55,10 +54,9 @@ class SimpleResponse:
         self.content = content
 
 
-class Session(models.Session):
+class Session(models.BaseSession):
     endpoint = None
     current_log_step = None
-    vnc_helper = None
     take_screencast = None
     is_active = True
 
@@ -66,8 +64,10 @@ class Session(models.Session):
         super(Session, self).__init__(name, dc)
         if dc and dc.get('takeScreencast', None):
             self.take_screencast = True
+        self.save()
 
-        current_app.sessions.put(self)
+    def __str__(self):
+        return "Session id={} status={}".format(self.id, self.status)
 
     @property
     def inactivity(self):
@@ -99,9 +99,6 @@ class Session(models.Session):
             }
         return stat
 
-    def set_user(self, username):
-        self.user = current_app.database.get_user(username=username)
-
     def start_timer(self):
         self.modified = datetime.now()
         self.save()
@@ -125,18 +122,15 @@ class Session(models.Session):
         self.deleted = datetime.now()
         self.save()
 
-        if self.vnc_helper:
-            self.vnc_helper.stop_recording()
-            self.vnc_helper.stop_proxy()
+        if getattr(self, "endpoint", None):
+            self.endpoint.stop_recorder()
             if not self.take_screencast and "succeed" in self.status:
-                self.vnc_helper.delete_source_video()
-
-        current_app.sessions.remove(self)
+                self.endpoint.vnc_helper.delete_source_video()
 
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint") and not self.save_artifacts():
+        if getattr(self, "endpoint", None) and not self.save_artifacts():
             log.info("Deleting endpoint %s (%s) for session %s" %
                      (self.endpoint_name, self.endpoint_ip, self.id))
             self.endpoint.delete()
@@ -165,13 +159,10 @@ class Session(models.Session):
     def run(self, endpoint):
         self.modified = datetime.now()
         self.endpoint = endpoint
+        self.endpoint.start_recorder(self.id)
         self.set_vm(endpoint)
         self.status = "running"
-        self.vnc_helper = VNCVideoHelper(
-            self.endpoint_ip, filename_prefix=self.id, port=self.endpoint.vnc_port
-        )
-        self.vnc_helper.start_recording()
-
+        self.save()
         log.info("Session %s starting on %s (%s)." %
                  (self.id, self.endpoint_name, self.endpoint_ip))
 
@@ -189,7 +180,6 @@ class Session(models.Session):
             control_line=control_line, body=body, created=created
         )
         self.current_log_step = step
-
         return step
 
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
@@ -219,27 +209,19 @@ class SessionWorker(Thread):
 
 
 class Sessions(object):
-    active_sessions = {}
-
     def __init__(self, app):
         self.app = app
         self.worker = SessionWorker(self)
         self.worker.start()
 
-    def put(self, session):
-        if str(session.id) not in self.active_sessions.keys():
-            self.active_sessions[str(session.id)] = session
-        else:
-            raise SessionException("Duplicate session id: %s" % session.id)
+    def start_worker(self):
+        self.worker.start()
 
-    def remove(self, session):
-        try:
-            del self.active_sessions[str(session.id)]
-        except KeyError:
-            pass
+    def stop_worker(self):
+        self.worker.stop()
 
     def active(self):
-        return self.active_sessions.values()
+        return self.app.database.get_active_sessions()
 
     def running(self):
         return [s for s in self.active() if s.status == "running"]
@@ -248,23 +230,19 @@ class Sessions(object):
         return [s for s in self.active() if s.status == "waiting"]
 
     def kill_all(self):
-        for session in self.active_sessions.values():
+        for session in self.active():
             session.close()
 
-    def get_session(self, session_id):
-        try:
-            session = self.active_sessions[str(session_id)]
-        except KeyError:
-            session = current_app.database.get_session(session_id)
-            if session:
-                reason = session.reason
-            else:
-                reason = "Unknown session"
+    @staticmethod
+    def get_session(session_id):
+        session = current_app.database.get_session(session_id)
 
-            message = "There is no active session %s" % session_id
-            if reason:
-                message = "%s (%s)" % (message, reason)
-
-            raise SessionException(message)
+        if session and not session.closed:
+            session.current_log_step = current_app.database.get_last_session_step(session_id)
+            session.endpoint = current_app.pool.get_by_name(session.endpoint_name)
+        elif getattr(session, "closed", False):
+            raise SessionException("There is no active session {} ({})".format(session_id, session.reason))
+        else:
+            raise SessionException("There is no active session {} (Unknown session)".format(session_id))
 
         return session

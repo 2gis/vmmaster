@@ -72,6 +72,17 @@ class Database(object):
         return dbsession.query(Session).get(session_id)
 
     @transaction
+    def get_active_sessions(self, dbsession=None):
+        from core.sessions import Session
+        return dbsession.query(Session).filter(not Session.closed).all()
+
+    @transaction
+    def get_last_session_step(self, session_id, dbsession=None):
+        return dbsession.query(SessionLogStep).filter_by(
+            session_id=session_id).order_by(
+            desc(SessionLogStep.id)).first()
+
+    @transaction
     def get_log_steps_for_session(self, session_id, dbsession=None):
         return dbsession.query(SessionLogStep).filter_by(
             session_id=session_id).order_by(

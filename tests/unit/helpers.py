@@ -208,9 +208,21 @@ def set_primary_key(_self):
 
 
 class DatabaseMock(Mock):
+    active_sessions = {}
+
     def __init__(self, *args, **kwargs):
         super(DatabaseMock, self).__init__(*args, **kwargs)
         self.add = Mock(side_effect=set_primary_key)
+
+    def get_active_sessions(self):
+        return self.active_sessions.values()
+
+    def get_session(self, session_id):
+        return self.active_sessions.get(str(session_id))
+
+    @staticmethod
+    def get_last_session_step(session_id):
+        return Mock()
 
 
 def custom_wait(self, method):

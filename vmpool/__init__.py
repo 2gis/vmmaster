@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from datetime import datetime
-from core.dispatcher import dispatcher, Signals
+from core.video import VNCVideoHelper
 from core.config import config
 
 
@@ -15,6 +15,7 @@ class VirtualMachine(object):
         self.ready = False
         self.checking = False
         self.done = False
+        self.vnc_helper = None
 
     @property
     def ports(self):
@@ -40,11 +41,20 @@ class VirtualMachine(object):
             "platform": self.platform
         }
 
+    def start_recorder(self, filename_prefix):
+        self.vnc_helper = VNCVideoHelper(
+            self.ip, filename_prefix=filename_prefix, port=self.vnc_port
+        )
+        self.vnc_helper.start_recording()
+
+    def stop_recorder(self):
+        self.vnc_helper.stop_recording()
+        self.vnc_helper.stop_proxy()
+
     def create(self):
         pass
 
     def delete(self):
-        dispatcher.send(signal=Signals.DELETE_VIRTUAL_MACHINE, sender=self)
         self.done = True
 
     def is_preloaded(self):

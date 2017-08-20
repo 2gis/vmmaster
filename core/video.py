@@ -117,6 +117,7 @@ class VNCVideoHelper:
             self.proxy.terminate()
 
     def start_recording(self):
+        log.info("Screencast recorder starting for session {}".format(self.filename_prefix))
         sys.stderr = sys.stdout = open(os.sep.join([
             self.dir_path, 'vnc_video.log'
         ]), 'w')

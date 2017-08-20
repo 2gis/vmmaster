@@ -38,6 +38,7 @@ def handle_errors(error):
 def get_vmmaster_session(request):
     if hasattr(request, 'session'):
         session = request.session
+        session.refresh()
     else:
         session_id = commands.get_session_id(request.path)
 

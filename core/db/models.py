@@ -24,6 +24,9 @@ class FeaturesMixin(object):
     def refresh(self):
         current_app.database.refresh(self)
 
+    def delete(self):
+        current_app.database.delete(self)
+
 
 class SessionLogSubStep(Base, FeaturesMixin):
     __tablename__ = 'sub_steps'
@@ -84,7 +87,7 @@ class SessionLogStep(Base, FeaturesMixin):
                                  parent_id=self.id)
 
 
-class Session(Base, FeaturesMixin):
+class BaseSession(Base, FeaturesMixin):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
@@ -189,7 +192,7 @@ class User(Base, FeaturesMixin):
     max_stored_sessions = Column(Integer, default=100)
 
     # Relationships
-    sessions = relationship(Session, backref="user", passive_deletes=True)
+    sessions = relationship(BaseSession, backref="user", passive_deletes=True)
 
 
 class UserGroup(Base):

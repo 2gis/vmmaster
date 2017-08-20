@@ -147,15 +147,15 @@ def get_vnc_info(session_id):
     result, code = {}, 500
 
     _session = helpers.get_session(session_id)
-    if _session and _session.endpoint_ip:
-        if _session.vnc_helper.proxy:
+    if _session and _session.endpoint_ip and getattr(_session, "endpoint", None):
+        if _session.endpoint.vnc_helper.proxy:
             result, code = (
-                {'vnc_proxy_port': _session.vnc_helper.get_proxy_port()}, 200
+                {'vnc_proxy_port': _session.endpoint.vnc_helper.get_proxy_port()}, 200
             )
         else:
-            _session.vnc_helper.start_proxy()
+            _session.endpoint.vnc_helper.start_proxy()
             result, code = (
-                {'vnc_proxy_port': _session.vnc_helper.get_proxy_port()}, 200
+                {'vnc_proxy_port': _session.endpoint.vnc_helper.get_proxy_port()}, 200
             )
 
     return render_json(result=result, code=code)

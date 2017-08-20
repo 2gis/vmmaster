@@ -37,28 +37,28 @@ class TestVNCVideoHelper(BaseTestCase):
 
         Expected: vnc_recorder was started and stopped
         """
-        endpoint = Mock(ip='127.0.0.1', name='test_endpoint')
-
         dc = {
             'takeScreencast': True,
             'platform': 'test_origin_1'
         }
 
         with patch(
-            'core.db.models.Session', Mock()
-        ), patch(
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            self.session = Session(dc=dc)
-            self.session.name = "session1"
+            session = Session(dc=dc)
+            session.name = "session1"
             with patch(
                 'core.video.VNCVideoHelper._flvrec', Mock()
             ):
-                self.session.run(endpoint=endpoint)
+                from vmpool import VirtualMachine
+                endpoint = VirtualMachine(name='test_endpoint', platform='test_origin_1')
+                endpoint.ip = '127.0.0.1'
+                endpoint.save_artifacts = Mock()
+                session.run(endpoint=endpoint)
                 self.assertTrue(
-                    isinstance(self.session.vnc_helper.recorder, Process))
+                    isinstance(session.endpoint.vnc_helper.recorder, Process))
 
-                self.session.close()
+                session.close()
                 self.assertTrue(wait_for(
-                    lambda: not self.session.vnc_helper.recorder.is_alive()))
+                    lambda: not session.endpoint.vnc_helper.recorder.is_alive()))
