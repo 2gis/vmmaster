@@ -163,7 +163,7 @@ class OpenstackClone(Clone):
         create_check_retry = 1
         ping_retry = 1
 
-        while True:
+        while not self.done:
             server = self.get_vm(self.name)
             if not server:
                 log.error("VM %s has not been created." % self.name)
@@ -202,6 +202,8 @@ class OpenstackClone(Clone):
             else:
                 log.warning("Something ugly happened {}".format(server.name))
                 break
+        else:
+            log.debug("VM {} is done: stop threaded wait".format(self.name))
 
     @property
     def image(self):
@@ -225,7 +227,7 @@ class OpenstackClone(Clone):
 
     @staticmethod
     def is_broken(server):
-        return server.status.lower() in 'error'
+        return server.status.lower() == 'error'
 
     def get_vm(self, server_name):
         try:
