@@ -111,6 +111,7 @@ class BaseSession(Base, FeaturesMixin):
     error = Column(String)
     timeouted = Column(Boolean, default=False)
     closed = Column(Boolean, default=False)
+    keep_forever = Column(Boolean, default=False)
 
     # Relationships
     session_steps = relationship(

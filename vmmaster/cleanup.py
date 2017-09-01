@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import ArgumentError
 
 from core.config import config, setup_config
-from core.db.models import Session, User
+from core.db.models import BaseSession as Session, User
 from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
 
@@ -66,7 +66,7 @@ def delete_session_data(sessions=None):
         time_step = timedelta(days=0, seconds=10)
 
         log.info("Done: %s%% (0 / %d)" % ('0.0'.rjust(5), sessions_count))
-        for num, session_id in enumerate(sessions):
+        for num, session in enumerate(sessions):
             delta = datetime.now() - checkpoint
             if delta > time_step or num == sessions_count - 1:
                 percentage = str(
@@ -74,8 +74,8 @@ def delete_session_data(sessions=None):
                 log.info("Done: %s%% (%d / %d)" %
                          (percentage.rjust(5), num + 1, sessions_count))
                 checkpoint = datetime.now()
-            delete_files(session_id)
-            delete(session_id)
+            delete_files(session.id)
+            delete(session.id)
         log.info(
             "%s sessions have been deleted.\n" % (str(sessions_count)))
     else:
@@ -91,13 +91,13 @@ def get_users(dbsession=None):
 def sessions_overflow(user, dbsession=None):
     res = []
     current_sessions = dbsession.query(Session).\
-        filter_by(user_id=user.id).count()
+        filter_by(user_id=user.id, keep_forever=False).count()
 
     if current_sessions > user.max_stored_sessions:
         overflow = current_sessions - user.max_stored_sessions
         try:
             res = dbsession.query(Session).\
-                filter_by(user_id=user.id).order_by(Session.id).\
+                filter_by(user_id=user.id, keep_forever=False).order_by(Session.id).\
                 limit(overflow).all()
             res = [session.id for session in res]
         except ArgumentError:
