@@ -135,26 +135,25 @@ class OpenstackClone(Clone):
         if not server:
             return
 
-        addresses = server.networks.get(config.OPENSTACK_NETWORK_NAME, None)
+        try:
+            addresses = server.networks.get(config.OPENSTACK_NETWORK_NAME, None)
+        except Exception as e:
+            log.exception("Vm {} does not have address block".format(self.name))
+            return None
+
         if addresses is not None:
             ip = addresses[0]
             return ip
         return None
 
     def get_ip(self):
-        try:
-            ip = self._parse_ip_from_networks()
-            if ip is not None:
-                self.ip = ip
+        if self.ip:
+            return
 
-            log.info(
-                "Created openstack {clone} with ip {ip}".format(
-                    clone=self.name, ip=self.ip)
-            )
-
-        except Exception as e:
-            log.exception("Vm %s does not have address block. Error: %s" %
-                          (self.name, e.message))
+        ip = self._parse_ip_from_networks()
+        if ip:
+            self.ip = ip
+            log.info("Got ip for {clone}: {ip}".format(clone=self.name, ip=self.ip))
 
     @threaded_wait
     def _wait_for_activated_service(self, method=None):
