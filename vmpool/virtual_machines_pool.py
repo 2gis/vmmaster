@@ -8,6 +8,7 @@ from collections import defaultdict
 from core.config import config
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
+from vmpool.endpoint import EndpointWorker
 
 log = logging.getLogger(__name__)
 
@@ -62,8 +63,8 @@ class VirtualMachinesPool(object):
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, name=None, platforms_class=Platforms,
-                 preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
+    def __init__(self, app, name=None, platforms_class=Platforms, preloader_class=VirtualMachinesPoolPreloader,
+                 artifact_collector_class=ArtifactCollector, endpoint_worker_class=EndpointWorker):
         self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
 
@@ -71,6 +72,7 @@ class VirtualMachinesPool(object):
         self.platforms = platforms_class()
         self.preloader = preloader_class(self)
         self.artifact_collector = artifact_collector_class()
+        self.endpoint_worker = endpoint_worker_class(self)
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
             from core.network import DockerNetwork
@@ -110,12 +112,15 @@ class VirtualMachinesPool(object):
     def start_workers(self):
         self.register()
         self.preloader.start()
+        self.endpoint_worker.start()
 
     def stop_workers(self):
         if self.preloader:
             self.preloader.stop()
         if self.artifact_collector:
             self.artifact_collector.stop()
+        if self.endpoint_worker:
+            self.endpoint_worker.stop()
         self.free()
         self.unregister()
         self.platforms.cleanup()

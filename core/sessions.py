@@ -49,6 +49,17 @@ class Session(models.BaseSession):
             self.take_screencast = True
         self.save()
 
+    def set_status(self, status):
+        self.status = status
+        self.save()
+
+    def set_endpoint(self):
+        if self.endpoint_id:
+            self.endpoint = current_app.pool.get_by_id(self.endpoint_id)
+
+    def restore_current_log_step(self):
+        self.current_log_step = current_app.database.get_last_session_step(self.id)
+
     @property
     def inactivity(self):
         return (datetime.now() - self.modified).total_seconds()
@@ -141,7 +152,6 @@ class Session(models.BaseSession):
 
     def run(self):
         self.modified = datetime.now()
-        self.endpoint.start_recorder(self)
         self.status = "running"
         log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
         self.save()
@@ -225,9 +235,8 @@ class Sessions(object):
 
         if session and session_maybe_closed:
             log.debug("Recovering {} from db".format(session))
-            session.refresh()
-            session.current_log_step = current_app.database.get_last_session_step(session_id)
-            session.endpoint = current_app.pool.get_by_id(session.endpoint_id)
+            session.restore_current_log_step()
+            session.set_endpoint()
         elif getattr(session, "closed", False):
             raise SessionException("There is no active session {} ({})".format(session_id, session.reason))
         else:

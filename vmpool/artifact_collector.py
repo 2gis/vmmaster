@@ -30,8 +30,8 @@ def run_script(script, host):
     def on_open(_ws):
         def run():
             _ws.send(script)
-            log.info('RunScript: Open websocket and send message %s '
-                     'to vmmaster-agent on vm %s' % (script, host))
+            log.debug('RunScript: Open websocket and send message %s '
+                      'to vmmaster-agent on vm %s' % (script, host))
         _t = Thread(target=run)
         _t.daemon = True
         _t.start()
@@ -40,7 +40,7 @@ def run_script(script, host):
         _ws.output += message
 
     def on_close(_ws):
-        log.info("RunScript: Close websocket on vm %s" % host)
+        log.debug("RunScript: Close websocket on vm %s" % host)
 
     def on_error(_ws, message):
         global status_code
@@ -133,7 +133,7 @@ def save_selenium_log(app, session_id, filename, original_path):
                 log.warning("Selenium log doesn't saved for session %s" % session.id)
         except:
             log.exception("Error saving selenium log for session {} ({}: {})".format(
-                session.id, "selenium_server", "/var/log/selenium_server.log")
+                session.id, filename, original_path)
             )
 
 
@@ -153,7 +153,7 @@ def screencast_recording(app, session_id):
         def session_was_closed():
             _session = app.database.get_session(session_id)
             if _session and _session.closed:
-                session.refresh()
+                _session.refresh()
                 vnc_helper.stop()
                 if not _session.take_screencast and "succeed" in _session.status:
                     vnc_helper.delete_source_video()
@@ -166,6 +166,8 @@ def screencast_recording(app, session_id):
         )
         vnc_helper.stop()
         log.info("session {}: screencast stopped".format(session_id))
+        save_selenium_log(app, session.id, "selenium_server", "/var/log/selenium_server.log")
+        session.endpoint.delete(try_to_rebuild=True)
 
 
 class ArtifactCollector(ThreadPool):

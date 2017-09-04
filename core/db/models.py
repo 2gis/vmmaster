@@ -104,7 +104,7 @@ class BaseSession(Base, FeaturesMixin):
     selenium_log = Column(String)
 
     # State
-    status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
+    status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting', 'preparing',
                          name='status', native_enum=False), default='waiting')
     reason = Column(String)
     error = Column(String)
