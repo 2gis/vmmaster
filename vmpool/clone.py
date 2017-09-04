@@ -137,13 +137,14 @@ class OpenstackClone(Clone):
 
         try:
             addresses = server.networks.get(config.OPENSTACK_NETWORK_NAME, None)
-        except Exception as e:
+        except Exception:
             log.exception("Vm {} does not have address block".format(self.name))
             return None
 
         if addresses is not None:
             ip = addresses[0]
             return ip
+
         return None
 
     def get_ip(self):
