@@ -48,8 +48,9 @@ class VirtualMachine(object):
         self.vnc_helper.start_recording()
 
     def stop_recorder(self):
-        self.vnc_helper.stop_recording()
-        self.vnc_helper.stop_proxy()
+        if self.vnc_helper:
+            self.vnc_helper.stop_recording()
+            self.vnc_helper.stop_proxy()
 
     def create(self):
         pass
