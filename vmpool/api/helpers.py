@@ -13,3 +13,7 @@ def get_pool():
 
 def get_artifact_collector_queue():
     return current_app.pool.artifact_collector.get_queue()
+
+
+def get_node_info():
+    return current_app.id

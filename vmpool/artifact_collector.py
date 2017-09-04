@@ -30,8 +30,8 @@ def run_script(script, host):
     def on_open(_ws):
         def run():
             _ws.send(script)
-            log.info('RunScript: Open websocket and send message %s '
-                     'to vmmaster-agent on vm %s' % (script, host))
+            log.debug('RunScript: Open websocket and send message %s '
+                      'to vmmaster-agent on vm %s' % (script, host))
         _t = Thread(target=run)
         _t.daemon = True
         _t.start()
@@ -40,7 +40,7 @@ def run_script(script, host):
         _ws.output += message
 
     def on_close(_ws):
-        log.info("RunScript: Close websocket on vm %s" % host)
+        log.debug("RunScript: Close websocket on vm %s" % host)
 
     def on_error(_ws, message):
         global status_code

@@ -9,11 +9,9 @@ from flask.ext.script import Manager
 from core.config import setup_config, config
 from core.utils.init import home_dir, useradd
 from core.logger import setup_logging
-
-setup_config('%s/config.py' % home_dir())
-
 from core.utils import change_user_vmmaster
 
+setup_config('%s/config.py' % home_dir())
 setup_logging(
     log_type=getattr(config, "LOG_TYPE", None),
     log_level=getattr(config, "LOG_LEVEL", None)
@@ -30,6 +28,15 @@ def runserver():
     """
     from vmmaster.server import VMMasterServer
     VMMasterServer(reactor, config.PORT).run()
+
+
+@manager.command
+def runprovider():
+    """
+    Run provider
+    """
+    from vmpool.server import VMPoolServer
+    VMPoolServer(reactor, config.PORT).run()
 
 
 @manager.command

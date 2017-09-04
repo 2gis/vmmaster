@@ -19,7 +19,12 @@ from core import constants
     _wait_for_activated_service=custom_wait,
     ping_vm=Mock(return_value=True)
 )
-class TestApi(BaseTestCase):
+@patch.multiple(
+    "core.db.models.Endpoint",
+    set_provider=Mock(),
+    set_platform=Mock()
+)
+class TestVmmasterApi(BaseTestCase):
     def setUp(self):
         from core.config import setup_config
         setup_config('data/config_openstack.py')
@@ -88,16 +93,6 @@ class TestApi(BaseTestCase):
         self.assertEqual(200, body['metacode'])
 
         session.failed()
-
-    def test_api_platforms(self):
-        response = self.vmmaster_client.get('/api/platforms')
-        body = json.loads(response.data)
-        self.assertEqual(200, response.status_code)
-        platforms = body['result']['platforms']
-        self.assertEqual(1, len(platforms))
-        names = [platform for platform in self.platforms]
-        self.assertEqual(names, platforms)
-        self.assertEqual(200, body['metacode'])
 
     def test_api_stop_session(self):
         from core.db.models import Session
@@ -171,6 +166,72 @@ class TestApi(BaseTestCase):
 
         screenshots = body['result']['screenshots']
         self.assertEqual(1, len(screenshots))
+        self.assertEqual(200, body['metacode'])
+
+
+@patch.multiple(
+    'core.utils.openstack_utils',
+    nova_client=Mock(return_value=Mock())
+)
+@patch.multiple(
+    'vmpool.clone.OpenstackClone',
+    _wait_for_activated_service=custom_wait,
+    ping_vm=Mock(return_value=True)
+)
+class TestProviderApi(BaseTestCase):
+    def setUp(self):
+        from core.config import setup_config
+        setup_config('data/config_openstack.py')
+
+        self.mocked_image = Mock(
+            id=1, status='active',
+            get=Mock(return_value='snapshot'),
+            min_disk=20,
+            min_ram=2,
+            instance_type_flavorid=1,
+        )
+        type(self.mocked_image).name = PropertyMock(
+            return_value='test_origin_1')
+
+        with patch(
+                'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
+        ), patch(
+            'core.db.Database', DatabaseMock()
+        ), patch.multiple(
+            'vmpool.platforms.OpenstackPlatforms',
+            images=Mock(return_value=[self.mocked_image]),
+            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
+            limits=Mock(return_value={
+                'maxTotalCores': 10, 'maxTotalInstances': 10,
+                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
+                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch(
+            'vmpool.virtual_machines_pool.VirtualMachinesPoolPreloader', Mock()
+        ):
+            from vmpool.server import create_app as create_app
+            self.app = create_app()
+
+        self.vmmaster_client = self.app.test_client()
+        self.platforms = self.app.pool.platforms.platforms
+        self.platform = sorted(self.app.pool.platforms.platforms.keys())[0]
+
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': self.platform
+            }
+        }
+
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+
+    def test_api_platforms(self):
+        response = self.vmmaster_client.get('/api/platforms')
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        platforms = body['result']['platforms']
+        self.assertEqual(1, len(platforms))
+        names = [platform for platform in self.platforms]
+        self.assertEqual(names, platforms)
         self.assertEqual(200, body['metacode'])
 
     def test_failed_get_vnc_info_with_create_proxy(self):
