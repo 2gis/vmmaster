@@ -5,7 +5,6 @@ from docker import DockerClient
 
 from core.config import config
 from core.utils import exception_handler
-from core.utils.network_utils import get_free_port
 
 
 log = logging.getLogger(__name__)
@@ -145,7 +144,7 @@ class DockerManageClient:
         ports = ports if ports else config.PORTS
 
         if config.BIND_LOCALHOST_PORTS:
-            kwargs["ports"] = {"%s/tcp" % port: get_free_port() for port in ports}
+            kwargs["ports"] = {"%s/tcp" % port: None for port in ports}
         if name:
             kwargs["name"] = name
 
