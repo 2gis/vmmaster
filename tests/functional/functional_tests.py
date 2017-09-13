@@ -13,6 +13,8 @@ from ConfigParser import RawConfigParser
 
 from core.utils.network_utils import get_free_port
 
+from tests.config import config as tests_config
+
 
 class TestCaseWithMicroApp(unittest.TestCase):
     @classmethod
@@ -27,13 +29,17 @@ class TestCaseWithMicroApp(unittest.TestCase):
                                   ], preexec_fn=setsid)
         config = RawConfigParser()
         config.read("%s/tests/config" % path)
-        try:
-            this_machine_ip = \
-                ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
-        except ValueError:
-            this_machine_ip = \
-                ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
-        config.set("Network", "addr", "http://{}:{}".format(this_machine_ip, cls.app_port))
+
+        micro_app_hostname = tests_config.micro_app_hostname
+        if not micro_app_hostname:
+            try:
+                micro_app_hostname = \
+                    ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
+            except ValueError:
+                micro_app_hostname = \
+                    ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
+
+        config.set("Network", "addr", "http://{}:{}".format(micro_app_hostname, cls.app_port))
         with open('%s/tests/config' % path, 'wb') as configfile:
             config.write(configfile)
 

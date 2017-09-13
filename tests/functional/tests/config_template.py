@@ -7,3 +7,4 @@ class config:
     port = 9001
     username = None
     token = None
+    micro_app_hostname = None
