@@ -4,7 +4,7 @@ import docker
 from docker import DockerClient
 
 from core.config import config
-from core.utils import exception_handler
+from core.utils import exception_handler, api_exception_handler
 
 
 log = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class DockerContainer:
     def logs(self, **kwargs):
         return self.origin.logs(**kwargs)
 
-    @exception_handler()
+    @api_exception_handler()
     def remove(self, **kwargs):
         kwargs["force"] = True
         return self.origin.remove(**kwargs)
@@ -113,7 +113,7 @@ class DockerManageClient:
             num_pools=config.DOCKER_NUM_POOLS
         )
 
-    @exception_handler()
+    @api_exception_handler()
     def containers(self, all=None, before=None, filters=None, limit=-1, since=None):
         return [
             DockerContainer(container) for container in self.client.containers.list(

@@ -12,6 +12,7 @@ import logging
 
 from twisted.internet import threads
 from threading import Thread
+from docker.errors import APIError
 
 from core.utils import system_utils
 
@@ -183,3 +184,25 @@ def exception_handler(return_on_exc=None):
                 return return_on_exc
         return wrapper
     return _exception_handler
+
+
+def api_exception_handler(return_on_exc=None):
+    def _api_exception_handler(func):
+        def wrapper(self, *args, **kwargs):
+            for attempt in range(1, 6):
+                try:
+                    return func(self, *args, **kwargs)
+                except APIError as e:
+                    log.warning("Attempt {}: API error [{}] has occurred".format(
+                        attempt,
+                        e.status_code,
+                    ))
+                except:
+                    log.exception("Error")
+                    break
+                time.sleep(0.2)
+            else:
+                log.exception("Unable to complete operation: API errors occurred")
+            return return_on_exc
+        return wrapper
+    return _api_exception_handler
