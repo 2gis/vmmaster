@@ -22,6 +22,8 @@ class Config(object):
     OPENSTACK_MAX_VM_COUNT = 2
     OPENSTACK_PRELOADED = {}
 
+    PLATFORMS = {}
+
     OPENSTACK_AUTH_URL = "localhost"
     OPENSTACK_PORT = 5000
     OPENSTACK_CLIENT_VERSION = "v3"

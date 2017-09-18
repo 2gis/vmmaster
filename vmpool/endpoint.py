@@ -12,28 +12,21 @@ log = logging.getLogger(__name__)
 
 
 def get_platform(desired_caps):
-    platform = desired_caps.get('platform', None)
-
-    if hasattr(config, "PLATFORM") and config.PLATFORM:
-        log.info(
-            'Using %s. Desired platform %s has been ignored.' %
-            (config.PLATFORM, platform)
+    if hasattr(config, 'PLATFORM'):
+        log.info('Using {}. Desired platform {} has been ignored.'.format(
+            config.PLATFORM, desired_caps.get('platform'))
         )
         platform = config.PLATFORM
-        desired_caps["platform"] = platform
+        desired_caps['platform'] = platform
 
-    if isinstance(platform, unicode):
-        platform = platform.encode('utf-8')
-
-    if not platform:
-        raise PlatformException(
-            'Platform parameter for new endpoint not found in dc'
+    matched_platforms = current_app.matcher.get_matched_platforms(desired_caps)
+    for platform in matched_platforms:
+        if current_app.pool.platforms.check_platform(platform):
+            return platform
+    else:
+        raise PlatformException('No platforms {} found in pool: {})'.format(
+            matched_platforms, current_app.pool.platforms.keys())
         )
-
-    if not current_app.pool.platforms.check_platform(platform):
-        raise PlatformException('No such platform %s' % platform)
-
-    return platform
 
 
 def get_vm(desired_caps):

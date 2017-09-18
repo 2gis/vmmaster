@@ -6,8 +6,9 @@ import json
 import time
 import logging
 
+from PIL import Image
 from functools import wraps
-from flask import Response, request
+from flask import Response, request, current_app
 
 from core.exceptions import CreationException, ConnectionError, \
     TimeoutException, SessionException
@@ -18,7 +19,7 @@ from core import utils
 from core.profiler import profiler
 from core.sessions import Session, RequestHelper
 from vmpool import endpoint
-from PIL import Image
+
 
 log = logging.getLogger(__name__)
 
@@ -220,7 +221,10 @@ def get_endpoint(session_id, dc):
 @connection_watcher
 def get_session():
     profiler.register_get_session_call()
+
     dc = commands.get_desired_capabilities(request)
+    if not current_app.matcher.match(dc):
+        raise SessionException("Cannot match platform for DesiredCapabilities: {}".format(dc))
 
     session = Session(dc=dc)
     request.session = session

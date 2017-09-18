@@ -165,6 +165,7 @@ def selenium_status(request, session):
     yield status, headers, body
 
 
+# TODO: make a decorator
 def replace_platform_with_any(request):
     body = json.loads(request.data)
     desired_capabilities = body["desiredCapabilities"]

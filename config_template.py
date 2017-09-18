@@ -29,6 +29,48 @@ class Config(object):
     OPENSTACK_MAX_VM_COUNT = env.int("OPENSTACK_MAX_VM_COUNT", default=1)
     OPENSTACK_PRELOADED = env.json("OPENSTACK_PRELOADED", default={})
 
+    """
+    Platforms settings
+
+    Allowed platforms: ANDROID, LINUX, UNIX, MAC, WINDOWS, XP, VISTA
+    Allowed browserNames: android, chrome, firefox, htmlunit, internet explorer, iPhone, iPad, opera, safari
+    (source: https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities#used-by-the-selenium-server-for-browser-selection)
+
+    Example:
+    PLATFORMS = {
+        "LINUX": {
+            "ubuntu-14.04": {
+                "browsers": {
+                    "chrome": "48",
+                    "firefox": "25"
+                }
+            },
+            "ubuntu-16.04": {
+                "browsers": {
+                    "chrome": "48",
+                    "firefox": "25"
+                }
+            }
+        },
+        "WINDOWS": {
+            "windows-8": {
+                "browsers": {
+                    "internet explorer": "9"
+                }
+            }
+        },
+        "MAC": {},
+        "ANDROID": {}
+    }
+    """
+
+    PLATFORMS = {
+        "LINUX": {},
+        "MAC": {},
+        "WINDOWS": {},
+        "ANDROID": {},
+    }
+
     OPENSTACK_AUTH_URL = env.str("OPENSTACK_AUTH_URL", default="localhost")
     OPENSTACK_PORT = env.int("OPENSTACK_PORT", default=5000)
     OPENSTACK_CLIENT_VERSION = env.str("OPENSTACK_CLIENT_VERSION", default="v2.0")

@@ -18,6 +18,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.platform = "origin_1"
 
         self.app = Flask(__name__)
+
         self.ctx = self.app.app_context()
         self.ctx.push()
 
@@ -42,6 +43,9 @@ class TestVirtualMachinePool(BaseTestCase):
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)
+
+            from vmmaster.matcher import SeleniumMatcher, PoolBasedMatcher
+            self.app.matcher = SeleniumMatcher(config.PLATFORMS, PoolBasedMatcher(self.pool))
 
     def tearDown(self):
         self.pool.free()

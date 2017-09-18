@@ -24,6 +24,8 @@ class Config(object):
         'origin_1': 1
     }
 
+    PLATFORMS = {}
+
     OPENSTACK_AUTH_URL = "localhost"
     OPENSTACK_PORT = 5000
     OPENSTACK_CLIENT_VERSION = "v3"

@@ -380,7 +380,7 @@ class TestServer(BaseTestFlaskApp):
         response = new_session_request(self.vmmaster_client, desired_caps)
         error = json.loads(response.data).get('value').get('message')
 
-        self.assertIn('PlatformException: No such platform no_platform', error)
+        self.assertIn('Cannot match platform for DesiredCapabilities: {u\'platform\': u\'no_platform\'}', error)
 
 
 @patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
@@ -477,7 +477,6 @@ class TestConnectionClose(BaseTestCase):
     def tearDown(self):
         self.vmmaster.app.sessions.kill_all()
         yield self.vmmaster.stop_services()
-        self.ctx.pop()
         server_is_down(self.address)
 
     def test_req_closed_during_session_creating(self):
@@ -804,7 +803,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
         ):
             response = new_session_request(self.vmmaster_client, self.desired_caps)
 
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(200, response.status_code, response.data)
 
         response = get_session_request(self.vmmaster_client, 1)
         self.assertIn(
