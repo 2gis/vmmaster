@@ -25,7 +25,7 @@ def get_platform(desired_caps):
             return platform
     else:
         raise PlatformException('No platforms {} found in pool: {})'.format(
-            matched_platforms, current_app.pool.platforms.keys())
+            matched_platforms, current_app.pool.platforms.info())
         )
 
 
