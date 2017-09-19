@@ -17,7 +17,6 @@ from core import utils
 from core.utils.network_utils import RequestHelper
 from core.profiler import profiler
 from core.sessions import Session
-from vmpool import endpoint
 
 
 log = logging.getLogger(__name__)
