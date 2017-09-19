@@ -209,6 +209,7 @@ def set_primary_key(_self):
 
 class DatabaseMock(Mock):
     active_sessions = {}
+    endpoints = {}
 
     def __init__(self, *args, **kwargs):
         super(DatabaseMock, self).__init__(*args, **kwargs)
@@ -220,14 +221,27 @@ class DatabaseMock(Mock):
     def get_session(self, session_id):
         return self.active_sessions.get(str(session_id))
 
+    def get_endpoint(self, endpoint):
+        pass
+
+    def get_endpoints(self, *args, **kwargs):
+        return self.endpoints.values()
+
     @staticmethod
     def get_last_session_step(session_id):
         return Mock()
 
+    def set_platform(self, platform, provider_id):
+        pass
 
-def custom_wait(self, method):
+    def set_provider(self, provider_id):
+        pass
+
+
+def custom_wait(self):
     self.ready = True
     self.checking = False
+    yield self.ready
 
 
 def vmmaster_server_mock(port):

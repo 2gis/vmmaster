@@ -8,11 +8,12 @@ import websocket
 
 from threading import Thread
 from collections import defaultdict
-from flask import current_app
 from multiprocessing.pool import ThreadPool
 
 from core import utils
 from core.config import config
+from core.utils import wait_for
+from core.video import VNCVideoHelper
 
 
 log = logging.getLogger(__name__)
@@ -76,7 +77,8 @@ def save_artifact(session, filename, original_path):
     :return: str
     """
     new_path = ""
-    for code, headers, body in get_artifact_from_endpoint(session, original_path):
+
+    for code, headers, body in get_artifact_from_endpoint(session.endpoint, original_path):
         pass
 
     if code == 200:
@@ -94,84 +96,77 @@ def save_artifact(session, filename, original_path):
     return new_path
 
 
-def get_artifact_from_endpoint(session, path):
+def get_artifact_from_endpoint(endpoint, path):
     """
-    :param session: Session
+    :param endpoint: Clone
     :param path: str
     :return: status, headers, body
     """
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip, session.endpoint.agent_port)
+    host = "ws://{}/runScript".format(endpoint.agent_ws_url)
     script = '{"command": "sudo -S sh", "script": "cat %s"}' % path
-    log.debug("Run script for session {}, cmd={}".format(session, script))
+    log.debug("Run script for {}, cmd={}".format(endpoint, script))
     for status, headers, body in run_script(script, host):
         yield None, None, None
 
     yield status, headers, body
 
 
-def save_selenium_log(session, filename, original_path):
-    """
-    :param session: object
-    :param filename: str
-    :param original_path: str
-    """
-    session.refresh()
+def save_selenium_log(app, session_id, filename, original_path):
+    with app.app_context():
+        session = app.sessions.get_session(session_id, maybe_closed=True)
+        if not session:
+            log.error("Session %s not found and selenium log doesn't saved" % session.id)
+            return
 
-    if not session:
-        log.error("Session %s not found and selenium log doesn't saved" % session.id)
-        return
-
-    log_path = save_artifact(session, filename, original_path)
-    if log_path:
-        session.selenium_log = log_path
-        session.save()
-        log.info("Selenium log saved to %s for session %s" % (log_path, session.id))
-    else:
-        log.warning("Selenium log doesn't saved for session %s" % session.id)
-
-
-def on_completed_task(session_id):
-    """
-    :param session_id: int
-    """
-    log.debug("Completing task for session %s" % session_id)
-    session = get_session_from_db(session_id)
-
-    if not session:
-        log.error("Task doesn't sucessfully finished for session %s "
-                  "and endpoint doesn't deleted" % session_id)
-        return
-
-    endpoint = current_app.pool.get_by_name(session.endpoint_name)
-    if endpoint:
-        endpoint.delete()
-    log.debug("Task finished for session %s" % session_id)
+        try:
+            log_path = save_artifact(session, filename, original_path)
+            if log_path:
+                session.selenium_log = log_path
+                session.save()
+                log.info("Selenium log saved to %s for session %s" % (log_path, session.id))
+            else:
+                log.warning("Selenium log doesn't saved for session %s" % session.id)
+        except:
+            log.exception("Error saving selenium log for session {} ({}: {})".format(
+                session.id, "selenium_server", "/var/log/selenium_server.log")
+            )
 
 
-def get_session_from_db(session_id):
-    """
-    :param session_id: int
-    :return: Session
-    """
-    session = None
-    try:
-        session = current_app.database.get_session(session_id)
-    except:
-        log.exception("Session %s not found" % session_id)
+def screencast_recording(app, session_id):
+    with app.app_context():
+        session = app.sessions.get_session(session_id)
+        if not session:
+            log.error("Session %s not found and screencast doesn't recorded" % session.id)
+            return
 
-    return session
+        log.info("Screencast starting for session {}...".format(session.id))
+        vnc_helper = VNCVideoHelper(
+            session.endpoint.ip, filename_prefix=session.id, port=session.endpoint.vnc_port
+        )
+        vnc_helper.start_recording()
+
+        def session_was_closed():
+            _session = app.database.get_session(session_id)
+            if _session and _session.closed:
+                session.refresh()
+                vnc_helper.stop()
+                if not _session.take_screencast and "succeed" in _session.status:
+                    vnc_helper.delete_source_video()
+                return True
+
+        wait_for(
+            session_was_closed,
+            timeout=getattr(config, "SCREENCAST_RECORDER_MAX_DURATION", 1800),
+            sleep_time=3
+        )
+        vnc_helper.stop()
+        log.info("Screencast stopped...")
 
 
 class ArtifactCollector(ThreadPool):
-    def __init__(self, vmpool):
-        if hasattr(config, "ARTIFACT_COLLECTOR_PROCESSES"):
-            super(ArtifactCollector, self).__init__(
-                processes=config.ARTIFACT_COLLECTOR_PROCESSES
-            )
-        else:
-            super(ArtifactCollector, self).__init__()
+    def __init__(self):
+        super(ArtifactCollector, self).__init__(processes=getattr(config, "ENDPOINT_THREADPOOL_PROCESSES", 5))
         self.in_queue = defaultdict(list)
-        self.vmpool = vmpool
         log.info("ArtifactCollector started")
 
     def __reduce__(self):
@@ -180,49 +175,28 @@ class ArtifactCollector(ThreadPool):
     def get_queue(self):
         return self.in_queue.keys()
 
-    def add_task(self, session, artifact_name, artifact_path):
-        """
-        :param session: object
-        :param artifact_name: str
-        :param artifact_path: str
-        :return: True or False
-        """
-        if artifact_name == "selenium_server":
-            self.run_task(
-                session,
-                self.save_selenium_log,
-                args=(session, artifact_name, artifact_path)
-            )
-            return True
-        else:
-            log.warning("Task not found for session %s" % session.id)
-            return False
+    def add_task(self, session_id, method, *args, **kwargs):
+        apply_result = self.apply_async(
+            method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
+        )
+        self.in_queue[session_id].append(apply_result)
+        log.info("Task {} added to queue for session {}".format(method.__name__, session_id))
+        return True
 
-    def run_task(self, session, method, args):
-        apply_result = self.apply_async(method, args=args)
-        log.debug("Apply Result %s" % apply_result)
-        self.in_queue[session.id].append(apply_result)
-        log.info("Task for getting artifacts added to queue for session %s" % session.id)
-
-    def add_tasks(self, session, artifacts):
+    def on_task_complete(self, result, method_name, session_id):
         """
-        :param session: object
-        :param artifacts: dict
-        :return: list of True or False
+        :param result: str
+        :param method_name: str
+        :param session_id: int
         """
-        result = True
-        for artifact_name, artifact_path in artifacts.items():
-            completed = self.add_task(session, artifact_name, artifact_path)
-            if not completed:
-                result = False
-
-        return result
+        self.in_queue.pop(session_id, None)
+        log.debug("Completing task {} for session {} with return value {}".format(method_name, session_id, result))
 
     def del_task(self, session_id):
         """
         :param session_id: int
         """
-        tasks = self.in_queue[session_id]
+        tasks = self.in_queue.get(session_id, list())
         for task in tasks:
             if task and not task.ready():
                 task.successful()
@@ -241,30 +215,22 @@ class ArtifactCollector(ThreadPool):
         for session_id in sessions_ids:
             self.del_task(session_id)
 
-    def save_selenium_log(self, session, artifact_name, artifact_path):
-        """
-        :param session: object
-        :param artifact_name: str
-        :param artifact_path: str
-        """
-        with self.vmpool.app.app_context():
-            try:
-                save_selenium_log(session, artifact_name, artifact_path)
-            except:
-                log.exception("Error saving selenium log for session {} ({}: {})"
-                              .format(session.id, artifact_name, artifact_path))
-            finally:
-                self.in_queue.pop(session.id)
-                on_completed_task(session.id)
-
-    def wait_for_complete(self):
+    def wait_for_complete(self, session_id=None):
         start = time.time()
         timeout = getattr(config, "COLLECT_ARTIFACTS_WAIT_TIMEOUT", 60)
 
-        while self.in_queue:
-            log.info("Wait for tasks to complete: {}".format(
-                [(session, len(tasks)) for session, tasks in self.in_queue.items()])
-            )
+        def get_tasks():
+            if session_id:
+                tasks = self.in_queue.get(session_id, list())
+                log.info("Wait for tasks to complete: {}".format(tasks))
+            else:
+                tasks = self.in_queue
+                log.info("Wait for tasks to complete: {}".format(
+                    [(session, len(_tasks)) for session, _tasks in self.in_queue.items()])
+                )
+            return tasks
+
+        while get_tasks():
             time.sleep(1)
             if time.time() - start > timeout:
                 log.warning("Timeout {} while waiting for tasks".format(timeout))
@@ -273,7 +239,6 @@ class ArtifactCollector(ThreadPool):
         log.info("All tasks completed.")
 
     def stop(self):
-        self.terminate()
         self.del_tasks(self.in_queue.keys())
         self.close()
         log.info("ArtifactCollector stopped")

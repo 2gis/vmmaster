@@ -2,8 +2,8 @@
 import os
 
 from flask import Flask
-from mock import patch, Mock
-from tests.unit.helpers import BaseTestCase, DatabaseMock, wait_for
+from mock import patch, Mock, PropertyMock
+from tests.helpers import BaseTestCase, DatabaseMock, wait_for
 from core.config import config, setup_config
 
 
@@ -41,7 +41,7 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector
+        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
         with patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -49,20 +49,22 @@ class TestArtifactCollector(BaseTestCase):
             session = Session(dc={'platform': 'origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
-            endpoint = Mock(
+            endpoint = PropertyMock(
                 ip='127.0.0.1', name='test_endpoint', delete=Mock(),
                 selenium_port=4455, agent_port=9000, vnc_port=5900
             )
             session.endpoint = endpoint
-            self.app.database.get_session = Mock(return_value=session)
+            self.app.sessions.get_session = Mock(return_value=session)
 
             vmpool = Mock(get_by_name=Mock(return_value=endpoint))
             vmpool.app = self.app
             self.app.pool = vmpool
 
-            art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(
-                session, {'selenium_server': '/var/log/selenium_server.log'}
+            art_collector = ArtifactCollector()
+            in_queue = art_collector.add_task(
+                session.id, save_selenium_log, *(
+                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
+                )
             )
 
         self.assertTrue(in_queue)
@@ -74,7 +76,7 @@ class TestArtifactCollector(BaseTestCase):
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))
         self.assertTrue(wait_for(
-            lambda: session.endpoint.delete.called))
+            lambda: not session.endpoint.delete.called))
         art_collector.stop()
 
     @patch('vmpool.artifact_collector.run_script', failed_run_script_mock)
@@ -84,27 +86,29 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector
+        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
         with patch(
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
             session = Session(dc={'platform': 'origin_1'})
             session.id = 1
-            endpoint = Mock(
+            endpoint = PropertyMock(
                 ip='127.0.0.1', name='test_endpoint', delete=Mock(),
                 selenium_port=4455, agent_port=9000, vnc_port=5900
             )
             session.endpoint = endpoint
-            self.app.database.get_session = Mock(return_value=session)
+            self.app.sessions.get_session = Mock(return_value=session)
 
             vmpool = Mock(get_by_name=Mock(return_value=endpoint))
             vmpool.app = self.app
             self.app.pool = vmpool
 
-            art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(
-                session, {'selenium_server': '/var/log/selenium_server.log'}
+            art_collector = ArtifactCollector()
+            in_queue = art_collector.add_task(
+                session.id, save_selenium_log, *(
+                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
+                )
             )
 
         self.assertTrue(in_queue)
@@ -113,7 +117,7 @@ class TestArtifactCollector(BaseTestCase):
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))
         self.assertTrue(wait_for(
-            lambda: session.endpoint.delete.called))
+            lambda: not session.endpoint.delete.called))
         art_collector.stop()
 
     def test_unavailable_run_script_during_add_tasks(self):
@@ -122,7 +126,7 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector
+        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
         with patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -130,20 +134,22 @@ class TestArtifactCollector(BaseTestCase):
             session = Session(dc={'platform': 'origin_1'})
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
-            endpoint = Mock(
+            endpoint = PropertyMock(
                 ip='127.0.0.1', name='test_endpoint', delete=Mock(),
                 selenium_port=4455, agent_port=9000, vnc_port=5900
             )
             session.endpoint = endpoint
-            self.app.database.get_session = Mock(return_value=session)
+            self.app.sessions.get_session = Mock(return_value=session)
 
             vmpool = Mock(get_by_name=Mock(return_value=endpoint))
             vmpool.app = self.app
             self.app.pool = vmpool
 
-            art_collector = ArtifactCollector(vmpool)
-            in_queue = art_collector.add_tasks(
-                session, {'selenium_server': '/var/log/selenium_server.log'}
+            art_collector = ArtifactCollector()
+            in_queue = art_collector.add_task(
+                session.id, save_selenium_log, *(
+                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
+                )
             )
 
         self.assertTrue(in_queue)
@@ -155,7 +161,7 @@ class TestArtifactCollector(BaseTestCase):
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))
         self.assertTrue(wait_for(
-            lambda: session.endpoint.delete.called))
+            lambda: not session.endpoint.delete.called))
         art_collector.stop()
 
     def test_stop_artifact_collector(self):
@@ -167,7 +173,7 @@ class TestArtifactCollector(BaseTestCase):
         from vmpool.artifact_collector import ArtifactCollector
         from multiprocessing.pool import AsyncResult
 
-        art_collector = ArtifactCollector(Mock())
+        art_collector = ArtifactCollector()
         task = AsyncResult(cache={1: ""}, callback=None)
         task._job = 1
         task._ready = True

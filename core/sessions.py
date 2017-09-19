@@ -60,14 +60,17 @@ class Session(models.BaseSession):
     take_screencast = None
     is_active = True
 
+    def __str__(self):
+        msg = "Session id={} status={}".format(self.id, self.status)
+        if self.endpoint:
+            msg += " name={} ip={} ports={}".format(self.endpoint.name, self.endpoint.ip, self.endpoint.ports)
+        return msg
+
     def __init__(self, name=None, dc=None):
         super(Session, self).__init__(name, dc)
         if dc and dc.get('takeScreencast', None):
             self.take_screencast = True
         self.save()
-
-    def __str__(self):
-        return "Session id={} status={}".format(self.id, self.status)
 
     @property
     def inactivity(self):
@@ -76,6 +79,14 @@ class Session(models.BaseSession):
     @property
     def duration(self):
         return (datetime.now() - self.created).total_seconds()
+
+    @property
+    def is_waiting(self):
+        return self.status == 'waiting'
+
+    @property
+    def is_running(self):
+        return self.status == 'running'
 
     @property
     def is_done(self):
@@ -92,10 +103,11 @@ class Session(models.BaseSession):
             "inactivity": self.inactivity,
         }
 
-        if self.endpoint_name:
+        self.refresh()
+        if self.endpoint:
             stat["endpoint"] = {
-                "ip": self.endpoint_ip,
-                "name": self.endpoint_name
+                "ip": self.endpoint.ip,
+                "name": self.endpoint.name
             }
         return stat
 
@@ -108,12 +120,10 @@ class Session(models.BaseSession):
         self.is_active = True
 
     def save_artifacts(self):
-        artifacts = {
-            "selenium_server": "/var/log/selenium_server.log"
-        }
-        if not self.endpoint_ip:
+        if not self.endpoint.ip:
             return False
-        return self.endpoint.save_artifacts(self, artifacts)
+
+        return self.endpoint.save_artifacts(self)
 
     def close(self, reason=None):
         self.closed = True
@@ -122,18 +132,14 @@ class Session(models.BaseSession):
         self.deleted = datetime.now()
         self.save()
 
-        if getattr(self, "endpoint", None):
-            self.endpoint.stop_recorder()
-            if not self.take_screencast and "succeed" in self.status:
-                self.endpoint.vnc_helper.delete_source_video()
-
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint", None) and not self.save_artifacts():
-            log.info("Deleting endpoint %s (%s) for session %s" %
-                     (self.endpoint_name, self.endpoint_ip, self.id))
-            self.endpoint.delete()
+        if getattr(self, "endpoint", None):
+            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
+            self.save_artifacts()
+            current_app.pool.artifact_collector.wait_for_complete(self.id)
+            self.endpoint.delete(try_to_rebuild=True)
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
@@ -152,24 +158,16 @@ class Session(models.BaseSession):
         self.error = tb
         self.close(reason)
 
-    def set_vm(self, endpoint):
-        self.endpoint_ip = endpoint.ip
-        self.endpoint_name = endpoint.name
-
-    def run(self, endpoint):
+    def run(self):
         self.modified = datetime.now()
-        self.endpoint = endpoint
-        self.endpoint.start_recorder(self.id)
-        self.set_vm(endpoint)
+        self.endpoint.start_recorder(self)
         self.status = "running"
+        log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
         self.save()
-        log.info("Session %s starting on %s (%s)." %
-                 (self.id, self.endpoint_name, self.endpoint_ip))
 
     def timeout(self):
         self.timeouted = True
-        self.failed(reason="Session timeout. No activity since %s" %
-                    str(self.modified))
+        self.failed(reason="Session timeout. No activity since %s" % str(self.modified))
 
     def add_sub_step(self, control_line, body=None):
         if self.current_log_step:
@@ -180,10 +178,12 @@ class Session(models.BaseSession):
             control_line=control_line, body=body, created=created
         )
         self.current_log_step = step
+        self.save()
+
         return step
 
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
-        return network_utils.make_request(self.endpoint_ip, port, request, timeout)
+        return network_utils.make_request(self.endpoint.ip, port, request, timeout)
 
 
 class SessionWorker(Thread):
@@ -212,12 +212,11 @@ class Sessions(object):
     def __init__(self, app):
         self.app = app
         self.worker = SessionWorker(self)
+
+    def start_workers(self):
         self.worker.start()
 
-    def start_worker(self):
-        self.worker.start()
-
-    def stop_worker(self):
+    def stop_workers(self):
         self.worker.stop()
 
     def active(self):
@@ -234,12 +233,15 @@ class Sessions(object):
             session.close()
 
     @staticmethod
-    def get_session(session_id):
+    def get_session(session_id, maybe_closed=False):
         session = current_app.database.get_session(session_id)
+        session_maybe_closed = True if maybe_closed else not getattr(session, "closed", True)
 
-        if session and not session.closed:
+        if session and session_maybe_closed:
+            log.debug("Recovering {} from db".format(session))
+            session.refresh()
             session.current_log_step = current_app.database.get_last_session_step(session_id)
-            session.endpoint = current_app.pool.get_by_name(session.endpoint_name)
+            session.endpoint = current_app.pool.get_by_id(session.endpoint_id)
         elif getattr(session, "closed", False):
             raise SessionException("There is no active session {} ({})".format(session_id, session.reason))
         else:

@@ -114,7 +114,7 @@ def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
     attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", 3)
     for attempt in range(1, attempts + 1):
         queue = Queue()
-        log.info("Attempt {}. Making user request {}".format(attempt, url))
+        log.info("Attempt {}. Making request {}".format(attempt, url))
         t = Thread(target=get_response)
         t.daemon = True
         t.start()

@@ -8,7 +8,7 @@ import grp
 import time
 import sys
 import logging
-
+from functools import wraps
 
 from twisted.internet import threads
 from threading import Thread
@@ -118,10 +118,10 @@ def to_thread(f):
     return wrapper
 
 
-def wait_for(condition, timeout=5):
+def wait_for(condition, timeout=5, sleep_time=0.1):
     start = time.time()
     while not condition() and time.time() - start < timeout:
-        time.sleep(0.1)
+        time.sleep(sleep_time)
 
     return condition()
 
@@ -176,6 +176,7 @@ def remove_base64_screenshot(response_data):
 
 def exception_handler(return_on_exc=None):
     def _exception_handler(func):
+        @wraps(func)
         def wrapper(self, *args, **kwargs):
             try:
                 return func(self, *args, **kwargs)

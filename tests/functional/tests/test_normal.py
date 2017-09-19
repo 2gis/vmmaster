@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import os
-from helpers import TestCase
+from tests.functional.tests.helpers import TestCase
 from ConfigParser import RawConfigParser
 
 path = os.path.dirname(os.path.realpath(__file__))

@@ -5,8 +5,7 @@ from uuid import uuid4
 from datetime import datetime
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Sequence, String, Enum, \
-    ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, Sequence, String, Enum, ForeignKey, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship, backref
 
 from flask import current_app
@@ -92,8 +91,7 @@ class BaseSession(Base, FeaturesMixin):
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
-    endpoint_ip = Column(String)
-    endpoint_name = Column(String)
+    endpoint_id = Column(ForeignKey('endpoints.id', ondelete='SET NULL'))
     name = Column(String)
     dc = Column(String)
     selenium_session = Column(String)
@@ -161,6 +159,52 @@ class BaseSession(Base, FeaturesMixin):
                               created=created)
 
 
+class Endpoint(Base, FeaturesMixin):
+    __tablename__ = 'endpoints'
+
+    id = Column(Integer, primary_key=True)
+    uuid = Column(String)
+    provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'), nullable=False)
+    platform_id = Column(ForeignKey('platforms.id', ondelete='SET NULL'), nullable=False)
+    name = Column(String)
+    ip = Column(String)
+    ports = Column(JSON, default={})
+    platform_name = Column(String, nullable=False)
+
+    ready = Column(Boolean, default=False)
+    in_use = Column(Boolean, default=False)
+    deleted = Column(Boolean, default=False)
+
+    created_time = Column(DateTime, nullable=True)
+    used_time = Column(DateTime, nullable=True)
+    deleted_time = Column(DateTime, nullable=True)
+
+    # Relationships
+    platform = relationship("Platform", backref="endpoint")
+    provider = relationship("Provider", backref="endpoint")
+
+    def __str__(self):
+        return "Endpoint {}({})".format(self.name, self.id)
+
+    def __init__(self, name, platform, provider_id):
+        self.name = name
+        self.platform_name = platform
+        self.created_time = datetime.now()
+        self.set_provider(provider_id)
+        self.set_platform(platform, provider_id)
+        self.add()
+
+        if not self.name:
+            self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), platform)
+            self.save()
+
+    def set_platform(self, platform_name, provider_id):
+        self.platform = current_app.database.get_platform(platform_name, provider_id)
+
+    def set_provider(self, provider_id):
+        self.provider = current_app.database.get_provider(provider_id)
+
+
 class User(Base, FeaturesMixin):
     __tablename__ = 'users'
 
@@ -210,9 +254,25 @@ class Platform(Base):
     __tablename__ = 'platforms'
 
     id = Column(Integer, primary_key=True)
+    provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'), nullable=False)
     name = Column(String(length=100), nullable=False)
-    node = Column(String(length=100), nullable=False)
 
-    def __init__(self, name, node):
+    # Relationships
+    provider = relationship("Provider", backref="platform")
+
+    def __init__(self, name):
         self.name = name
-        self.node = node
+
+
+class Provider(Base, FeaturesMixin):
+    __tablename__ = 'providers'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(length=200), nullable=True)
+    url = Column(String, nullable=True)
+    active = Column(Boolean, default=False)
+
+    def __init__(self, name, url, active=True):
+        self.name = name
+        self.url = url
+        self.active = active

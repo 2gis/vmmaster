@@ -2,7 +2,7 @@
 import json
 import logging
 from io import BytesIO
-from tests.unit.helpers import BaseTestCase
+from tests.helpers import BaseTestCase
 from lode_runner import dataprovider
 from core.logger import LogstashFormatter
 

@@ -1,5 +1,5 @@
 import os
-from tests.unit.helpers import get_free_port
+from tests.helpers import get_free_port
 
 
 class Config(object):
@@ -8,6 +8,7 @@ class Config(object):
 
     # PostgreSQL dbname
     DATABASE = "postgresql://vmmaster:vmmaster@localhost/vmmaster_db"
+    ENDPOINT_THREADPOOL_PROCESSES = 1
 
     # screenshots
     SCREENSHOTS_DIR = os.sep.join([BASEDIR, "screenshots"])

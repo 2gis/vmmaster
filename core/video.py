@@ -84,7 +84,7 @@ class VNCVideoHelper:
     def delete_source_video(self):
         if self.__filepath and os.path.isfile(self.__filepath):
             os.remove(self.__filepath)
-            log.debug('Source video %s was deleted' % self.__filepath)
+            log.info('Source video %s was deleted' % self.__filepath)
             self.delete_vnc_log()
 
     def delete_vnc_log(self):
@@ -150,3 +150,7 @@ class VNCVideoHelper:
                     self.recorder.pid, self.host, self.port, self.dir_path
                 )
             )
+
+    def stop(self):
+        self.stop_recording()
+        self.start_proxy()

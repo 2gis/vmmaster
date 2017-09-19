@@ -7,8 +7,6 @@ from collections import defaultdict
 
 from core.config import config
 from core.network import DockerNetwork
-
-
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
 from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
@@ -17,212 +15,185 @@ log = logging.getLogger(__name__)
 
 
 class VirtualMachinesPool(object):
-    pool = list()
-    using = list()
     if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
         network = DockerNetwork()
+    id = None
     lock = Lock()
-    platforms = Platforms
+    platforms = None
     preloader = None
     artifact_collector = None
 
     def __str__(self):
-        return str(self.pool)
+        return str(self.active_endpoints)
 
     def __init__(self, app):
         self.app = app
-        self.platforms()
-        self.start_workers(app)
+        self.platforms = Platforms()
         self.matcher = SeleniumMatcher(platforms=config.PLATFORMS, fallback_matcher=PoolBasedMatcher(self.platforms))
 
-    @classmethod
-    def start_workers(cls, app):
-        cls.app = app
-        cls.artifact_collector = ArtifactCollector(cls)
-        cls.preloader = VirtualMachinesPoolPreloader(cls)
-        cls.preloader.start()
+    def register(self):
+        return self.app.database.register_provider(
+            name="Unnamed provider",
+            url="%s:%s" % ("localhost", config.PORT),
+            platforms=self.platforms.info()
+        )
 
-    @classmethod
-    def stop_workers(cls):
-        if cls.preloader:
-            cls.preloader.stop()
-        if cls.artifact_collector:
-            cls.artifact_collector.wait_for_complete()
-            cls.artifact_collector.stop()
+    def unregister(self):
+        self.app.database.unregister_provider(self.id)
 
-    @classmethod
-    def remove_vm(cls, vm):
-        if vm in list(cls.using):
-            try:
-                cls.using.remove(vm)
-            except ValueError:
-                log.warning("VM %s not found in using" % vm.name)
-        if vm in list(cls.pool):
-            try:
-                cls.pool.remove(vm)
-            except ValueError:
-                log.warning("VM %s not found in pool" % vm.name)
+    @property
+    def active_endpoints(self):
+        return self.platforms.get_endpoints(self.id, efilter="active")
 
-    @classmethod
-    def add_vm(cls, vm, to=None):
-        if to is None:
-            to = cls.pool
-        to.append(vm)
+    def get_all_endpoints(self):
+        return self.platforms.get_endpoints(self.id, efilter="all")
 
-    @classmethod
-    def free(cls):
-        log.info("Deleting using machines...")
-        for vm in list(cls.using):
-            cls.using.remove(vm)
-            vm.delete(try_to_rebuild=False)
-        log.info("Deleting pool...")
-        for vm in list(cls.pool):
-            cls.pool.remove(vm)
-            vm.delete(try_to_rebuild=False)
-        if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
-            cls.network.delete()
+    @property
+    def pool(self):
+        return self.platforms.get_endpoints(self.id, efilter="pool")
 
-    @classmethod
-    def count(cls):
-        return len(cls.pool) + len(cls.using)
+    @property
+    def using(self):
+        return self.platforms.get_endpoints(self.id, efilter="using")
 
-    @classmethod
-    def can_produce(cls, platform):
-        platform_limit = cls.platforms.get_limit(platform)
+    def start_workers(self):
+        self.id = self.register()
+        self.preloader = VirtualMachinesPoolPreloader(self)
+        self.preloader.start()
+        self.artifact_collector = ArtifactCollector()
+
+    def stop_workers(self):
+        if self.preloader:
+            self.preloader.stop()
+        if self.artifact_collector:
+            self.artifact_collector.stop()
+        self.free()
+        self.unregister()
+        self.platforms.cleanup()
+
+    def free(self):
+        log.info("Deleting machines...")
+        with self.app.app_context():
+            for vm in self.active_endpoints:
+                vm.delete(try_to_rebuild=False)
+
+    def count(self):
+        return len(self.active_endpoints)
+
+    def can_produce(self, platform_name):
+        platform_limit = self.platforms.get_limit(platform_name)
 
         if platform_limit is UnlimitedCount:
             return True
 
-        if cls.count() >= platform_limit:
-            log.debug(
+        current_count = self.count()
+        if current_count >= platform_limit:
+            log.warning(
                 'Can\'t produce new virtual machine with platform %s: '
-                'not enough Instances resources' % platform
+                'not enough Instances resources. Current(%s), Limit(%s)'
+                % (platform_name, current_count, platform_limit)
             )
             return False
         else:
             return True
 
-    @classmethod
-    def has(cls, platform):
-        for vm in cls.pool:
-            if vm.platform == platform and vm.ready and not vm.checking:
+    def has(self, platform_name):
+        for vm in self.pool:
+            if vm.platform_name == platform_name and vm.ready:
                 return True
         return False
 
-    @classmethod
-    def get_by_platform(cls, platform):
+    def get_by_platform(self, platform_name):
         res = None
 
-        with cls.lock:
-            if not cls.has(platform):
+        with self.lock:
+            if not self.has(platform_name):
                 return None
 
-            for vm in sorted(cls.pool, key=lambda v: v.created, reverse=True):
-                if vm.platform == platform and vm.ready and not vm.checking:
+            for vm in sorted(self.pool, key=lambda v: v.created_time, reverse=True):
+                if vm.platform_name == platform_name and vm.ready:
                     log.info(
-                        "Got VM %s (ip=%s, ready=%s, checking=%s)" %
-                        (vm.name, vm.ip, vm.ready, vm.checking)
+                        "Got VM %s (ip=%s, ready=%s)" %
+                        (vm.name, vm.ip, vm.ready)
                     )
-                    cls.pool.remove(vm)
-                    cls.using.append(vm)
                     res = vm
+                    vm.set_in_use(True)
                     break
 
         if not res:
             return None
 
-        if res.ping_vm(ports=res.ports):
+        if res.ping_vm(vm.bind_ports):
             return res
         else:
-            cls.using.remove(res)
             res.delete()
             return None
 
-    @classmethod
-    def get_by_name(cls, _name=None):
+    def get_by_name(self, _name=None):
         # TODO: remove get_by_name
         if _name:
             log.debug('Getting VM: %s' % _name)
-            for vm in cls.pool + cls.using:
+            for vm in self.active_endpoints:
                 if vm.name == _name:
                     return vm
 
-    @classmethod
-    def count_virtual_machines(cls, it):
+    def get_by_id(self, endpoint_id):
+        return self.platforms.get_endpoint(endpoint_id)
+
+    @staticmethod
+    def count_virtual_machines(it):
         result = defaultdict(int)
         for vm in it:
-            result[vm.platform] += 1
+            result[vm.platform_name] += 1
 
         return result
 
-    @classmethod
-    def pooled_virtual_machines(cls):
-        return cls.count_virtual_machines(cls.pool)
+    def pooled_virtual_machines(self):
+        return self.count_virtual_machines(self.pool)
 
-    @classmethod
-    def using_virtual_machines(cls):
-        return cls.count_virtual_machines(cls.using)
+    def using_virtual_machines(self):
+        return self.count_virtual_machines(self.using)
 
-    @classmethod
-    def add(cls, platform, prefix="ondemand", to=None):
+    def add(self, platform_name, prefix="ondemand"):
         if prefix == "preloaded":
-            log.info("Preloading %s." % platform)
+            log.info("Preloading %s." % platform_name)
 
-        if to is None:
-            to = cls.using
-
-        with cls.lock:
-            if not cls.can_produce(platform):
+        with self.lock:
+            if not self.can_produce(platform_name):
                 return None
 
-            origin = cls.platforms.get(platform)
+            origin = self.platforms.get(platform_name)
             try:
-                clone = origin.make_clone(origin, prefix, cls)
+                clone = origin.make_clone(origin, prefix, self)
+                if not clone.is_preloaded():
+                    clone.set_in_use(True)
             except Exception as e:
                 log.exception(
                     'Exception during initializing vm object: %s' % e.message
                 )
                 return None
 
-            cls.add_vm(clone, to)
-
         try:
             clone.create()
         except Exception as e:
             log.exception("Error creating vm: %s" % e.message)
             clone.delete()
-            try:
-                to.remove(clone)
-            except ValueError:
-                log.warning("VM %s not found while removing" % clone.name)
-            return None
 
         return clone
 
-    @classmethod
-    def get_vm(cls, platform):
-        vm = cls.get_by_platform(platform)
+    def get_vm(self, platform_name):
+        vm = self.get_by_platform(platform_name)
 
         if vm:
             return vm
 
-        vm = cls.add(platform)
+        vm = self.add(platform_name)
 
         if vm:
             return vm
 
-    @classmethod
-    def save_artifact(cls, session, artifacts):
-        return cls.artifact_collector.add_tasks(session, artifacts)
-
-    @classmethod
-    def preload(cls, origin_name, prefix=None):
-        return cls.add(origin_name, prefix, to=cls.pool)
-
-    @classmethod
-    def return_vm(cls, vm):
-        cls.using.remove(vm)
-        cls.pool.append(vm)
+    def preload(self, origin_name, prefix="preloaded"):
+        return self.add(origin_name, prefix)
 
     @property
     def info(self):
@@ -231,8 +202,7 @@ class VirtualMachinesPool(object):
                 "name": l.name,
                 "ip": l.ip,
                 "ready": l.ready,
-                "checking": l.checking,
-                "created": l.created,
+                "created": l.created_time,
                 "ports": l.ports
             } for l in lst]
 
@@ -258,28 +228,27 @@ class VirtualMachinesPool(object):
 class VirtualMachinesPoolPreloader(Thread):
     def __init__(self, pool):
         Thread.__init__(self)
+        self.app = pool.app
         self.running = True
         self.daemon = True
         self.pool = pool
 
     def run(self):
-        while self.running:
-            try:
-                platform = self.need_load()
-                if platform is not None:
-                    self.pool.preload(platform, "preloaded")
-            except Exception as e:
-                log.exception('Exception in preloader: %s', e.message)
+        log.info("Preloader started...")
+        with self.app.app_context():
+            while self.running:
+                try:
+                    platform_name = self.need_load()
+                    if platform_name is not None:
+                        self.pool.preload(platform_name, "preloaded")
+                except Exception as e:
+                    log.exception('Exception in preloader: %s', e.message)
 
-            time.sleep(config.PRELOADER_FREQUENCY)
+                time.sleep(config.PRELOADER_FREQUENCY)
 
     def need_load(self):
-        if self.pool.using is not []:
-            using = [vm for vm in self.pool.using
-                     if vm.is_preloaded()]
-        else:
-            using = []
-        already_have = self.pool.count_virtual_machines(self.pool.pool + using)
+        preloaded = [vm for vm in self.pool.active_endpoints if vm.is_preloaded()]
+        already_have = self.pool.count_virtual_machines(preloaded)
         platforms = {}
 
         if config.USE_OPENSTACK:
@@ -287,10 +256,10 @@ class VirtualMachinesPoolPreloader(Thread):
         if config.USE_DOCKER:
             platforms.update(config.DOCKER_PRELOADED)
 
-        for platform, need in platforms.iteritems():
-            have = already_have.get(platform, 0)
+        for platform_name, need in platforms.iteritems():
+            have = already_have.get(platform_name, 0)
             if need > have:
-                return platform
+                return platform_name
 
     def stop(self):
         self.running = False

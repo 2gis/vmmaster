@@ -21,7 +21,7 @@ class TestCleanup(unittest.TestCase):
         cls.app.database = db.Database(config.DATABASE)
 
         with patch(
-            'core.utils.init.home_dir', Mock(return_value=config.BASE_DIR)
+            'core.utils.init.home_dir', Mock(return_value=config.BASEDIR)
         ):
             from vmmaster import cleanup
             cls.cleanup = cleanup

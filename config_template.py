@@ -9,7 +9,7 @@ if isfile('.env'):
 
 class Config(object):
     BASEDIR = env.str("BASEDIR", default=os.path.dirname(os.path.realpath(__file__)))
-    PORT = env.int("PORT", default=9000)
+    PORT = env.int("PORT", default=9001)
     NO_SHUTDOWN_WITH_SESSIONS = env.bool("NO_SHUTDOWN_WITH_SESSIONS", default=False)
     ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=1)
 
@@ -34,7 +34,7 @@ class Config(object):
 
     Allowed platforms: ANDROID, LINUX, UNIX, MAC, WINDOWS, XP, VISTA
     Allowed browserNames: android, chrome, firefox, htmlunit, internet explorer, iPhone, iPad, opera, safari
-    (source: https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities#used-by-the-selenium-server-for-browser-selection)
+    (source: https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities)
 
     Example:
     PLATFORMS = {
@@ -73,7 +73,7 @@ class Config(object):
 
     OPENSTACK_AUTH_URL = env.str("OPENSTACK_AUTH_URL", default="localhost")
     OPENSTACK_PORT = env.int("OPENSTACK_PORT", default=5000)
-    OPENSTACK_CLIENT_VERSION = env.str("OPENSTACK_CLIENT_VERSION", default="v2.0")
+    OPENSTACK_CLIENT_VERSION = env.str("OPENSTACK_CLIENT_VERSION", default="v3")
     OPENSTACK_USERNAME = env.str("OPENSTACK_USERNAME", default="user")
     OPENSTACK_PASSWORD = env.str("OPENSTACK_PASSWORD", default="password")
     OPENSTACK_TENANT_NAME = env.str("OPENSTACK_TENANT_NAME", default="test")
@@ -81,6 +81,9 @@ class Config(object):
     OPENSTACK_ZONE_FOR_VM_CREATE = env.str("OPENSTACK_ZONE_FOR_VM_CREATE", default="")
     OPENSTACK_PLATFORM_NAME_PREFIX = env.str("OPENSTACK_PLATFORM_NAME_PREFIX", default="origin-")
     OPENSTACK_DEFAULT_FLAVOR = env.str("OPENSTACK_DEFAULT_FLAVOR", default='')
+    OPENSTACK_NETWORK_ID = env.str("OPENSTACK_NETWORK_ID", default='')
+    OPENSTACK_NETWORK_NAME = env.str("OPENSTACK_NETWORK_NAME", default='')
+    OPENSTACK_DOMAIN_NAME = env.str("OPENSTACK_DOMAIN_NAME", default='')
     OPENASTACK_VM_META_DATA = env.json("OPENASTACK_VM_META_DATA", default={
         'admin_pass': 'testPassw0rd.'
     })

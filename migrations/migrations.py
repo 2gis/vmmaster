@@ -4,7 +4,6 @@
 
 # then, load the Alembic configuration and generate the
 # version table, "stamping" it with the most recent rev:
-import alembic.util
 from alembic.config import Config
 from alembic import command
 from alembic.script import ScriptDirectory
@@ -15,14 +14,7 @@ script = ScriptDirectory.from_config(alembic_cfg)
 
 
 def run(connection_string):
-    revision = "250c6848576f"
+    revision = "175aecf5691f"
 
     alembic_cfg.set_main_option("sqlalchemy.url", connection_string)
-    try:
-        command.upgrade(alembic_cfg, revision)
-    except alembic.util.CommandError:
-        try:
-            command.downgrade(alembic_cfg, revision)
-        except alembic.util.CommandError:
-            raise Exception("Could not upgrade nor downgrade "
-                            "database to revision %s" % revision)
+    command.upgrade(alembic_cfg, revision)

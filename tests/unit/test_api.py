@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from mock import Mock, patch, PropertyMock
 from multiprocessing import Process
-from helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for, custom_wait
+from tests.helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for, custom_wait
 from lode_runner import dataprovider
 from core import constants
 
@@ -17,6 +17,11 @@ from core import constants
     'vmpool.clone.OpenstackClone',
     _wait_for_activated_service=custom_wait,
     ping_vm=Mock(return_value=True)
+)
+@patch.multiple(
+    "core.db.models.Endpoint",
+    set_provider=Mock(),
+    set_platform=Mock()
 )
 class TestApi(BaseTestCase):
     def setUp(self):
@@ -36,8 +41,6 @@ class TestApi(BaseTestCase):
         with patch(
             'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
         ), patch(
-            'core.logger.setup_logging', Mock(return_value=Mock())
-        ), patch(
             'core.db.Database', DatabaseMock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
@@ -47,6 +50,8 @@ class TestApi(BaseTestCase):
                 'maxTotalCores': 10, 'maxTotalInstances': 10,
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch(
+            'vmpool.virtual_machines_pool.VirtualMachinesPoolPreloader', Mock()
         ):
             from vmmaster.server import create_app
             self.app = create_app()
@@ -174,7 +179,7 @@ class TestApi(BaseTestCase):
 
     def test_failed_get_vnc_info_with_create_proxy(self):
         from core.sessions import Session
-        endpoint = Mock(ip='127.0.0.1')
+        endpoint = PropertyMock(ip='127.0.0.1')
         endpoint.vnc_helper = Mock(
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
@@ -182,6 +187,7 @@ class TestApi(BaseTestCase):
         session = Session()
         session.name = "session1"
         session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
 
         expected = 5901
 
@@ -191,7 +197,7 @@ class TestApi(BaseTestCase):
         ), patch(
                 'websockify.websocketproxy.websockify_init', Mock()
         ):
-            session.run(endpoint)
+            session.run()
             response = self.vmmaster_client.get(
                 '/api/session/%s/vnc_info' % session.id)
 
@@ -209,7 +215,7 @@ class TestApi(BaseTestCase):
 
     def test_get_vnc_info_for_running_proxy(self):
         from core.sessions import Session
-        endpoint = Mock(ip='127.0.0.1')
+        endpoint = PropertyMock(ip='127.0.0.1')
         endpoint.vnc_helper = Mock(
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
@@ -217,11 +223,12 @@ class TestApi(BaseTestCase):
         session = Session()
         session.name = "session1"
         session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
         with patch(
                 'flask.current_app.sessions.get_session',
                 Mock(return_value=session)
         ):
-            session.run(endpoint)
+            session.run()
 
             expected = {
                 'vnc_proxy_port': 5900
@@ -309,9 +316,7 @@ class TestApi(BaseTestCase):
         ]
 
         with patch(
-            'flask.current_app.pool.pool', fake_pool
-        ), patch(
-            'flask.current_app.pool.using', []
+            'flask.current_app.pool.platforms.get_endpoints', Mock(return_value=fake_pool)
         ):
             response = self.vmmaster_client.delete("/api/pool")
 

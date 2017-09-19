@@ -2,14 +2,13 @@
 
 import json
 import time
-from threading import Thread
 from multiprocessing.pool import ThreadPool
 from twisted.internet import defer
 
 from mock import Mock, patch, PropertyMock
 from uuid import uuid4
 from core.config import setup_config, config
-from tests.unit.helpers import server_is_up, server_is_down, \
+from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, request_with_drop, BaseTestCase, \
     DatabaseMock, custom_wait, request_mock, wait_for
@@ -63,6 +62,10 @@ class BaseTestFlaskApp(BaseTestCase):
                 'maxTotalCores': 10, 'maxTotalInstances': 10,
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch.multiple(
+            "core.db.models.Endpoint",
+            set_provider=Mock(),
+            set_platform=Mock()
         ):
             from vmmaster.app import create_app
             self.app = create_app()
@@ -90,6 +93,11 @@ class BaseTestFlaskApp(BaseTestCase):
     ping_vm=Mock(return_value=True),
     is_broken=Mock(return_value=False),
 )
+@patch.multiple(
+    "core.db.models.Endpoint",
+    set_provider=Mock(),
+    set_platform=Mock()
+)
 class TestServer(BaseTestFlaskApp):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -113,9 +121,6 @@ class TestServer(BaseTestFlaskApp):
         response = new_session_request(self.vmmaster_client, self.desired_caps)
         self.assertEqual(200, response.status_code)
 
-        vm_count = len(self.app.pool.using)
-        self.assertEqual(1, vm_count)
-
     def test_server_creating_a_few_parallel_sessions(self):
         tpool = ThreadPool(2)
 
@@ -127,11 +132,7 @@ class TestServer(BaseTestFlaskApp):
         deffered2.wait()
         result1 = deffered1.get()
         result2 = deffered2.get()
-
-        vm_count = len(self.app.pool.using)
-
         self.assertEqual([result1.status_code, result2.status_code].count(200), 2)
-        self.assertEqual(2, vm_count)
 
     @patch('core.sessions.Session.set_user', Mock())
     def test_server_create_new_session_with_user_and_token(self):
@@ -145,31 +146,7 @@ class TestServer(BaseTestFlaskApp):
         _desired_caps["desiredCapabilities"]["token"] = None
 
         response = new_session_request(self.vmmaster_client, self.desired_caps)
-
-        vm_count = len(self.app.pool.using)
-
         self.assertEqual(200, response.status_code)
-        self.assertEqual(1, vm_count)
-
-    def test_server_maximum_vm_running(self):
-        """
-        - maximum machines in pool
-        - try to create new session
-        Expected: thread with new session is alive
-        """
-
-        self.app.pool.add('origin_1')
-        self.app.pool.add('origin_1')
-
-        t = Thread(
-            target=new_session_request,
-            args=(self.vmmaster_client, self.desired_caps)
-        )
-        t.daemon = True
-        t.start()
-        self.assertEqual(2, len(self.app.pool.using))
-        self.assertTrue(t.isAlive())
-        t.join(1)
 
     def test_get_non_existing_session(self):
         """
@@ -553,7 +530,7 @@ class TestServerShutdown(BaseTestCase):
             return_value='test_origin_1')
 
         with patch(
-                'core.db.Database', DatabaseMock()
+            'core.db.Database', DatabaseMock()
         ), patch(
             'core.video.VNCVideoHelper', Mock()
         ), patch(
@@ -605,75 +582,6 @@ class TestServerShutdown(BaseTestCase):
         session.failed()
 
         server_is_down(self.address)
-
-
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
-@patch.multiple(
-    'vmmaster.webdriver.commands',
-    ping_vm=Mock(side_effect=ping_vm_true_mock),
-    selenium_status=Mock(return_value=(200, {}, json.dumps({'status': 0}))),
-    start_selenium_session=Mock(return_value=(200, {}, json.dumps({'sessionId': "1"})))
-)
-@patch.multiple(
-    "vmpool.clone.OpenstackClone",
-    vnc_port=5900,
-    agent_port=9000,
-    selenium_port=4455,
-    _get_nova_client=Mock(return_value=Mock()),
-    _wait_for_activated_service=custom_wait,
-    is_broken=Mock(return_value=False),
-)
-class TestServerWithPreloadedVM(BaseTestFlaskApp):
-    def setUp(self):
-        setup_config('data/config_with_preloaded.py')
-
-        super(TestServerWithPreloadedVM, self).setUp()
-
-        self.vmmaster_client = self.app.test_client()
-        self.ctx = self.app.app_context()
-        self.ctx.push()
-
-    def tearDown(self):
-        self.app.sessions.kill_all()
-        self.app.cleanup()
-        self.ctx.pop()
-
-    @patch.multiple(
-        'vmpool.clone.OpenstackClone',
-        is_created=Mock(return_value=True),
-        ping_vm=Mock(side_effect=ping_vm_true_mock)
-    )
-    def test_max_count_with_run_new_request_during_prevm_is_ready(self):
-        """
-        - wait while preloaded is ready
-        - make new session request
-        Expected: session created
-        """
-        while True:
-            if len(self.app.pool.pool):
-                if self.app.pool.pool[0].ready:
-                    break
-
-        response = new_session_request(self.vmmaster_client, self.desired_caps)
-
-        self.assertEqual(200, response.status_code)
-        self.assertEqual(1, self.app.pool.count())
-
-    @patch.multiple(
-        'vmpool.clone.OpenstackClone',
-        is_created=Mock(return_value=False),
-        ping_vm=Mock(side_effect=ping_vm_false_mock)
-    )
-    def test_max_count_with_run_new_request_during_prevm_is_not_ready(self):
-        """
-        - do not wait for preloaded vm ready status
-        - make new session request
-        Expected: session created
-        """
-        response = new_session_request(self.vmmaster_client, self.desired_caps)
-
-        self.assertEqual(200, response.status_code)
-        self.assertEqual(1, self.app.pool.count())
 
 
 @patch.multiple(
@@ -739,7 +647,7 @@ class TestSessionSteps(BaseTestFlaskApp):
             raise Exception('something ugly happened in make_request')
 
         def new_vm_mock(arg):
-            yield Mock(ip=1)
+            yield PropertyMock(ip=1)
 
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=new_vm_mock)
@@ -796,7 +704,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
         Expected: session was created, session_step was created
         """
         def get_vm_mock(arg):
-            yield Mock(name="test_vm_1", ip="127.0.0.1")
+            yield PropertyMock(name="test_vm_1", ip="127.0.0.1")
 
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=get_vm_mock)

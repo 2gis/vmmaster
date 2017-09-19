@@ -2,10 +2,14 @@
 
 from flask import Flask
 from mock import patch, Mock
-from tests.unit.helpers import BaseTestCase, DatabaseMock, wait_for
-from multiprocessing import Process
+from tests.helpers import BaseTestCase, DatabaseMock, wait_for
 
 
+@patch.multiple(
+    "core.db.models.Endpoint",
+    set_provider=Mock(),
+    set_platform=Mock()
+)
 @patch('core.utils.openstack_utils.nova_client', Mock())
 class TestVNCVideoHelper(BaseTestCase):
     @classmethod
@@ -15,7 +19,6 @@ class TestVNCVideoHelper(BaseTestCase):
 
         cls.app = Flask(__name__)
         cls.app.database = DatabaseMock()
-        cls.app.sessions = Mock()
 
     @classmethod
     def tearDownClass(cls):
@@ -28,8 +31,6 @@ class TestVNCVideoHelper(BaseTestCase):
     def tearDown(self):
         self.ctx.pop()
 
-    @patch('flask.current_app', Mock())
-    @patch('flask.current_app.database', Mock())
     def test_run_recorder(self):
         """
         - call session.run()
@@ -43,22 +44,45 @@ class TestVNCVideoHelper(BaseTestCase):
         }
 
         with patch(
+            'flask.current_app', self.app
+        ), patch(
             'core.db.Database', DatabaseMock()
-        ):
+        ), patch(
+            'core.video.VNCVideoHelper._flvrec', Mock()
+        ), patch(
+            'core.video.VNCVideoHelper.start_recording', Mock()
+        ) as start_rec_mock, patch(
+            'core.video.VNCVideoHelper.stop', Mock()
+        ) as stop_rec_mock:
             from core.sessions import Session
+            from vmpool.clone import Clone
+            from vmpool.artifact_collector import ArtifactCollector
+            artifact_collector = ArtifactCollector()
             session = Session(dc=dc)
             session.name = "session1"
-            with patch(
-                'core.video.VNCVideoHelper._flvrec', Mock()
-            ):
-                from vmpool import VirtualMachine
-                endpoint = VirtualMachine(name='test_endpoint', platform='test_origin_1')
-                endpoint.ip = '127.0.0.1'
-                endpoint.save_artifacts = Mock()
-                session.run(endpoint=endpoint)
-                self.assertTrue(
-                    isinstance(session.endpoint.vnc_helper.recorder, Process))
+            session.id = 1
 
-                session.close()
-                self.assertTrue(wait_for(
-                    lambda: not session.endpoint.vnc_helper.recorder.is_alive()))
+            self.app.sessions = Mock(get_session=Mock(return_value=session))
+            self.app.database.active_sessions["1"] = session
+            self.app.pool = Mock(artifact_collector=artifact_collector, app=self.app)
+
+            endpoint = Clone(Mock(
+                short_name="platform_1",
+                id=1, status="active",
+                get=Mock(return_value="snapshot"),
+                min_disk=20,
+                min_ram=2,
+                instance_type_flavorid=1
+            ), "ondemand", Mock(id=1, artifact_collector=artifact_collector, app=self.app))
+            endpoint.ip = '127.0.0.1'
+            endpoint.save_artifacts = Mock()
+            session.endpoint = endpoint
+            session.endpoint.start_recorder(session)
+
+            wait_for(lambda: artifact_collector.in_queue)
+
+            session.succeed()
+            self.assertTrue(session.closed)
+            wait_for(lambda: not artifact_collector.in_queue)
+            self.assertTrue(start_rec_mock.called)
+            self.assertTrue(stop_rec_mock.called)

@@ -1,7 +1,5 @@
 # coding: utf-8
 import logging
-import docker
-from docker import DockerClient
 
 from core.config import config
 from core.utils import exception_handler, api_exception_handler
@@ -51,7 +49,7 @@ class DockerContainer:
         try:
             if config.BIND_LOCALHOST_PORTS:
                 for original_port, bind_port in self.origin.attrs["NetworkSettings"]["Ports"].items():
-                    original_port = int(original_port.replace("/tcp", ""))
+                    original_port = str(original_port.replace("/tcp", ""))
                     _ports[original_port] = int(bind_port[0]["HostPort"])
             else:
                 _ports = {port: port for port in config.PORTS}
@@ -107,6 +105,7 @@ class DockerContainer:
 
 class DockerManageClient:
     def __init__(self):
+        from docker import DockerClient
         self.client = DockerClient(
             base_url=config.DOCKER_BASE_URL,
             timeout=config.DOCKER_TIMEOUT,
@@ -179,6 +178,7 @@ class DockerManageClient:
 
         :rtype: Network
         """
+        import docker
         ipam_pool = docker.types.IPAMPool(
             subnet=config.DOCKER_SUBNET,
             gateway=config.DOCKER_GATEWAY

@@ -1,8 +1,8 @@
 # coding: utf-8
 
 from mock import Mock, patch, PropertyMock
-from core.config import config, setup_config
-from helpers import BaseTestCase, custom_wait
+from core.config import setup_config, config
+from tests.helpers import BaseTestCase, custom_wait
 from flask import Flask
 
 
@@ -14,13 +14,14 @@ from flask import Flask
 )
 class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
-        setup_config('data/config_openstack.py')
-        self.platform = "origin_1"
-
+        from core.db import Database
+        setup_config('data/config.py')
+        self.platform_name = "origin_1"
         self.app = Flask(__name__)
 
         self.ctx = self.app.app_context()
         self.ctx.push()
+        self.app.database = Database()
 
         self.mocked_image = Mock(
             id=1, status='active',
@@ -43,66 +44,70 @@ class TestVirtualMachinePool(BaseTestCase):
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)
+            self.pool.id = self.pool.register()
+            self.ctx = self.app.app_context()
+            self.ctx.push()
 
     def tearDown(self):
         self.pool.free()
+        self.pool.unregister()
         self.ctx.pop()
 
     def test_pool_count(self):
-        self.assertEqual(0, self.pool.count())
-        self.pool.add(self.platform)
-        self.assertEqual(1, self.pool.count())
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        self.pool.add(self.platform_name)
+        self.assertEqual(1, len(self.pool.active_endpoints))
 
     def test_get_parallel_two_vm(self):
         from multiprocessing.pool import ThreadPool
         threads = ThreadPool(processes=1)
-        self.pool.preload(self.platform)
-        self.pool.preload(self.platform)
+        self.pool.preload(self.platform_name)
+        self.pool.preload(self.platform_name)
 
-        self.assertEqual(2, len(self.pool.pool))
+        self.assertEqual(2, len(self.pool.active_endpoints))
 
         deffered1 = threads.apply_async(
-            self.pool.get_by_platform, args=(self.platform,))
+            self.pool.get_by_platform, args=(self.platform_name,))
         deffered2 = threads.apply_async(
-            self.pool.get_by_platform, args=(self.platform,))
+            self.pool.get_by_platform, args=(self.platform_name,))
         deffered1.wait()
         deffered2.wait()
 
-        self.assertEqual(2, len(self.pool.using))
+        self.assertEqual(2, len(self.pool.active_endpoints))
 
     def test_vm_preloading(self):
-        self.assertEqual(0, len(self.pool.pool))
-        self.pool.preload(self.platform)
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        self.pool.preload(self.platform_name)
 
-        from vmpool import VirtualMachine
-        self.assertIsInstance(self.pool.pool[0], VirtualMachine)
-        self.assertEqual(1, len(self.pool.pool))
+        from vmpool.clone import OpenstackClone
+        self.assertIsInstance(self.pool.active_endpoints[0], OpenstackClone)
+        self.assertEqual(1, len(self.pool.active_endpoints))
 
     def test_vm_adding(self):
-        self.assertEqual(0, len(self.pool.pool))
-        self.pool.add(self.platform)
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        self.pool.add(self.platform_name)
 
-        from vmpool import VirtualMachine
-        self.assertIsInstance(self.pool.using[0], VirtualMachine)
-        self.assertEqual(1, len(self.pool.using))
+        from vmpool.clone import OpenstackClone
+        self.assertIsInstance(self.pool.active_endpoints[0], OpenstackClone)
+        self.assertEqual(1, len(self.pool.active_endpoints))
 
     def test_vm_deletion(self):
-        self.assertEqual(0, len(self.pool.pool))
-        self.pool.preload(self.platform)
-        self.assertEqual(1, len(self.pool.pool))
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        clone = self.pool.preload(self.platform_name)
+        self.assertEqual(1, len(self.pool.active_endpoints))
 
-        vm = self.pool.get_by_platform(self.platform)
-        vm.delete()
+        clone.delete(try_to_rebuild=False)
+        self.app.database.delete(clone)
 
-        self.assertEqual(0, self.pool.count())
+        self.assertEqual(0, len(self.pool.active_endpoints))
 
     def test_max_vm_count(self):
         config.OPENSTACK_MAX_VM_COUNT = 2
 
-        self.pool.add(self.platform)
-        self.pool.add(self.platform)
+        self.pool.add(self.platform_name)
+        self.pool.add(self.platform_name)
 
-        self.assertIsNone(self.pool.add(self.platform))
+        self.assertIsNone(self.pool.add(self.platform_name))
 
     def test_platform_from_config(self):
         desired_caps = {
@@ -114,5 +119,5 @@ class TestVirtualMachinePool(BaseTestCase):
 
         from vmpool.endpoint import get_vm
         for vm in get_vm(desired_caps):
-            self.assertEqual(vm.platform, config.PLATFORM)
+            self.assertEqual(vm.platform_name, config.PLATFORM)
             break

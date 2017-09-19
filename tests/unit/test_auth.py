@@ -3,7 +3,7 @@
 import json
 
 from mock import Mock, patch
-from helpers import BaseTestCase
+from tests.helpers import BaseTestCase
 from flask import Flask
 
 

@@ -4,8 +4,7 @@ import copy
 import json
 
 from mock import Mock, PropertyMock, patch
-from helpers import Handler, BaseTestCase
-from helpers import ServerMock, get_free_port, DatabaseMock
+from tests.helpers import Handler, BaseTestCase, ServerMock, get_free_port, DatabaseMock
 
 from core.exceptions import CreationException, ConnectionError, \
     SessionException, TimeoutException
@@ -58,6 +57,7 @@ class CommonCommandsTestCase(BaseTestCase):
         cls.app = Flask(__name__)
         cls.app.database = None
         cls.app.sessions = None
+        cls.app.pool = Mock()
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
@@ -72,14 +72,15 @@ class CommonCommandsTestCase(BaseTestCase):
             self.session = Session()
             self.session.name = "session1"
 
-            vm = Mock()
+            vm = PropertyMock()
             vm.name = 'vm1'
             vm.ip = self.host
             vm.vnc_port = self.vnc_server.port
             vm.selenium_port = self.webdriver_server.port
             vm.agent_port = self.vmmaster_agent.port
+            self.session.endpoint = vm
 
-            self.session.run(vm)
+            self.session.run()
 
             from vmmaster.webdriver import commands
             self.commands = commands

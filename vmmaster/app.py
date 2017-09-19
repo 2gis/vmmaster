@@ -28,22 +28,15 @@ class Vmmaster(Flask):
         self.pool = VirtualMachinesPool(self)
         self.sessions = Sessions(self)
         self.json_encoder = JSONEncoder
-        self.register()
 
-    def register(self):
-        self.database.register_platforms(self.uuid, self.pool.platforms.info())
-
-    def unregister(self):
-        self.database.unregister_platforms(self.uuid)
+        self.pool.start_workers()
+        self.sessions.start_workers()
 
     def cleanup(self):
         log.info("Cleanup...")
         try:
             self.pool.stop_workers()
-            self.sessions.worker.stop()
-            self.pool.free()
-            self.unregister()
-            self.pool.platforms.cleanup()
+            self.sessions.stop_workers()
             log.info("Cleanup done")
         except:
             log.exception("Cleanup was finished with errors")

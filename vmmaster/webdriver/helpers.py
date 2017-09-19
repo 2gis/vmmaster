@@ -10,8 +10,7 @@ from PIL import Image
 from functools import wraps
 from flask import Response, request, current_app
 
-from core.exceptions import CreationException, ConnectionError, \
-    TimeoutException, SessionException
+from core.exceptions import CreationException, ConnectionError, TimeoutException, SessionException
 from core.config import config
 
 from core import constants
@@ -171,15 +170,15 @@ def internal_exec(command):
 def check_to_exist_ip(session, tries=10, timeout=5):
     i = 0
     while True:
-        if session.endpoint_ip is not None:
-            return session.endpoint_ip
+        if session.endpoint.ip is not None:
+            return session.endpoint.ip
         else:
             if i > tries:
                 raise CreationException('Error: VM %s have not ip address' %
-                                        session.endpoint_name)
+                                        session.endpoint.name)
             i += 1
             log.info('IP is %s for VM %s, wait for %ss. before next try...' %
-                     (session.endpoint_ip, session.endpoint_name, timeout))
+                     (session.endpoint.ip, session.endpoint.name, timeout))
             time.sleep(timeout)
 
 
@@ -228,14 +227,16 @@ def get_session():
 
     session = Session(dc=dc)
     request.session = session
-    log.info("New session %s (%s) for %s" %
-             (str(session.id), session.name, str(dc)))
+    log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     yield session
 
     for _endpoint in get_endpoint(session.id, dc):
         if _endpoint:
+            session.refresh()
+            session.endpoint_id = _endpoint.id
             session.endpoint = _endpoint
+            session.save()
         yield session
 
-    session.run(session.endpoint)
+    session.run()
     yield session

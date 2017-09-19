@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import logging
+from flask import current_app
 
 from core.config import config
 from core.utils import openstack_utils, exception_handler
@@ -81,6 +82,10 @@ class DockerImage(Platform):
         if isinstance(tags, list) and len(tags):
             return tags[0].strip()
 
+    @property
+    def short_name(self):
+        return self.name
+
     @exception_handler()
     def tags(self):
         return self.origin.tags
@@ -109,6 +114,16 @@ class DockerPlatforms(PlatformsInterface):
     @staticmethod
     def get_limit(platform):
         return DockerPlatforms.max_count()
+
+    @classmethod
+    def get_endpoint(cls, endpoint_id):
+        from vmpool.clone import DockerClone
+        return current_app.database.get_endpoint(DockerClone, endpoint_id)
+
+    @classmethod
+    def get_endpoints(cls, provider_id, efilter="all"):
+        from vmpool.clone import DockerClone
+        return current_app.database.get_endpoints(DockerClone, provider_id, efilter=efilter)
 
 
 class OpenstackPlatforms(PlatformsInterface):
@@ -143,6 +158,16 @@ class OpenstackPlatforms(PlatformsInterface):
     @staticmethod
     def get_limit(platform):
         return OpenstackPlatforms.max_count()
+
+    @classmethod
+    def get_endpoint(cls, endpoint_id):
+        from vmpool.clone import OpenstackClone
+        return current_app.database.get_endpoint(OpenstackClone, endpoint_id)
+
+    @classmethod
+    def get_endpoints(cls, provider_id, efilter="all"):
+        from vmpool.clone import OpenstackClone
+        return current_app.database.get_endpoints(OpenstackClone, provider_id, efilter=efilter)
 
 
 class Platforms(object):
@@ -202,6 +227,20 @@ class Platforms(object):
     def get(cls, platform):
         cls.check_platform(platform)
         return cls.platforms.get(platform, None)
+
+    @classmethod
+    def get_endpoint(cls, endpoint_id):
+        if config.USE_OPENSTACK and cls.openstack_platforms:
+            return OpenstackPlatforms.get_endpoint(endpoint_id)
+        if config.USE_DOCKER and cls.docker_platforms:
+            return DockerPlatforms.get_endpoint(endpoint_id)
+
+    @classmethod
+    def get_endpoints(cls, provider_id, efilter="all"):
+        if config.USE_OPENSTACK and cls.openstack_platforms:
+            return OpenstackPlatforms.get_endpoints(provider_id, efilter=efilter)
+        if config.USE_DOCKER and cls.docker_platforms:
+            return DockerPlatforms.get_endpoints(provider_id, efilter=efilter)
 
     @classmethod
     def info(cls):

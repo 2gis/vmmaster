@@ -53,11 +53,10 @@ def add_sub_step(session, func):
 
 @connection_watcher
 def start_session(request, session):
-    log.info("Start preparing selenium session for %s on %s(%s)"
-             % (session.id, session.endpoint_name, session.endpoint_ip))
+    log.info("Start preparing selenium session for {}".format(session))
     status, headers, body = None, None, None
 
-    ping_vm(session, ports=session.endpoint.ports)
+    ping_vm(session, ports=session.endpoint.bind_ports)
     yield status, headers, body
 
     selenium_status(request, session)
@@ -120,7 +119,7 @@ def ping_vm(session, ports=config.PORTS):
 def start_selenium_session(request, session):
     status, headers, body = None, None, None
 
-    log.info("Starting selenium-server-standalone session for %s" % session.id)
+    log.info("Starting selenium-server-standalone session for {}".format(session.id))
     log.debug("with %s %s %s %s" % (request.method, request.path,
                                     request.headers, request.data))
 
@@ -137,7 +136,7 @@ def start_selenium_session(request, session):
                  "for %s - %s : %s" % (session.id, status, body))
         raise CreationException("Failed to start selenium session: %s" % body)
 
-    log.info("SUCCESS start selenium-server-standalone status for %s" % session.id)
+    log.info("SUCCESS start selenium-server-standalone session for {}".format(session.id))
     yield status, headers, body
 
 
@@ -148,7 +147,7 @@ def selenium_status(request, session):
     status_cmd = "/".join(parts)
     status, headers, body, selenium_status_code = None, None, None, None
 
-    log.info("Getting selenium-server-standalone status for %s" % session.id)
+    log.info("Getting selenium-server-standalone status for {}".format(session))
 
     wrapped_make_request = add_sub_step(session, session.make_request)
     for status, headers, body in wrapped_make_request(
@@ -158,10 +157,10 @@ def selenium_status(request, session):
     selenium_status_code = json.loads(body).get("status", None)
 
     if selenium_status_code != 0:
-        log.info("FAILED get selenium-server-standalone status for %s" % session.id)
+        log.info("FAILED get selenium-server-standalone status for {}".format(session))
         raise CreationException("Failed to get selenium status: %s" % body)
 
-    log.info("SUCCESS get selenium-server-standalone status for %s" % session.id)
+    log.info("SUCCESS get selenium-server-standalone status for {}".format(session))
     yield status, headers, body
 
 
@@ -282,7 +281,7 @@ def run_script_through_websocket(script, session, host):
 
 
 def run_script(request, session):
-    host = "ws://%s:%s/runScript" % (session.endpoint_ip, session.endpoint.agent_port)
+    host = "ws://%s:%s/runScript" % (session.endpoint.ip, session.endpoint.agent_port)
 
     session.add_sub_step(
         control_line="%s %s" % (request.method, '/runScript'),

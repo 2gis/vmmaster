@@ -147,7 +147,7 @@ def get_vnc_info(session_id):
     result, code = {}, 500
 
     _session = helpers.get_session(session_id)
-    if _session and _session.endpoint_ip and getattr(_session, "endpoint", None):
+    if _session and getattr(_session, "endpoint", None) and _session.endpoint.ip:
         if _session.endpoint.vnc_helper.proxy:
             result, code = (
                 {'vnc_proxy_port': _session.endpoint.vnc_helper.get_proxy_port()}, 200
@@ -184,7 +184,7 @@ def delete_all_vm_from_pool():
     results = []
     failed = []
 
-    for endpoint in current_app.pool.pool + current_app.pool.using:
+    for endpoint in current_app.pool.active_endpoints:
         try:
             endpoint.delete()
             results.append(endpoint.name)

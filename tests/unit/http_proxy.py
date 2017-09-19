@@ -1,10 +1,10 @@
 # coding: utf-8
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from core.config import setup_config, config
 
-from helpers import (vmmaster_server_mock, server_is_up, server_is_down,
-                     BaseTestCase, get_free_port, ServerMock)
+from tests.helpers import (vmmaster_server_mock, server_is_up, server_is_down,
+                           BaseTestCase, get_free_port, ServerMock)
 
 import requests
 from twisted.internet import defer
@@ -26,7 +26,7 @@ class TestHttpProxy(BaseTestCase):
 
         from core.sessions import Session
         self.session = Session()
-        self.session.endpoint_ip = "localhost"
+        self.session.endpoint = PropertyMock(ip='localhost')
 
     @defer.inlineCallbacks
     def tearDown(self):

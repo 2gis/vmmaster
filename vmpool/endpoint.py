@@ -1,5 +1,7 @@
 # coding: utf-8
+import time
 import logging
+
 from core.utils import generator_wait_for
 from core.config import config
 from core.profiler import profiler
@@ -34,27 +36,30 @@ def get_vm(desired_caps):
     platform = get_platform(desired_caps)
 
     vm = None
+    sleep_time, sleep_time_increment = 0.5, 0.5
     for _ in generator_wait_for(
         lambda: vm, timeout=config.GET_VM_TIMEOUT
     ):
         vm = current_app.pool.get_vm(platform)
-        yield vm
         if vm:
             break
-    else:
+        else:
+            sleep_time += sleep_time_increment
+            log.debug("Waiting {} seconds before next attempt to get endpoint".format(sleep_time))
+            time.sleep(sleep_time)
+
+    if not vm:
         raise CreationException(
             "Timeout while waiting for vm with platform %s" % platform
         )
 
-    yield vm
-
     for _ in generator_wait_for(
         lambda: vm.ready, timeout=config.GET_VM_TIMEOUT
     ):
-        yield vm
         if vm.ready:
             break
-    else:
+
+    if not vm.ready:
         vm.delete(try_to_rebuild=False)
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %

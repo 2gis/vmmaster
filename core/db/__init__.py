@@ -4,7 +4,7 @@ import logging
 from sqlalchemy import create_engine, inspect, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.db.models import SessionLogStep, User, Platform
+from core.db.models import SessionLogStep, User, Platform, Provider
 from core.utils import to_thread
 from core.config import config
 
@@ -69,12 +69,16 @@ class Database(object):
         if not session_id:
             return None
         from core.sessions import Session
-        return dbsession.query(Session).get(session_id)
+        try:
+            return dbsession.query(Session).get(session_id)
+        except:
+            log.warning("Session {} not found in db".format(session_id))
+            return None
 
     @transaction
     def get_active_sessions(self, dbsession=None):
         from core.sessions import Session
-        return dbsession.query(Session).filter(not Session.closed).all()
+        return dbsession.query(Session).filter(Session.closed.is_(False)).all()
 
     @transaction
     def get_last_session_step(self, session_id, dbsession=None):
@@ -103,23 +107,70 @@ class Database(object):
         return None
 
     @transaction
-    def get_platform(self, name, dbsession=None):
-        return dbsession.query(Platform).filter_by(name=name).first()
-
-    def register_platforms(self, node, platforms):
-        for name in platforms:
-            try:
-                self.add(Platform(name, node))
-            except Exception as e:
-                log.exception(
-                    'Error registering platform: %s (%s)' %
-                    (name, e.message)
-                )
+    def get_endpoint(self, clone, endpoint_id, dbsession=None):
+        try:
+            return dbsession.query(clone).get(endpoint_id)
+        except:
+            return None
 
     @transaction
-    def unregister_platforms(self, uuid, dbsession=None):
-        dbsession.query(Platform).filter_by(node=uuid).delete()
+    def get_endpoints(self, clone, provider_id, efilter="all", dbsession=None):
+        base_query = dbsession.query(clone).filter_by(provider_id=provider_id)
+        if efilter == "all":
+            return base_query.all()
+
+        base_query = base_query.filter(clone.deleted.is_(False))
+        if efilter == "active":
+            return base_query.all()
+        if efilter == "using":
+            return base_query.filter(clone.in_use.is_(True)).all()
+        if efilter == "pool":
+            return base_query.filter(clone.in_use.is_(False)).all()
+        else:
+            return []
+
+    @transaction
+    def get_provider(self, provider_id, dbsession=None):
+        return dbsession.query(Provider).filter_by(id=provider_id).first()
+
+    @transaction
+    def get_platform(self, name, provider_id=None, dbsession=None):
+        if provider_id:
+            platform = dbsession.query(Platform).filter_by(provider_id=provider_id).filter_by(name=name).first()
+        else:
+            platform = dbsession.query(Platform).filter_by(name=name).first()
+        if not platform:
+            log.warning("Platform {} not found".format(name))
+        return platform
+
+    def register_platforms(self, provider_id, platforms):
+        for name in platforms:
+            platform = Platform(name)
+            platform.provider = self.get_provider(provider_id)
+            self.add(platform)
+
+    @transaction
+    def unregister_platforms(self, provider_id, dbsession=None):
+        dbsession.query(Platform).filter_by(provider_id=provider_id).delete()
         dbsession.commit()
+
+    @transaction
+    def register_provider(self, name, url, platforms, dbsession=None):
+        provider = dbsession.query(Provider).filter_by(url=url).first()
+        if provider:
+            provider.active = True
+            self.update(provider)
+        else:
+            provider = self.add(Provider(name=name, url=url))
+        self.register_platforms(provider_id=provider.id, platforms=platforms)
+        return provider.id
+
+    @transaction
+    def unregister_provider(self, provider_id, dbsession=None):
+        provider = dbsession.query(Provider).get(provider_id)
+        provider.active = False
+        self.update(provider)
+        self.unregister_platforms(provider_id=provider.id)
 
     @transaction
     def add(self, obj, dbsession=None):
