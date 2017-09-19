@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from core import constants
 
 log = logging.getLogger(__name__)
 
@@ -24,21 +25,21 @@ class IMatcher(object):
 
 
 class PoolBasedMatcher(IMatcher):
-    def __init__(self, pool):
-        self.pool = pool
+    def __init__(self, platforms):
+        self.platforms = platforms
 
     def get_matched_platforms(self, platform):
-        if platform == 'ANY':
-            return self.pool.platforms.keys()
+        if platform == constants.ANY:
+            return self.platforms.keys()
 
         platform = platform.lower()
-        if self.pool.platforms.check_platform(platform):
+        if self.platforms.check_platform(platform):
             return [platform]
 
         return []
 
     def match(self, dc):
-        platform = dc.get('platform', 'ANY')
+        platform = dc.get('platform', constants.ANY)
         return bool(self.get_matched_platforms(platform))
 
 
@@ -57,7 +58,7 @@ class SeleniumMatcher(IMatcher):
         :param desired_platform: str name
         :return: dict
         """
-        if desired_platform == 'ANY':
+        if desired_platform == constants.ANY:
             all_platforms = {}
             for platform in self.platforms.keys():
                 all_platforms.update(self._filter_platforms_by_platform_type(platform))
@@ -75,7 +76,7 @@ class SeleniumMatcher(IMatcher):
         :param version: str
         :return: boolean
         """
-        return desired_version == 'ANY' or desired_version in version
+        return desired_version == constants.ANY or desired_version in version
 
     def _filter_platforms_by_browser_match(self, platforms, desired_browser, desired_version):
         """
@@ -94,7 +95,7 @@ class SeleniumMatcher(IMatcher):
                 continue
 
             for browser, version in browsers.items():
-                if desired_browser == 'ANY':
+                if desired_browser == constants.ANY:
                     matched_platforms.append(platform)
                     continue
 
@@ -112,13 +113,13 @@ class SeleniumMatcher(IMatcher):
         :param dc: Desired Capabilities dictionary
         :return: matched platforms list
         """
-        desired_platform_type = dc.get('platform', 'ANY').upper()
+        desired_platform_type = dc.get('platform', constants.ANY).upper()
         matched_platforms = self._filter_platforms_by_platform_type(desired_platform_type)
         log.debug("Matched platforms found for dc={}: {}".format(dc, matched_platforms))
 
         if matched_platforms:
-            desired_browser = dc.get('browserName', 'ANY')
-            desired_version = dc.get('version', 'ANY')
+            desired_browser = dc.get('browserName', constants.ANY)
+            desired_version = dc.get('version', constants.ANY)
             return self._filter_platforms_by_browser_match(matched_platforms, desired_browser, desired_version)
 
         if self.fallback:

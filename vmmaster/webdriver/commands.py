@@ -7,7 +7,7 @@ import websocket
 import logging
 
 from traceback import format_exc
-from core import utils
+from core import utils, constants
 from core.utils import network_utils
 from core.utils import generator_wait_for
 
@@ -170,7 +170,7 @@ def replace_platform_with_any(request):
     body = json.loads(request.data)
     desired_capabilities = body["desiredCapabilities"]
 
-    desired_capabilities["platform"] = u"ANY"
+    desired_capabilities["platform"] = constants.ANY
     body["desiredCapabilities"] = desired_capabilities
 
     request.data = json.dumps(body)

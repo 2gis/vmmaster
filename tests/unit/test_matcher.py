@@ -3,7 +3,7 @@
 import unittest
 from mock import Mock
 
-from vmmaster.matcher import SeleniumMatcher, PoolBasedMatcher
+from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
 
 
 class TestSeleniumMatcherNegative(unittest.TestCase):

@@ -223,7 +223,7 @@ def get_session():
     profiler.register_get_session_call()
 
     dc = commands.get_desired_capabilities(request)
-    if not current_app.matcher.match(dc):
+    if not current_app.match(dc):
         raise SessionException("Cannot match platform for DesiredCapabilities: {}".format(dc))
 
     session = Session(dc=dc)

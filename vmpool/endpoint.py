@@ -19,9 +19,9 @@ def get_platform(desired_caps):
         platform = config.PLATFORM
         desired_caps['platform'] = platform
 
-    matched_platforms = current_app.matcher.get_matched_platforms(desired_caps)
+    matched_platforms = current_app.pool.get_matched_platforms(desired_caps)
     for platform in matched_platforms:
-        if current_app.pool.platforms.check_platform(platform):
+        if current_app.pool.check_platform(platform):
             return platform
     else:
         raise PlatformException('No platforms {} found in pool: {})'.format(

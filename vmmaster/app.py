@@ -20,14 +20,12 @@ class Vmmaster(Flask):
         from core.db import Database
         from core.sessions import Sessions
         from vmpool.virtual_machines_pool import VirtualMachinesPool
-        from vmmaster.matcher import SeleniumMatcher, PoolBasedMatcher
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
         self.uuid = str(uuid1())
         self.database = Database()
         self.pool = VirtualMachinesPool(self)
-        self.matcher = SeleniumMatcher(config.PLATFORMS, PoolBasedMatcher(self.pool))
         self.sessions = Sessions(self)
         self.json_encoder = JSONEncoder
         self.register()
@@ -49,6 +47,9 @@ class Vmmaster(Flask):
             log.info("Cleanup done")
         except:
             log.exception("Cleanup was finished with errors")
+
+    def match(self, dc):
+        return self.pool.matcher.match(dc)
 
 
 def register_blueprints(app):
