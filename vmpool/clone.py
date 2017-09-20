@@ -457,7 +457,7 @@ class DockerClone(Clone):
     def _wait_for_activated_service(self):
         ping_retry = 1
 
-        while not self.ready or self.deleted:
+        while not self.ready and not self.deleted:
             yield self.ready
             self.refresh()
             if self.is_spawning:
