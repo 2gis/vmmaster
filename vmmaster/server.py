@@ -83,7 +83,7 @@ class VMMasterServer(object):
 
     @inlineCallbacks
     def before_shutdown(self):
-        self.app.running = False
+        self.app.stop()
         if getattr(config, 'WAIT_ACTIVE_SESSIONS', None):
             yield self.wait_for_end_active_sessions()
 

@@ -24,12 +24,12 @@ class VMPool(Flask):
 
         super(VMPool, self).__init__(*args, **kwargs)
         self.running = True
+        self.json_encoder = JSONEncoder
         self.database = Database()
         self.sessions = Sessions(self)
         self.pool = VirtualMachinesPool(self)
-        self.json_encoder = JSONEncoder
         self.pool.start_workers()
-        log.info("Provider #%s was started..." % self.pool.id)
+        log.info("Provider #{} was started...".format(self.pool.id))
 
     def cleanup(self):
         try:
@@ -38,6 +38,9 @@ class VMPool(Flask):
             log.info("Cleanup was done")
         except:
             log.exception("Cleanup was finished with errors")
+
+    def stop(self):
+        self.running = False
 
 
 def register_blueprints(app):

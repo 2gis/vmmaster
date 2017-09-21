@@ -23,10 +23,10 @@ class Vmmaster(Flask):
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
+        self.json_encoder = JSONEncoder
         self.database = Database()
         self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
         self.sessions = Sessions(self)
-        self.json_encoder = JSONEncoder
         self.sessions.start_workers()
         log.info("Provider #{} ({}) was started...".format(self.pool.id, self.pool.name))
 
@@ -41,6 +41,9 @@ class Vmmaster(Flask):
     @property
     def providers(self):
         return self.database.get_active_providers()
+
+    def stop(self):
+        self.running = False
 
     def match(self, dc):
         from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher

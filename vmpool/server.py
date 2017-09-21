@@ -73,7 +73,7 @@ class VMPoolServer(object):
 
     @inlineCallbacks
     def before_shutdown(self):
-        self.app.running = False
+        self.app.stop()
         yield deferToThread(lambda: None).addBoth(
             lambda i: log.info("All before shutdown tasks has been completed")
         )
