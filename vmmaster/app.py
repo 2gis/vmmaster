@@ -19,14 +19,12 @@ class Vmmaster(Flask):
     def __init__(self, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
-        from vmpool.virtual_machines_pool import VirtualMachinesPool
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
+        self.json_encoder = JSONEncoder
         self.database = Database()
         self.sessions = Sessions(self)
-        self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
-        self.json_encoder = JSONEncoder
         self.sessions.start_workers()
 
     def cleanup(self):
@@ -40,6 +38,9 @@ class Vmmaster(Flask):
     @property
     def providers(self):
         return self.database.get_active_providers()
+
+    def stop(self):
+        self.running = False
 
     def get_matched_platforms(self, dc):
         from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
