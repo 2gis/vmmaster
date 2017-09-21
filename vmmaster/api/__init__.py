@@ -31,10 +31,9 @@ def version():
 @api.route('/status')
 def status():
     return render_json({
+        'providers': helpers.get_active_providers(),
         'sessions': helpers.get_sessions(),
         'queue': helpers.get_queue(),
-        'platforms': vmpool_helpers.get_platforms(),
-        'pool': vmpool_helpers.get_pool()
     })
 
 

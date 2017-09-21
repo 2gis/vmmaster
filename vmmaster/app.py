@@ -45,7 +45,7 @@ class Vmmaster(Flask):
 
 
 def register_blueprints(app):
-    from api import api
+    from vmmaster.api import api
     from webdriver import webdriver
     app.register_blueprint(api, url_prefix='/api')
     app.register_blueprint(webdriver, url_prefix='/wd/hub')

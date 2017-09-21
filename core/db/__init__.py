@@ -131,6 +131,10 @@ class Database(object):
         return dbsession.query(Provider).filter_by(id=provider_id).first()
 
     @transaction
+    def get_active_providers(self, dbsession=None):
+        return dbsession.query(Provider).filter_by(active=True).all()
+
+    @transaction
     def get_platform(self, name, provider_id=None, dbsession=None):
         if provider_id:
             platform = dbsession.query(Platform).filter_by(provider_id=provider_id).filter_by(name=name).first()

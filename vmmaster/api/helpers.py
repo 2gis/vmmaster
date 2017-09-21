@@ -4,6 +4,10 @@ from flask import current_app
 from core.exceptions import SessionException
 
 
+def get_active_providers():
+    return [p.info for p in current_app.database.get_active_providers()]
+
+
 def get_session(session_id):
     try:
         session = current_app.sessions.get_session(session_id)
