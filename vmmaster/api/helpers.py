@@ -8,6 +8,16 @@ def get_active_providers():
     return [p.info for p in current_app.database.get_active_providers()]
 
 
+def get_platforms():
+    providers = current_app.database.get_active_providers()
+
+    res = set()
+    for provider in providers:
+        for platform in provider.platforms:
+            res += platform
+    return sorted(res)
+
+
 def get_session(session_id):
     try:
         session = current_app.sessions.get_session(session_id)
