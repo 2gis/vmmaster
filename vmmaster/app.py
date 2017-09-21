@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import logging
-from uuid import uuid1
 from flask import json, Flask
 from core.config import config
 
@@ -23,7 +22,6 @@ class Vmmaster(Flask):
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
-        self.uuid = str(uuid1())
         self.database = Database()
         self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
         self.sessions = Sessions(self)
