@@ -59,6 +59,7 @@ class VirtualMachinesPool(object):
     id = None
     provider = None
     lock = Lock()
+    config = {}
 
     def __str__(self):
         return str(self.active_endpoints)
@@ -279,7 +280,7 @@ class VirtualMachinesPool(object):
                 'count': self.using_virtual_machines(),
                 'list': print_view(self.using),
             },
-            "already_use": self.count(),
+            "total": self.count(),
         }
 
     def check_platform(self, platform):

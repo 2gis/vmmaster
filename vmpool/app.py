@@ -27,7 +27,7 @@ class VMPool(Flask):
         self.json_encoder = JSONEncoder
         self.database = Database()
         self.sessions = Sessions(self)
-        self.pool = VirtualMachinesPool(self)
+        self.pool = VirtualMachinesPool(app=self, name=config.PROVIDER_NAME)
         self.pool.start_workers()
         log.info("Provider #{} was started...".format(self.pool.id))
 
