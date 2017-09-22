@@ -271,8 +271,20 @@ class Provider(Base, FeaturesMixin):
     name = Column(String(length=200), nullable=True)
     url = Column(String, nullable=True)
     active = Column(Boolean, default=False)
+    config = Column(JSON, default={})
 
-    def __init__(self, name, url, active=True):
+    def __init__(self, name, url, config=None, active=True):
         self.name = name
         self.url = url
         self.active = active
+
+        if config:
+            self.config = config
+
+    @property
+    def info(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "url": self.url
+        }

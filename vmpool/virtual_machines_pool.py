@@ -6,7 +6,6 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
-from core.network import DockerNetwork
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
 from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
@@ -57,31 +56,39 @@ class VirtualMachinesPoolPreloader(Thread):
 
 
 class VirtualMachinesPool(object):
-    if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
-        network = DockerNetwork()
     id = None
     lock = Lock()
-    platforms = None
-    preloader = None
-    artifact_collector = None
 
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, platforms_class=Platforms, matcher_class=SeleniumMatcher,
+    def __init__(self, app, name="Unnamed provider", platforms_class=Platforms, matcher_class=SeleniumMatcher,
                  preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
+        self.name = name
+        self.url = "{}:{}".format("localhost", config.PORT)
+
         self.app = app
         self.platforms = platforms_class()
         self.preloader = preloader_class(self)
         self.matcher = matcher_class(platforms=config.PLATFORMS, fallback_matcher=PoolBasedMatcher(self.platforms))
         self.artifact_collector = artifact_collector_class()
 
+        if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
+            from core.network import DockerNetwork
+            self.network = DockerNetwork()
+
+        self.id = self.register()
+        self.register_platforms()
+
     def register(self):
         return self.app.database.register_provider(
-            name="Unnamed provider",
-            url="%s:%s" % ("localhost", config.PORT),
-            platforms=self.platforms.info()
+            name=self.name,
+            url=self.url,
+            platforms=config.PLATFORMS
         )
+
+    def register_platforms(self):
+        self.app.database.register_platforms(provider_id=self.id, platforms=self.platforms.info())
 
     def unregister(self):
         self.app.database.unregister_provider(self.id)
@@ -102,7 +109,6 @@ class VirtualMachinesPool(object):
         return self.platforms.get_endpoints(self.id, efilter="using")
 
     def start_workers(self):
-        self.id = self.register()
         self.preloader.start()
 
     def stop_workers(self):

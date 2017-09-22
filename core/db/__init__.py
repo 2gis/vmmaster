@@ -159,10 +159,10 @@ class Database(object):
         provider = dbsession.query(Provider).filter_by(url=url).first()
         if provider:
             provider.active = True
+            provider.config = platforms
             self.update(provider)
         else:
-            provider = self.add(Provider(name=name, url=url))
-        self.register_platforms(provider_id=provider.id, platforms=platforms)
+            provider = self.add(Provider(name=name, url=url, config=platforms))
         return provider.id
 
     @transaction
