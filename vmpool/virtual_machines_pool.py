@@ -215,7 +215,7 @@ class VirtualMachinesPool(object):
 
     def add(self, platform_name, prefix="ondemand"):
         if prefix == "preloaded":
-            log.info("Preloading %s." % platform_name)
+            log.info("Preloading {}".format(platform_name))
 
         with self.lock:
             if not self.can_produce(platform_name):
