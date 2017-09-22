@@ -25,12 +25,13 @@ class Vmmaster(Flask):
         self.running = True
         self.uuid = str(uuid1())
         self.database = Database()
-        self.pool = VirtualMachinesPool(self)
+        self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
         self.sessions = Sessions(self)
         self.json_encoder = JSONEncoder
 
         self.pool.start_workers()
         self.sessions.start_workers()
+        log.info("Provider #{} ({}) was started...".format(self.pool.id, self.pool.name))
 
     def cleanup(self):
         log.info("Cleanup...")

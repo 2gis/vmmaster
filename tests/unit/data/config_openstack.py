@@ -18,6 +18,8 @@ class Config(object):
     LOG_TYPE = "plain"
     LOG_LEVEL = "DEBUG"
 
+    PROVIDER_NAME = "noname"
+
     # openstack
     USE_OPENSTACK = True
     OPENSTACK_MAX_VM_COUNT = 2

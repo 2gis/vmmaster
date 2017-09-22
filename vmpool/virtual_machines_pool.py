@@ -62,9 +62,9 @@ class VirtualMachinesPool(object):
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, name="Unnamed provider", platforms_class=Platforms, matcher_class=SeleniumMatcher,
+    def __init__(self, app, name=None, platforms_class=Platforms, matcher_class=SeleniumMatcher,
                  preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
-        self.name = name
+        self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
 
         self.app = app

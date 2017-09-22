@@ -159,6 +159,7 @@ class Database(object):
         provider = dbsession.query(Provider).filter_by(url=url).first()
         if provider:
             provider.active = True
+            provider.name = name
             provider.config = platforms
             self.update(provider)
         else:

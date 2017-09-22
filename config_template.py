@@ -24,6 +24,8 @@ class Config(object):
     LOG_TYPE = env.str("LOG_TYPE", default="logstash")
     LOG_LEVEL = env.str("LOG_LEVEL", default="DEBUG")
 
+    PROVIDER_NAME = env.str("PROVIDER_NAME", default="noname")
+
     # openstack
     USE_OPENSTACK = env.bool("USE_OPENSTACK", default=False)
     OPENSTACK_MAX_VM_COUNT = env.int("OPENSTACK_MAX_VM_COUNT", default=1)
