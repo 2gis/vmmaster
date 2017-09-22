@@ -67,7 +67,7 @@ class TestCleanup(unittest.TestCase):
         session.name = '__test_outdated_sessions'
         session.save()
 
-        session_ids_to_delete = self.cleanup.sessions_overflow(user)
+        session_ids_to_delete = [p.id for p in self.cleanup.sessions_overflow(user)]
 
         self.assertIn(session.id, session_ids_to_delete)
         self.cleanup.delete_session_data([session])
@@ -86,7 +86,7 @@ class TestCleanup(unittest.TestCase):
         session2.keep_forever = False
         session2.save()
 
-        session_ids_to_delete = self.cleanup.sessions_overflow(user)
+        session_ids_to_delete = [p.id for p in self.cleanup.sessions_overflow(user)]
 
         self.assertNotIn(session1.id, session_ids_to_delete)
         self.assertIn(session2.id, session_ids_to_delete)

@@ -99,7 +99,6 @@ def sessions_overflow(user, dbsession=None):
             res = dbsession.query(Session).\
                 filter_by(user_id=user.id, keep_forever=False).order_by(Session.id).\
                 limit(overflow).all()
-            res = [session.id for session in res]
         except ArgumentError:
             log.exception("Error during getting sessions ids from db")
 
