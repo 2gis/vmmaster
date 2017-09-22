@@ -21,7 +21,7 @@ def render_json(result, code=200):
 @api.route('/status')
 def status():
     return render_json({
-        'node': helpers.get_node_info(),
+        'provider': helpers.get_provider_info(),
         'platforms': helpers.get_platforms(),
         'pool': helpers.get_pool()
     })
