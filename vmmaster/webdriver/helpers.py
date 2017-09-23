@@ -183,7 +183,7 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             time.sleep(timeout)
 
 
-def get_endpoint(session_id, dc):
+def get_endpoint(session_id, platform):
     _endpoint = None
     attempt = 0
     attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
@@ -197,7 +197,7 @@ def get_endpoint(session_id, dc):
         wait_time += wait_time_increment
         try:
             log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
-            for vm in endpoint.get_vm(dc):
+            for vm in endpoint.get_vm(platform):
                 _endpoint = vm
                 yield _endpoint
             profiler.register_success_get_endpoint(attempt)
@@ -231,7 +231,7 @@ def get_session():
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     yield session
 
-    for _endpoint in get_endpoint(session.id, dc):
+    for _endpoint in get_endpoint(session.id, session.platform):
         if _endpoint:
             session.refresh()
             session.endpoint_id = _endpoint.id

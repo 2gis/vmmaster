@@ -59,8 +59,7 @@ class TestVNCVideoHelper(BaseTestCase):
 
             self.app.sessions = Mock(get_session=Mock(return_value=session))
             self.app.database.active_sessions["1"] = session
-            self.app.pool = VirtualMachinesPool(self.app, platforms_class=Mock(), preloader_class=Mock(),
-                                                matcher_class=Mock())
+            self.app.pool = VirtualMachinesPool(self.app, platforms_class=Mock(), preloader_class=Mock())
 
             endpoint = Clone(Mock(
                 short_name="platform_1",

@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import logging
+
 from flask import json, Flask
 from core.config import config
 
@@ -40,8 +41,21 @@ class Vmmaster(Flask):
         except:
             log.exception("Cleanup was finished with errors")
 
+    @property
+    def providers(self):
+        return self.database.get_active_providers()
+
     def match(self, dc):
-        return self.pool.matcher.match(dc)
+        from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
+        for provider in self.providers:
+            platforms = self.database.get_platforms(provider.id)
+            matcher = SeleniumMatcher(
+                platforms=provider.config,
+                fallback_matcher=PlatformsBasedMatcher(platforms)
+            )
+            if matcher.match(dc):
+                return True
+        return False
 
 
 def register_blueprints(app):

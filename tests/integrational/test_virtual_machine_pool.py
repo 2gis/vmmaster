@@ -108,16 +108,3 @@ class TestVirtualMachinePool(BaseTestCase):
         self.pool.add(self.platform_name)
 
         self.assertIsNone(self.pool.add(self.platform_name))
-
-    def test_platform_from_config(self):
-        desired_caps = {
-            'platform': "origin_2"
-        }
-
-        config.PLATFORM = "origin_1"
-        self.app.pool = self.pool
-
-        from vmpool.endpoint import get_vm
-        for vm in get_vm(desired_caps):
-            self.assertEqual(vm.platform_name, config.PLATFORM)
-            break

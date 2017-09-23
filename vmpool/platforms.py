@@ -245,8 +245,6 @@ class Platforms(object):
 
     @classmethod
     def info(cls):
-        if hasattr(config, 'PLATFORM') and config.PLATFORM:
-            return [config.PLATFORM]
         return list(cls.platforms.keys())
 
     @classmethod

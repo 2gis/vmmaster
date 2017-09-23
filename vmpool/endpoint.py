@@ -1,4 +1,5 @@
 # coding: utf-8
+
 import time
 import logging
 
@@ -13,27 +14,13 @@ from flask import current_app
 log = logging.getLogger(__name__)
 
 
-def get_platform(desired_caps):
-    if hasattr(config, 'PLATFORM'):
-        log.info('Using {}. Desired platform {} has been ignored.'.format(
-            config.PLATFORM, desired_caps.get('platform'))
-        )
-        platform = config.PLATFORM
-        desired_caps['platform'] = platform
-
-    matched_platforms = current_app.pool.get_matched_platforms(desired_caps)
-    for platform in matched_platforms:
-        if current_app.pool.check_platform(platform):
-            return platform
-    else:
-        raise PlatformException('No platforms {} found in pool: {})'.format(
-            matched_platforms, current_app.pool.platforms.info())
-        )
-
-
-def get_vm(desired_caps):
+def get_vm(platform):
     timer = profiler.functions_duration_manual(get_vm.__name__)
-    platform = get_platform(desired_caps)
+
+    if not current_app.pool.check_platform(platform):
+        raise PlatformException('No platforms {} found in pool: {})'.format(
+            platform, current_app.pool.platforms.info())
+        )
 
     vm = None
     sleep_time, sleep_time_increment = 0.5, 0.5

@@ -65,6 +65,7 @@ class BaseTestFlaskApp(BaseTestCase):
         ):
             from vmmaster.app import create_app
             self.app = create_app()
+            self.app.match = Mock(return_value=True)
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -340,6 +341,7 @@ class TestServer(BaseTestFlaskApp):
 
     @patch('vmmaster.webdriver.helpers.swap_session', Mock())
     def test_vmmaster_no_such_platform(self):
+        self.app.match = Mock(return_value=False)
         desired_caps = {
             'desiredCapabilities': {
                 'platform': 'no_platform'

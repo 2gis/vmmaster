@@ -24,7 +24,7 @@ class IMatcher(object):
         raise NotImplemented
 
 
-class PoolBasedMatcher(IMatcher):
+class PlatformsBasedMatcher(IMatcher):
     def __init__(self, platforms):
         self.platforms = platforms
 
@@ -33,7 +33,7 @@ class PoolBasedMatcher(IMatcher):
             return self.platforms.keys()
 
         platform = platform.lower()
-        if self.platforms.check_platform(platform):
+        if platform in self.platforms.keys():
             return [platform]
 
         return []

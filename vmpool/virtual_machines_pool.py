@@ -8,7 +8,6 @@ from collections import defaultdict
 from core.config import config
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
-from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ class VirtualMachinesPool(object):
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, name=None, platforms_class=Platforms, matcher_class=SeleniumMatcher,
+    def __init__(self, app, name=None, platforms_class=Platforms,
                  preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
         self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
@@ -71,7 +70,6 @@ class VirtualMachinesPool(object):
         self.app = app
         self.platforms = platforms_class()
         self.preloader = preloader_class(self)
-        self.matcher = matcher_class(platforms=config.PLATFORMS, fallback_matcher=PoolBasedMatcher(self.platforms))
         self.artifact_collector = artifact_collector_class()
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
@@ -278,9 +276,6 @@ class VirtualMachinesPool(object):
             },
             "already_use": self.count(),
         }
-
-    def get_matched_platforms(self, dc):
-        return self.matcher.get_matched_platforms(dc)
 
     def check_platform(self, platform):
         return self.platforms.check_platform(platform)

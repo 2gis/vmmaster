@@ -26,7 +26,6 @@ class TestDatabase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # MyModel.metadata.create_all(cls.db.engine)
         pass
 
     def get_objects(self, obj):

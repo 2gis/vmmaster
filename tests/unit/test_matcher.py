@@ -3,7 +3,7 @@
 import unittest
 from mock import Mock
 
-from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
+from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
 
 
 class TestSeleniumMatcherNegative(unittest.TestCase):
@@ -124,10 +124,9 @@ class TestSeleniumMatcherPositive(unittest.TestCase):
 
 class TestMatcherFallback(unittest.TestCase):
     def test_origin_ubuntu_14(self):
-        platforms = {}
+        platforms = {'ubuntu-14.04-x64': Mock()}
         dc = {'platform': 'ubuntu-14.04-x64'}
-        fake_pool = Mock(can_produce=Mock(return_value=True))
-        matcher = SeleniumMatcher(platforms=platforms, fallback_matcher=PoolBasedMatcher(fake_pool))
+        matcher = SeleniumMatcher(platforms={}, fallback_matcher=PlatformsBasedMatcher(platforms))
 
         self.assertTrue(matcher.match(dc))
         self.assertListEqual(['ubuntu-14.04-x64'], matcher.get_matched_platforms(dc))

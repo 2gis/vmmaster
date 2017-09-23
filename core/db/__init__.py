@@ -135,6 +135,11 @@ class Database(object):
         return dbsession.query(Provider).filter_by(active=True).all()
 
     @transaction
+    def get_platforms(self, provider_id, dbsession=None):
+        db_platforms = dbsession.query(Platform).filter_by(provider_id=provider_id).all()
+        return {db_platform.name: db_platform for db_platform in db_platforms}
+
+    @transaction
     def get_platform(self, name, provider_id=None, dbsession=None):
         if provider_id:
             platform = dbsession.query(Platform).filter_by(provider_id=provider_id).filter_by(name=name).first()
