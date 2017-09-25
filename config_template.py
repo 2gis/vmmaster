@@ -27,6 +27,7 @@ class Config(object):
     # openstack
     USE_OPENSTACK = env.bool("USE_OPENSTACK", default=False)
     OPENSTACK_MAX_VM_COUNT = env.int("OPENSTACK_MAX_VM_COUNT", default=1)
+    OPENSTACK_ENDPOINT_PREFIX = env.str("OPENSTACK_ENDPOINT_PREFIX", default="noprefix")
     OPENSTACK_PRELOADED = env.json("OPENSTACK_PRELOADED", default={})
 
     """

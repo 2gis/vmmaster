@@ -158,6 +158,10 @@ class OpenstackClone(Clone):
 
     def __init__(self, origin, prefix, pool):
         super(OpenstackClone, self).__init__(origin, prefix, pool)
+        openstack_endpoint_prefix = getattr(config, 'OPENSTACK_ENDPOINT_PREFIX', None)
+        if openstack_endpoint_prefix:
+            self.name = "{}-{}".format(openstack_endpoint_prefix, self.name)
+            self.save()
         self.nova_client = self._get_nova_client()
         self.ports = {"{}".format(port): port for port in config.PORTS}
         self.save()
