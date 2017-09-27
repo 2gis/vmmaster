@@ -15,7 +15,7 @@ from vmmaster.webdriver.helpers import check_to_exist_ip, connection_watcher
 
 from core.config import config
 from core.exceptions import CreationException
-from core.sessions import RequestHelper, update_log_step
+from core.sessions import update_log_step
 
 from threading import Thread
 from flask import copy_current_request_context
@@ -80,7 +80,7 @@ def start_session(request, session):
 
 
 def startup_script(session):
-    r = RequestHelper(method="POST", data=session.run_script)
+    r = network_utils.RequestHelper(method="POST", data=session.run_script)
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
         raise Exception("failed to run script: %s" % body)
@@ -125,7 +125,7 @@ def start_selenium_session(request, session):
 
     wrapped_make_request = add_sub_step(session, session.make_request)
     for status, headers, body in wrapped_make_request(
-        session.endpoint.selenium_port, RequestHelper(
+        session.endpoint.selenium_port, network_utils.RequestHelper(
             request.method, request.path, request.headers, request.data
         )
     ):
@@ -151,7 +151,7 @@ def selenium_status(request, session):
 
     wrapped_make_request = add_sub_step(session, session.make_request)
     for status, headers, body in wrapped_make_request(
-        session.endpoint.selenium_port, RequestHelper("GET", status_cmd)
+        session.endpoint.selenium_port, network_utils.RequestHelper("GET", status_cmd)
     ):
         yield status, headers, body
     selenium_status_code = json.loads(body).get("status", None)
@@ -214,7 +214,7 @@ def set_path_session_id(path, session_id):
 def take_screenshot(session):
     for status, headers, body in session.make_request(
         session.endpoint.agent_port,
-        RequestHelper(method="GET", url="/takeScreenshot")
+        network_utils.RequestHelper(method="GET", url="/takeScreenshot")
     ):
         yield None
     if status == httplib.OK and body:

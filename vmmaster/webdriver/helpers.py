@@ -15,8 +15,9 @@ from core.config import config
 
 from core import constants
 from core import utils
+from core.utils.network_utils import RequestHelper
 from core.profiler import profiler
-from core.sessions import Session, RequestHelper
+from core.sessions import Session
 from vmpool import endpoint
 
 

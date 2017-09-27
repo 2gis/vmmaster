@@ -7,7 +7,6 @@ from functools import wraps
 from functools import partial
 
 from core.db import models
-from core.sessions import RequestHelper
 from datetime import datetime
 
 from core.exceptions import CreationException
@@ -453,7 +452,7 @@ class DockerClone(Clone):
         for status, headers, body in network_utils.make_request(
             self.ip,
             self.selenium_port,
-            RequestHelper("GET", "/wd/hub/status")
+            network_utils.RequestHelper("GET", "/wd/hub/status")
         ):
             pass
         return status == 200

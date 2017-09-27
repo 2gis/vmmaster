@@ -13,6 +13,29 @@ import socket
 log = logging.getLogger(__name__)
 
 
+class RequestHelper(object):
+    method = None
+    url = None
+    headers = None
+    data = None
+
+    def __init__(self, method, url="/", headers=None, data=""):
+        _headers = {}
+        if headers:
+            for key, value in headers.items():
+                if value:
+                    _headers[key] = value
+        _headers["Content-Length"] = str(len(data))
+        self.headers = _headers
+        self.method = method
+        self.url = url
+        self.data = data
+
+    def __repr__(self):
+        return "<RequestHelper method:%s url:%s headers:%s body:%s>" % (
+            self.method, self.url, self.headers, self.data)
+
+
 def get_interface_subnet(inteface):
     ip = netifaces.ifaddresses(inteface)[2][0]["addr"]
     split_ip = ip.split(".")
