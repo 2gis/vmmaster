@@ -83,16 +83,21 @@ def save_artifact(session, filename, original_path):
 
     if code == 200:
         path = os.sep.join(
-            [config.SCREENSHOTS_DIR, str(session.id), "%s.log" % filename]
+            [config.SCREENSHOTS_DIR, str(session.id), "{}.log".format(filename)]
         )
         try:
             body = json.loads(body)
             utils.write_file(path, body.get("output", "no data"))
             new_path = path
-            log.debug("File %s was saved to %s " % (filename, new_path))
+            log.info("session {}: file {} was saved to {} ".format(session.id, filename, new_path))
         except:
-            log.exception("Selenium log file %s doesn't created for session %s"
-                          % (filename, session.id))
+            log.exception("session {}: selenium log file {} doesn't created".format(session.id, filename))
+
+    else:
+        log.error('session {}: cannot get artifact {} from endpoint'.format(
+            session.id, original_path, session.endpoint)
+        )
+
     return new_path
 
 
@@ -136,10 +141,10 @@ def screencast_recording(app, session_id):
     with app.app_context():
         session = app.sessions.get_session(session_id)
         if not session:
-            log.error("Session %s not found and screencast doesn't recorded" % session.id)
+            log.error("session {}: session not found".format(session_id))
             return
 
-        log.info("Screencast starting for session {}...".format(session.id))
+        log.info("session {}: screencast starting".format(session_id))
         vnc_helper = VNCVideoHelper(
             session.endpoint.ip, filename_prefix=session.id, port=session.endpoint.vnc_port
         )
@@ -160,7 +165,7 @@ def screencast_recording(app, session_id):
             sleep_time=3
         )
         vnc_helper.stop()
-        log.info("Screencast stopped...")
+        log.info("session {}: screencast stopped".format(session_id))
 
 
 class ArtifactCollector(ThreadPool):
@@ -173,14 +178,17 @@ class ArtifactCollector(ThreadPool):
         super(ArtifactCollector, self).__reduce__()
 
     def get_queue(self):
-        return self.in_queue.keys()
+        res = {}
+        for key in self.in_queue.keys():
+            res['session {}'.format(key)] = len(self.in_queue[key])
+        return res
 
     def add_task(self, session_id, method, *args, **kwargs):
         apply_result = self.apply_async(
             method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
         )
         self.in_queue[session_id].append(apply_result)
-        log.info("Task {} added to queue for session {}".format(method.__name__, session_id))
+        log.info("session {}: task {} added to queue".format(session_id, method.__name__,))
         return True
 
     def on_task_complete(self, result, method_name, session_id):
@@ -190,53 +198,46 @@ class ArtifactCollector(ThreadPool):
         :param session_id: int
         """
         self.in_queue.pop(session_id, None)
-        log.debug("Completing task {} for session {} with return value {}".format(method_name, session_id, result))
+        log.debug("session {}: task {} completed with return value '{}'".format(session_id, method_name, result))
 
-    def del_task(self, session_id):
+    def del_tasks_for_session(self, session_id):
         """
         :param session_id: int
         """
-        tasks = self.in_queue.get(session_id, list())
-        for task in tasks:
+        for task in self.in_queue[session_id]:
             if task and not task.ready():
                 task.successful()
-                log.info("Getting artifacts for session %s aborted" % session_id)
+                log.warning("session {}: aborting task {}".format(session_id, str(task)))
         try:
             del self.in_queue[session_id]
         except KeyError:
-            log.exception("Tasks already deleted from queue for session %s" % session_id)
-        log.info("Getting artifacts abort has been failed for "
-                 "session %s because it's already done" % session_id)
+            log.exception("session {}: tasks already deleted from queue".format(session_id))
 
     def del_tasks(self, sessions_ids):
         """
         :param sessions_ids: list
         """
         for session_id in sessions_ids:
-            self.del_task(session_id)
+            self.del_tasks_for_session(session_id)
 
-    def wait_for_complete(self, session_id=None):
+    def wait_for_complete(self, session_id):
+        """
+        :param session_id: int
+        """
         start = time.time()
         timeout = getattr(config, "COLLECT_ARTIFACTS_WAIT_TIMEOUT", 60)
 
-        def get_tasks():
-            if session_id:
-                tasks = self.in_queue.get(session_id, list())
-                log.info("Wait for tasks to complete: {}".format(tasks))
-            else:
-                tasks = self.in_queue
-                log.info("Wait for tasks to complete: {}".format(
-                    [(session, len(_tasks)) for session, _tasks in self.in_queue.items()])
-                )
-            return tasks
-
-        while get_tasks():
-            time.sleep(1)
+        while session_id in self.in_queue.keys():
+            log.info("session {}: wait for tasks to complete: {}".format(
+                session_id, self.in_queue[session_id]
+            ))
             if time.time() - start > timeout:
-                log.warning("Timeout {} while waiting for tasks".format(timeout))
-                return
+                log.warning("session {}: timeout {} while waiting for tasks".format(session_id, timeout))
+                self.del_tasks_for_session(session_id)
+                break
+            time.sleep(1)
 
-        log.info("All tasks completed.")
+        log.info("session {}: all tasks completed".format(session_id))
 
     def stop(self):
         self.del_tasks(self.in_queue.keys())
