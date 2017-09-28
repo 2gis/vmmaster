@@ -104,23 +104,11 @@ class Clone(models.Endpoint):
             "deleted": str(self.deleted)
         }
 
-    @staticmethod
-    def start_recorder(session):
-        from flask import current_app
-        from vmpool.artifact_collector import screencast_recording
-        return current_app.pool.artifact_collector.add_task(
-            session.id, screencast_recording, *(current_app.pool.app, session.id)
-        )
+    def start_recorder(self, session):
+        return self.pool.start_recorder(session)
 
-    @staticmethod
-    def save_artifacts(session):
-        from flask import current_app
-        from vmpool.artifact_collector import save_selenium_log
-        return current_app.pool.artifact_collector.add_task(
-            session.id, save_selenium_log, *(
-                current_app.pool.app, session.id, "selenium_server", "/var/log/selenium_server.log"
-            )
-        )
+    def save_artifacts(self, session):
+        return self.pool.save_artifacts(session)
 
     def is_preloaded(self):
         return 'preloaded' in self.name

@@ -55,16 +55,17 @@ class TestVNCVideoHelper(BaseTestCase):
             'core.video.VNCVideoHelper.stop', Mock()
         ) as stop_rec_mock:
             from core.sessions import Session
+            from vmpool.virtual_machines_pool import VirtualMachinesPool
             from vmpool.clone import Clone
-            from vmpool.artifact_collector import ArtifactCollector
-            artifact_collector = ArtifactCollector()
+
             session = Session(dc=dc)
             session.name = "session1"
             session.id = 1
 
             self.app.sessions = Mock(get_session=Mock(return_value=session))
             self.app.database.active_sessions["1"] = session
-            self.app.pool = Mock(artifact_collector=artifact_collector, app=self.app)
+            self.app.pool = VirtualMachinesPool(self.app, platforms_class=Mock(), preloader_class=Mock(),
+                                                matcher_class=Mock())
 
             endpoint = Clone(Mock(
                 short_name="platform_1",
@@ -73,16 +74,16 @@ class TestVNCVideoHelper(BaseTestCase):
                 min_disk=20,
                 min_ram=2,
                 instance_type_flavorid=1
-            ), "ondemand", Mock(id=1, artifact_collector=artifact_collector, app=self.app))
+            ), "ondemand", self.app.pool)
             endpoint.ip = '127.0.0.1'
-            endpoint.save_artifacts = Mock()
-            session.endpoint = endpoint
-            session.endpoint.start_recorder(session)
 
-            wait_for(lambda: artifact_collector.in_queue)
+            session.endpoint = endpoint
+            session.run()
+            wait_for(lambda: self.app.pool.artifact_collector.in_queue, timeout=5)
 
             session.succeed()
             self.assertTrue(session.closed)
-            wait_for(lambda: not artifact_collector.in_queue)
+
+            wait_for(lambda: not self.app.pool.artifact_collector.in_queue, timeout=5)
             self.assertTrue(start_rec_mock.called)
             self.assertTrue(stop_rec_mock.called)

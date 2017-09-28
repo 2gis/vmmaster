@@ -14,6 +14,48 @@ from vmpool.matcher import SeleniumMatcher, PoolBasedMatcher
 log = logging.getLogger(__name__)
 
 
+class VirtualMachinesPoolPreloader(Thread):
+    def __init__(self, pool):
+        Thread.__init__(self)
+        self.app = pool.app
+        self.running = True
+        self.daemon = True
+        self.pool = pool
+
+    def run(self):
+        log.info("Preloader started...")
+        with self.app.app_context():
+            while self.running:
+                try:
+                    platform_name = self.need_load()
+                    if platform_name is not None:
+                        self.pool.preload(platform_name, "preloaded")
+                except Exception as e:
+                    log.exception('Exception in preloader: %s', e.message)
+
+                time.sleep(config.PRELOADER_FREQUENCY)
+
+    def need_load(self):
+        preloaded = [vm for vm in self.pool.active_endpoints if vm.is_preloaded()]
+        already_have = self.pool.count_virtual_machines(preloaded)
+        platforms = {}
+
+        if config.USE_OPENSTACK:
+            platforms.update(config.OPENSTACK_PRELOADED)
+        if config.USE_DOCKER:
+            platforms.update(config.DOCKER_PRELOADED)
+
+        for platform_name, need in platforms.iteritems():
+            have = already_have.get(platform_name, 0)
+            if need > have:
+                return platform_name
+
+    def stop(self):
+        self.running = False
+        self.join(1)
+        log.info("Preloader stopped")
+
+
 class VirtualMachinesPool(object):
     if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
         network = DockerNetwork()
@@ -26,10 +68,13 @@ class VirtualMachinesPool(object):
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app):
+    def __init__(self, app, platforms_class=Platforms, matcher_class=SeleniumMatcher,
+                 preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
         self.app = app
-        self.platforms = Platforms()
-        self.matcher = SeleniumMatcher(platforms=config.PLATFORMS, fallback_matcher=PoolBasedMatcher(self.platforms))
+        self.platforms = platforms_class()
+        self.preloader = preloader_class(self)
+        self.matcher = matcher_class(platforms=config.PLATFORMS, fallback_matcher=PoolBasedMatcher(self.platforms))
+        self.artifact_collector = artifact_collector_class()
 
     def register(self):
         return self.app.database.register_provider(
@@ -58,9 +103,7 @@ class VirtualMachinesPool(object):
 
     def start_workers(self):
         self.id = self.register()
-        self.preloader = VirtualMachinesPoolPreloader(self)
         self.preloader.start()
-        self.artifact_collector = ArtifactCollector()
 
     def stop_workers(self):
         if self.preloader:
@@ -224,44 +267,8 @@ class VirtualMachinesPool(object):
     def check_platform(self, platform):
         return self.platforms.check_platform(platform)
 
+    def start_recorder(self, session):
+        return self.artifact_collector.record_screencast(session.id, self.app)
 
-class VirtualMachinesPoolPreloader(Thread):
-    def __init__(self, pool):
-        Thread.__init__(self)
-        self.app = pool.app
-        self.running = True
-        self.daemon = True
-        self.pool = pool
-
-    def run(self):
-        log.info("Preloader started...")
-        with self.app.app_context():
-            while self.running:
-                try:
-                    platform_name = self.need_load()
-                    if platform_name is not None:
-                        self.pool.preload(platform_name, "preloaded")
-                except Exception as e:
-                    log.exception('Exception in preloader: %s', e.message)
-
-                time.sleep(config.PRELOADER_FREQUENCY)
-
-    def need_load(self):
-        preloaded = [vm for vm in self.pool.active_endpoints if vm.is_preloaded()]
-        already_have = self.pool.count_virtual_machines(preloaded)
-        platforms = {}
-
-        if config.USE_OPENSTACK:
-            platforms.update(config.OPENSTACK_PRELOADED)
-        if config.USE_DOCKER:
-            platforms.update(config.DOCKER_PRELOADED)
-
-        for platform_name, need in platforms.iteritems():
-            have = already_have.get(platform_name, 0)
-            if need > have:
-                return platform_name
-
-    def stop(self):
-        self.running = False
-        self.join(1)
-        log.info("Preloader stopped")
+    def save_artifacts(self, session):
+        return self.artifact_collector.save_selenium_log(session.id, self.app)

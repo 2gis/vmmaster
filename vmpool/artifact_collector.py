@@ -177,6 +177,18 @@ class ArtifactCollector(ThreadPool):
     def __reduce__(self):
         super(ArtifactCollector, self).__reduce__()
 
+    def record_screencast(self, session_id, app):
+        return self.add_task(
+            session_id, screencast_recording, *(app, session_id)
+        )
+
+    def save_selenium_log(self, session_id, app):
+        return self.add_task(
+            session_id, save_selenium_log, *(
+                app, session_id, "selenium_server", "/var/log/selenium_server.log"
+            )
+        )
+
     def get_queue(self):
         res = {}
         for key in self.in_queue.keys():

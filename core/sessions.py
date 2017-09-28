@@ -102,6 +102,10 @@ class Session(models.BaseSession):
 
         return self.endpoint.save_artifacts(self)
 
+    def wait_for_artifacts(self):
+        # FIXME: remove sync wait for task
+        current_app.pool.artifact_collector.wait_for_complete(self.id)
+
     def close(self, reason=None):
         self.closed = True
         if reason:
@@ -115,7 +119,7 @@ class Session(models.BaseSession):
         if getattr(self, "endpoint", None):
             log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
             self.save_artifacts()
-            current_app.pool.artifact_collector.wait_for_complete(self.id)
+            self.wait_for_artifacts()
             self.endpoint.delete(try_to_rebuild=True)
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
