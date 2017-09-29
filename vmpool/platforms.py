@@ -241,6 +241,7 @@ class Platforms(object):
             return OpenstackPlatforms.get_endpoints(provider_id, efilter=efilter)
         if config.USE_DOCKER and cls.docker_platforms:
             return DockerPlatforms.get_endpoints(provider_id, efilter=efilter)
+        return []
 
     @classmethod
     def info(cls):
