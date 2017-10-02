@@ -47,7 +47,8 @@ class Clone(models.Endpoint):
         log.info("Deleted {}".format(self.name))
 
     def create(self):
-        log.info("Creation {} was successful".format(self.name))
+        if self.ready:
+            log.info("Creation {} was successful".format(self.name))
 
     def rebuild(self):
         self.set_in_use(False)
@@ -82,6 +83,7 @@ class Clone(models.Endpoint):
         self.save()
 
     def set_in_use(self, value):
+        # TODO: lazy save in db, remove direct calls for Clone and Session
         if not value:
             self.used_time = datetime.now()
         self.in_use = value
@@ -234,7 +236,7 @@ class OpenstackClone(Clone):
             server = self.get_vm(self.name)
             if not server:
                 log.error("VM %s has not been created." % self.name)
-                self.delete(try_to_rebuild=False)
+                self.delete()
                 break
 
             if self.is_spawning(server):
@@ -258,7 +260,7 @@ class OpenstackClone(Clone):
                     break
                 if ping_retry > config.VM_PING_RETRY_COUNT:
                     p = config.VM_PING_RETRY_COUNT * config.PING_TIMEOUT
-                    log.info("VM %s pings more than %s seconds..." % (self.name, p))
+                    log.info("VM {} pings more than {} seconds. Running delete/rebuild".format(self.name, p))
                     self.delete(try_to_rebuild=True)
                     break
                 ping_retry += 1
@@ -312,7 +314,7 @@ class OpenstackClone(Clone):
             return None
 
     @clone_watcher
-    def delete(self, try_to_rebuild=True):
+    def delete(self, try_to_rebuild=False):
         if try_to_rebuild and self.is_preloaded():
             yield self.rebuild()
         else:
@@ -341,7 +343,7 @@ class OpenstackClone(Clone):
                     yield ready
         except:
             log.exception("Rebuild vm %s was FAILED." % self.name)
-            yield self.delete(try_to_rebuild=False)
+            yield self.delete()
         finally:
             super(OpenstackClone, self).rebuild()
         yield self.ready

@@ -47,8 +47,7 @@ def get_vm(desired_caps):
             sleep_time += sleep_time_increment
             log.debug("Waiting {} seconds before next attempt to get endpoint".format(sleep_time))
             time.sleep(sleep_time)
-
-    if not vm:
+    else:
         raise CreationException(
             "Timeout while waiting for vm with platform %s" % platform
         )
@@ -58,9 +57,8 @@ def get_vm(desired_caps):
     ):
         if vm.ready:
             break
-
-    if not vm.ready:
-        vm.delete(try_to_rebuild=False)
+    else:
+        vm.delete()
         raise CreationException(
             'Timeout while building vm %s (platform: %s)' %
             (vm.name, platform)

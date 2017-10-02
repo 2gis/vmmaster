@@ -118,7 +118,7 @@ class VirtualMachinesPool(object):
         log.info("Deleting machines...")
         with self.app.app_context():
             for vm in self.active_endpoints:
-                vm.delete(try_to_rebuild=False)
+                vm.delete()
 
     def count(self):
         return len(self.active_endpoints)
@@ -141,12 +141,22 @@ class VirtualMachinesPool(object):
             return True
 
     def has(self, platform_name):
+        """
+        Check for matched vm in pool
+        :param platform_name: str
+        :return: boolean
+        """
         for vm in self.pool:
             if vm.platform_name == platform_name and vm.ready:
                 return True
         return False
 
     def get_by_platform(self, platform_name):
+        """
+        Get preloaded platform from endpoint pool
+        :param platform_name:
+        :return:
+        """
         res = None
 
         with self.lock:

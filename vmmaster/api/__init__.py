@@ -171,7 +171,7 @@ def delete_vm_from_pool(endpoint_name):
         try:
             endpoint.delete()
             result = "Endpoint %s was deleted" % endpoint_name
-        except Exception, e:
+        except Exception as e:
             log.info("Cannot delete vm %s through api method" % endpoint_name)
             result = "Got error during deleting vm %s. " \
                      "\n\n %s" % (endpoint_name, e.message)

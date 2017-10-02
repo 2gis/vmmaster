@@ -96,7 +96,7 @@ class TestVirtualMachinePool(BaseTestCase):
         clone = self.pool.preload(self.platform_name)
         self.assertEqual(1, len(self.pool.active_endpoints))
 
-        clone.delete(try_to_rebuild=False)
+        clone.delete()
         self.app.database.delete(clone)
 
         self.assertEqual(0, len(self.pool.active_endpoints))

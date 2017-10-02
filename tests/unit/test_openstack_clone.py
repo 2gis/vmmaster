@@ -152,7 +152,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
 
         Expected: vm has been deleted
         """
-        self.clone.delete(try_to_rebuild=False)
+        self.clone.delete()
         self.assertTrue(self.clone.get_vm.return_value.delete)
         self.assertTrue(self.clone.deleted)
         self.assertFalse(self.clone.ready)
@@ -165,12 +165,11 @@ class TestOpenstackCloneUnit(BaseTestCase):
     def test_rebuild_after_delete_vm_if_vm_does_not_exist(self):
         """
         - get_vm return None
-        - call OpenstackClone.delete()
-        - call OpenstackClone.rebuild()
+        - call OpenstackClone.delete(try_to_rebuild=True)
 
         Expected: vm has not been deleted
         """
-        self.clone.delete()
+        self.clone.delete(try_to_rebuild=True)
         wait_for(lambda: self.clone.ready is False)
         self.assertIsNone(self.clone.deleted)
 
@@ -181,11 +180,11 @@ class TestOpenstackCloneUnit(BaseTestCase):
     )
     def test_rebuild_preload_vm(self):
         """
-        - call OpenstackClone.rebuild()
+        - call OpenstackClone.delete(try_to_rebuild=True)
 
         Expected: vm has been rebuilded and added in pool
         """
-        self.clone.rebuild()
+        self.clone.delete(try_to_rebuild=True)
         wait_for(lambda: self.clone.ready is True)
 
     @patch.multiple(
@@ -198,11 +197,11 @@ class TestOpenstackCloneUnit(BaseTestCase):
     def test_exception_in_rebuild_vm_if_vm_exist(self):
         """
         - call OpenstackClone.create()
-        - exception in OpenstackClone.rebuild()
+        - exception in OpenstackClone.delete(try_to_rebuild=True)
 
         Expected: vm has been deleted
         """
-        self.clone.rebuild()
+        self.clone.delete(try_to_rebuild=True)
         wait_for(lambda: self.clone.ready is False)
         self.assertTrue(self.clone.deleted)
 
