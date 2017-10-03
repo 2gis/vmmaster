@@ -117,10 +117,14 @@ class Session(models.BaseSession):
             self.ws.close()
 
         if getattr(self, "endpoint", None):
-            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
-            self.save_artifacts()
-            self.wait_for_artifacts()
-            self.endpoint.delete(try_to_rebuild=True)
+            if str(self.reason).startswith("No response for"):
+                log.warning(
+                    "Problem endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
+            else:
+                log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
+                self.save_artifacts()
+                self.wait_for_artifacts()
+                self.endpoint.delete(try_to_rebuild=True)
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
