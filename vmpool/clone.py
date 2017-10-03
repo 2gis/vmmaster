@@ -5,6 +5,7 @@ import logging
 
 from functools import wraps
 from functools import partial
+from flask import current_app
 
 from core.db import models
 from datetime import datetime
@@ -107,10 +108,11 @@ class Clone(models.Endpoint):
         }
 
     def start_recorder(self, session):
-        return self.pool.start_recorder(session)
+        # FIXME: replace current_pool by direct self.pool usage (blocked by db.models state restore issues)
+        return current_app.pool.start_recorder(session)
 
     def save_artifacts(self, session):
-        return self.pool.save_artifacts(session)
+        return current_app.pool.save_artifacts(session)
 
     def is_preloaded(self):
         return 'preloaded' in self.name
