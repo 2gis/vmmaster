@@ -171,9 +171,9 @@ class OpenstackPlatforms(PlatformsInterface):
 
 
 class Platforms(object):
-    platforms = dict()
-    openstack_platforms = None
-    docker_platforms = None
+    platforms = {}
+    openstack_platforms = {}
+    docker_platforms = {}
 
     def __new__(cls, *args, **kwargs):
         log.info("Load platforms...")
@@ -254,8 +254,8 @@ class Platforms(object):
         if bool(cls.openstack_platforms):
             for platform in cls.openstack_platforms:
                 del cls.platforms[platform]
-            cls.openstack_platforms = None
+            cls.openstack_platforms = {}
         if bool(cls.docker_platforms):
             for platform in cls.docker_platforms:
                 del cls.platforms[platform]
-            cls.docker_platforms = None
+            cls.docker_platforms = {}
