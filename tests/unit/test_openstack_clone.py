@@ -4,6 +4,7 @@ import os
 from mock import Mock, patch, PropertyMock
 
 from tests.helpers import BaseTestCase, custom_wait, wait_for, DatabaseMock
+from core.db.models import Provider
 
 
 class TestOpenstackCloneUnit(BaseTestCase):
@@ -15,7 +16,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.app = Flask(__name__)
         self.app.database = DatabaseMock()
 
-        self.pool = Mock(id=1)
+        self.pool = Mock(id=1, provider=Provider(name='fake', url='no//url'))
         self.mocked_origin = Mock(
             short_name="platform_1",
             id=1, status="active",
@@ -32,10 +33,6 @@ class TestOpenstackCloneUnit(BaseTestCase):
             "core.utils.openstack_utils.nova_client", Mock(return_value=Mock())
         ), patch(
             "flask.current_app", self.app
-        ), patch.multiple(
-            "core.db.models.Endpoint",
-            set_provider=Mock(),
-            set_platform=Mock()
         ):
             from vmpool.clone import OpenstackClone
             self.clone = OpenstackClone(self.mocked_origin, "preloaded", self.pool)

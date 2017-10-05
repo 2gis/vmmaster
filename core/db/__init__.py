@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import logging
-from sqlalchemy import create_engine, inspect, desc
+from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from core.db.models import SessionLogStep, User, Platform, Provider
@@ -43,24 +43,21 @@ def transaction(func):
 
 
 class Database(object):
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(Database, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
-
-    def __init__(self, connection_string=None):
+    def __init__(self, connection_string=None, sqlite=False):
         if not connection_string:
             connection_string = config.DATABASE
 
-        self.engine = create_engine(connection_string,
-                                    pool_size=200,
-                                    max_overflow=100,
-                                    pool_timeout=60)
+        if sqlite:
+            self.engine = create_engine(connection_string)
+        else:
+            self.engine = create_engine(connection_string,
+                                        pool_size=200,
+                                        max_overflow=100,
+                                        pool_timeout=60)
+
         self.session_maker = sessionmaker(bind=self.engine,
                                           autocommit=False,
-                                          autoflush=False,
+                                          autoflush=True,
                                           expire_on_commit=False)
         self.DBSession = scoped_session(self.session_maker)
 
@@ -143,15 +140,15 @@ class Database(object):
             log.warning("Platform {} not found".format(name))
         return platform
 
-    def register_platforms(self, provider_id, platforms):
+    def register_platforms(self, provider, platforms):
         for name in platforms:
             platform = Platform(name)
-            platform.provider = self.get_provider(provider_id)
+            platform.provider = provider
             self.add(platform)
 
     @transaction
-    def unregister_platforms(self, provider_id, dbsession=None):
-        dbsession.query(Platform).filter_by(provider_id=provider_id).delete()
+    def unregister_platforms(self, provider, dbsession=None):
+        dbsession.query(Platform).filter_by(provider=provider).delete()
         dbsession.commit()
 
     @transaction
@@ -161,17 +158,16 @@ class Database(object):
             provider.active = True
             provider.name = name
             provider.config = platforms
-            self.update(provider)
+            self.add(provider)
         else:
             provider = self.add(Provider(name=name, url=url, config=platforms))
-        return provider.id
+        return provider
 
     @transaction
     def unregister_provider(self, provider_id, dbsession=None):
         provider = dbsession.query(Provider).get(provider_id)
         provider.active = False
         self.update(provider)
-        self.unregister_platforms(provider_id=provider.id)
 
     @transaction
     def add(self, obj, dbsession=None):
@@ -183,17 +179,22 @@ class Database(object):
     def update(self, obj, dbsession=None):
         dbsession.merge(obj)
         dbsession.commit()
-        updated_obj = dbsession.query(type(obj)).get(obj.id)
-        dbsession.flush()
-        return updated_obj
+        return obj
 
     def refresh(self, obj):
-        obj_state = inspect(obj)
-        if obj_state.detached:
+        """
+        Try to get existing session attached to obj and refresh object state from DB
+        """
+        dbsession = self.session_maker.object_session(obj)
+        if dbsession:
+            dbsession.close()
             dbsession = self.DBSession()
         else:
-            dbsession = self.DBSession.object_session(obj)
-        return dbsession.add(obj)
+            dbsession = self.DBSession()
+        dbsession.add(obj)
+        res = dbsession.refresh(obj)
+        dbsession.close()  # TODO: make smart-transaction decorator
+        return res
 
     @transaction
     def delete(self, obj, dbsession=None):

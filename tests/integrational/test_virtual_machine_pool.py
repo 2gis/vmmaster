@@ -44,7 +44,7 @@ class TestVirtualMachinePool(BaseTestCase):
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)
-            self.pool.id = self.pool.register()
+            self.pool.start_workers()
             self.ctx = self.app.app_context()
             self.ctx.push()
 

@@ -18,11 +18,6 @@ from core import constants
     _wait_for_activated_service=custom_wait,
     ping_vm=Mock(return_value=True)
 )
-@patch.multiple(
-    "core.db.models.Endpoint",
-    set_provider=Mock(),
-    set_platform=Mock()
-)
 class TestApi(BaseTestCase):
     def setUp(self):
         from core.config import setup_config

@@ -231,11 +231,9 @@ class DatabaseMock(Mock):
     def get_last_session_step(session_id):
         return Mock()
 
-    def set_platform(self, platform, provider_id):
-        pass
-
-    def set_provider(self, provider_id):
-        pass
+    def register_provider(self, name, url, platforms):
+        from core.db.models import Provider
+        return Provider(name, url, platforms)
 
 
 def custom_wait(self):

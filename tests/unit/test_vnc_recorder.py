@@ -5,11 +5,6 @@ from mock import patch, Mock
 from tests.helpers import BaseTestCase, DatabaseMock, wait_for
 
 
-@patch.multiple(
-    "core.db.models.Endpoint",
-    set_provider=Mock(),
-    set_platform=Mock()
-)
 @patch('core.utils.openstack_utils.nova_client', Mock())
 class TestVNCVideoHelper(BaseTestCase):
     @classmethod

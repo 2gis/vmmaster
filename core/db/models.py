@@ -18,7 +18,7 @@ class FeaturesMixin(object):
         current_app.database.add(self)
 
     def save(self):
-        current_app.database.update(self)
+        current_app.database.add(self)
 
     def refresh(self):
         current_app.database.refresh(self)
@@ -166,7 +166,6 @@ class Endpoint(Base, FeaturesMixin):
     id = Column(Integer, primary_key=True)
     uuid = Column(String)
     provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'), nullable=False)
-    platform_id = Column(ForeignKey('platforms.id', ondelete='SET NULL'), nullable=False)
     name = Column(String)
     ip = Column(String)
     ports = Column(JSON, default={})
@@ -181,29 +180,25 @@ class Endpoint(Base, FeaturesMixin):
     deleted_time = Column(DateTime, nullable=True)
 
     # Relationships
-    platform = relationship("Platform", backref=backref("endpoint", enable_typechecks=False))
-    provider = relationship("Provider", backref=backref("endpoint", enable_typechecks=False))
+    provider = relationship("Provider", backref=backref("endpoints", enable_typechecks=False))
 
     def __str__(self):
         return "Endpoint {}({})".format(self.name, self.id)
 
-    def __init__(self, name, platform, provider_id):
-        self.name = name
-        self.platform_name = platform
-        self.created_time = datetime.now()
-        self.set_provider(provider_id)
-        self.set_platform(platform, provider_id)
+    def __init__(self, name_prefix, platform, provider):
+        self.provider = provider
+
         self.add()
 
-        if not self.name:
+        if name_prefix:
+            self.name = "{}-{}".format(name_prefix, self.id)
+        else:
             self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), platform)
-            self.save()
 
-    def set_platform(self, platform_name, provider_id):
-        self.platform = current_app.database.get_platform(platform_name, provider_id)
+        self.created_time = datetime.now()
+        self.platform_name = platform
 
-    def set_provider(self, provider_id):
-        self.provider = current_app.database.get_provider(provider_id)
+        self.save()
 
 
 class User(Base, FeaturesMixin):
@@ -259,7 +254,7 @@ class Platform(Base):
     name = Column(String(length=100), nullable=False)
 
     # Relationships
-    provider = relationship("Provider", backref=backref("platform", enable_typechecks=False))
+    provider = relationship("Provider", backref=backref("platforms", enable_typechecks=False))
 
     def __init__(self, name):
         self.name = name

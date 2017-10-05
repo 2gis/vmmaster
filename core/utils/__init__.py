@@ -181,7 +181,7 @@ def exception_handler(return_on_exc=None):
             try:
                 return func(self, *args, **kwargs)
             except:
-                log.exception("Error")
+                log.exception("Error while {}".format(func.__name__))
                 return return_on_exc
         return wrapper
     return _exception_handler

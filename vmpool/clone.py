@@ -32,10 +32,8 @@ class Clone(models.Endpoint):
     def __init__(self, origin, prefix, pool):
         self.origin = origin
         self.pool = pool
-        super(Clone, self).__init__(name=self.name, platform=origin.short_name, provider_id=pool.id)
-        self.prefix = prefix
-        self.name = "p{}-{}-{}".format(pool.id, self.prefix, self.id)
-        self.save()
+        name_prefix = "{}-p{}".format(prefix, pool.id)
+        super(Clone, self).__init__(name_prefix=name_prefix, platform=origin.short_name, provider=pool.provider)
 
     def __str__(self):
         return "{name}({ip})".format(name=self.name, ip=self.ip)
@@ -148,11 +146,11 @@ class OpenstackClone(Clone):
     nova_client = None
 
     def __init__(self, origin, prefix, pool):
-        super(OpenstackClone, self).__init__(origin, prefix, pool)
         openstack_endpoint_prefix = getattr(config, 'OPENSTACK_ENDPOINT_PREFIX', None)
         if openstack_endpoint_prefix:
-            self.name = "{}-{}".format(openstack_endpoint_prefix, self.name)
-            self.save()
+            prefix = "{}-{}".format(openstack_endpoint_prefix, prefix)
+
+        super(OpenstackClone, self).__init__(origin, prefix, pool)
         self.nova_client = self._get_nova_client()
         self.ports = {"{}".format(port): port for port in config.PORTS}
         self.save()
@@ -357,7 +355,6 @@ class DockerClone(Clone):
 
     def __init__(self, origin, prefix, pool):
         super(DockerClone, self).__init__(origin, prefix, pool)
-        self.platform_name = origin.name
         self.client = self._get_client()
 
     @staticmethod
@@ -432,7 +429,7 @@ class DockerClone(Clone):
         self.uuid = self.__container.id
         self.save()
         if not config.BIND_LOCALHOST_PORTS:
-            self.pool.network.connect_container(self.__container.id)
+            self.connect_network()
 
         log.info("Preparing {}...".format(self.name))
         for ready in self._wait_for_activated_service():
@@ -488,7 +485,7 @@ class DockerClone(Clone):
             try:
                 if self.__container:
                     if not config.BIND_LOCALHOST_PORTS:
-                        self.pool.network.disconnect_container(self.__container.id)
+                        self.disconnect_network()
                     self.__container.stop()
                     self.__container.remove()
                     log.info("Delete {} was successful".format(self.name))

@@ -62,10 +62,6 @@ class BaseTestFlaskApp(BaseTestCase):
                 'maxTotalCores': 10, 'maxTotalInstances': 10,
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
-        ), patch.multiple(
-            "core.db.models.Endpoint",
-            set_provider=Mock(),
-            set_platform=Mock()
         ):
             from vmmaster.app import create_app
             self.app = create_app()
@@ -92,11 +88,6 @@ class BaseTestFlaskApp(BaseTestCase):
     _wait_for_activated_service=custom_wait,
     ping_vm=Mock(return_value=True),
     is_broken=Mock(return_value=False),
-)
-@patch.multiple(
-    "core.db.models.Endpoint",
-    set_provider=Mock(),
-    set_platform=Mock()
 )
 class TestServer(BaseTestFlaskApp):
     def setUp(self):

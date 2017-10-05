@@ -57,6 +57,7 @@ class VirtualMachinesPoolPreloader(Thread):
 
 class VirtualMachinesPool(object):
     id = None
+    provider = None
     lock = Lock()
 
     def __str__(self):
@@ -77,21 +78,21 @@ class VirtualMachinesPool(object):
             from core.network import DockerNetwork
             self.network = DockerNetwork()
 
-        self.id = self.register()
-        self.register_platforms()
-
     def register(self):
-        return self.app.database.register_provider(
+        self.provider = self.app.database.register_provider(
             name=self.name,
             url=self.url,
             platforms=config.PLATFORMS
         )
-
-    def register_platforms(self):
-        self.app.database.register_platforms(provider_id=self.id, platforms=self.platforms.info())
+        self.id = self.provider.id
+        self.register_platforms()
 
     def unregister(self):
         self.app.database.unregister_provider(self.id)
+        self.app.database.unregister_platforms(self.provider)
+
+    def register_platforms(self):
+        self.app.database.register_platforms(self.provider, self.platforms.info())
 
     @property
     def active_endpoints(self):
@@ -109,6 +110,7 @@ class VirtualMachinesPool(object):
         return self.platforms.get_endpoints(self.id, efilter="using")
 
     def start_workers(self):
+        self.register()
         self.preloader.start()
 
     def stop_workers(self):
