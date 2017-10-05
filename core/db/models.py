@@ -67,6 +67,7 @@ class SessionLogStep(Base, FeaturesMixin):
         cascade="all, delete",
         backref=backref(
             "session_log_step",
+            enable_typechecks=False,
             single_parent=True
         )
     )
@@ -180,8 +181,8 @@ class Endpoint(Base, FeaturesMixin):
     deleted_time = Column(DateTime, nullable=True)
 
     # Relationships
-    platform = relationship("Platform", backref="endpoint")
-    provider = relationship("Provider", backref="endpoint")
+    platform = relationship("Platform", backref=backref("endpoint", enable_typechecks=False))
+    provider = relationship("Provider", backref=backref("endpoint", enable_typechecks=False))
 
     def __str__(self):
         return "Endpoint {}({})".format(self.name, self.id)
@@ -237,7 +238,7 @@ class User(Base, FeaturesMixin):
     max_stored_sessions = Column(Integer, default=100)
 
     # Relationships
-    sessions = relationship(BaseSession, backref="user", passive_deletes=True)
+    sessions = relationship(BaseSession, backref=backref("user", enable_typechecks=False), passive_deletes=True)
 
 
 class UserGroup(Base):
@@ -247,7 +248,7 @@ class UserGroup(Base):
     name = Column(String(length=20), unique=True, nullable=False)
 
     # Relationships
-    users = relationship(User, backref="group", passive_deletes=True)
+    users = relationship(User, backref=backref("group", enable_typechecks=False), passive_deletes=True)
 
 
 class Platform(Base):
@@ -258,7 +259,7 @@ class Platform(Base):
     name = Column(String(length=100), nullable=False)
 
     # Relationships
-    provider = relationship("Provider", backref="platform")
+    provider = relationship("Provider", backref=backref("platform", enable_typechecks=False))
 
     def __init__(self, name):
         self.name = name
