@@ -10,7 +10,7 @@ from flask import current_app
 from core import constants
 from core.db import models
 from core.config import config
-from core.exceptions import SessionException
+from core.exceptions import SessionException, RequestTimeoutException, EndpointUnreachableError
 from core.utils import network_utils
 
 log = logging.getLogger(__name__)
@@ -164,7 +164,12 @@ class Session(models.BaseSession):
         return step
 
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
-        return network_utils.make_request(self.endpoint.ip, port, request, timeout)
+        try:
+            return network_utils.make_request(self.endpoint.ip, port, request, timeout)
+        except RequestTimeoutException as e:
+            if not self.endpoint.ping_vm(ports=self.endpoint.bind_ports):
+                raise EndpointUnreachableError("Endpoint {} unreachable".format(self.endpoint))
+            raise e
 
 
 class SessionWorker(Thread):

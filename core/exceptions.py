@@ -27,3 +27,7 @@ class TimeoutException(Exception):
 
 class ConnectionError(Exception):
     pass
+
+
+class EndpointUnreachableError(Exception):
+    pass
