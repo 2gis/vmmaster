@@ -218,12 +218,12 @@ class ArtifactCollector(ThreadPool):
         """
         for task in self.in_queue[session_id]:
             if task and not task.ready():
-                task.successful()
-                log.warning("session {}: aborting task {}".format(session_id, str(task)))
-        try:
-            del self.in_queue[session_id]
-        except KeyError:
-            log.exception("session {}: tasks already deleted from queue".format(session_id))
+                try:
+                    task.wait(timeout=1)
+                    log.warning("session {}: aborting task {}".format(session_id, str(task)))
+                except:
+                    log.exception("session {}: task {} abortion was failured".format(session_id, str(task)))
+        self.in_queue.pop(session_id, None)
 
     def del_tasks(self, sessions_ids):
         """
@@ -253,5 +253,6 @@ class ArtifactCollector(ThreadPool):
 
     def stop(self):
         self.del_tasks(self.in_queue.keys())
-        self.close()
-        log.info("ArtifactCollector stopped")
+        self.terminate()
+        self.join()
+        log.info("ArtifactCollector was stopped")
