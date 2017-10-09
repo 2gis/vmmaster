@@ -382,6 +382,8 @@ class DockerClone(Clone):
         __container = self.get_container()
         if __container:
             self.__container = __container
+            self.ports = self.__container.ports
+            self.save()
 
     @exception_handler(return_on_exc=None)
     def get_container(self):
