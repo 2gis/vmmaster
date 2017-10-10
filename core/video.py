@@ -153,4 +153,4 @@ class VNCVideoHelper:
 
     def stop(self):
         self.stop_recording()
-        self.start_proxy()
+        self.stop_proxy()
