@@ -166,14 +166,12 @@ def screencast_recording(app, session_id):
         )
         vnc_helper.stop()
         log.info("session {}: screencast stopped".format(session_id))
-        save_selenium_log(app, session.id, "selenium_server", "/var/log/selenium_server.log")
-        session.endpoint.delete(try_to_rebuild=True)
 
 
 class ArtifactCollector(ThreadPool):
     def __init__(self):
         super(ArtifactCollector, self).__init__(processes=getattr(config, "ENDPOINT_THREADPOOL_PROCESSES", 5))
-        self.in_queue = defaultdict(list)
+        self.in_queue = defaultdict(dict)
         log.info("ArtifactCollector started")
 
     def __reduce__(self):
@@ -191,6 +189,14 @@ class ArtifactCollector(ThreadPool):
             )
         )
 
+    def prepare_endpoint(self, session_id, app):
+        from vmpool.endpoint import prepare_endpoint
+        return self.add_task(
+            session_id,
+            prepare_endpoint,
+            *(app, session_id)
+        )
+
     def get_queue(self):
         res = {}
         for key in self.in_queue.keys():
@@ -198,12 +204,18 @@ class ArtifactCollector(ThreadPool):
         return res
 
     def add_task(self, session_id, method, *args, **kwargs):
-        apply_result = self.apply_async(
-            method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
-        )
-        self.in_queue[session_id].append(apply_result)
-        log.info("session {}: task {} added to queue".format(session_id, method.__name__,))
-        return True
+        tasks = self.in_queue[session_id]
+        if tasks and tasks.get(method.__name__, None):
+            log.debug("duplicate task {} for session {}".format(method.__name__, session_id))
+        else:
+            apply_result = self.apply_async(
+                method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
+            )
+            if not tasks:
+                self.in_queue[session_id] = {}
+            self.in_queue[session_id][method.__name__] = apply_result
+            log.info("session {}: task {} added to queue".format(session_id, method.__name__,))
+            return True
 
     def on_task_complete(self, result, method_name, session_id):
         """
@@ -218,7 +230,7 @@ class ArtifactCollector(ThreadPool):
         """
         :param session_id: int
         """
-        for task in self.in_queue[session_id]:
+        for task in self.in_queue[session_id].values():
             if task and not task.ready():
                 try:
                     task.wait(timeout=1)
@@ -256,5 +268,5 @@ class ArtifactCollector(ThreadPool):
     def stop(self):
         self.del_tasks(self.in_queue.keys())
         self.terminate()
-        self.join()
+        self.close()
         log.info("ArtifactCollector was stopped")

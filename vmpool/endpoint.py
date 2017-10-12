@@ -3,6 +3,7 @@
 import time
 import logging
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core import constants
 from core.utils import generator_wait_for
@@ -12,7 +13,6 @@ from core.profiler import profiler
 from core.exceptions import PlatformException, CreationException
 
 from flask import current_app
-from vmpool.artifact_collector import ArtifactCollector, screencast_recording
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def get_vm(platform):
     yield vm
 
 
-def get_endpoint(session_id, dc):
+def get_endpoint(session_id, platform):
     _endpoint = None
     attempt = 0
     attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
@@ -73,7 +73,7 @@ def get_endpoint(session_id, dc):
         wait_time += wait_time_increment
         try:
             log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
-            for vm in get_vm(dc):
+            for vm in get_vm(platform):
                 _endpoint = vm
                 yield _endpoint
             profiler.register_success_get_endpoint(attempt)
@@ -94,19 +94,14 @@ def get_endpoint(session_id, dc):
     yield _endpoint
 
 
-def prepare_endpoint(app, session_id, queue):
+def prepare_endpoint(app, session_id):
     with app.app_context():
         session = app.sessions.get_session(session_id)
         try:
-            for _endpoint in get_endpoint(session.id, session.dc):
+            for _endpoint in get_endpoint(session.id, session.platform):
                 session.endpoint_id = _endpoint.id
                 session.save()
                 log.info("Founded endpoint({}) session {}".format(session.endpoint_id, session))
-                queue.add_task(
-                    session.id,
-                    screencast_recording,
-                    *(app, session.id)
-                )
         except:
             session.set_status("waiting")
 
@@ -117,25 +112,36 @@ class EndpointWorker(Thread):
         self.running = True
         self.daemon = True
         self.app = pool.app
-        self.sessions = pool.app.sessions
-        self.platforms = pool.platforms
-        self.queue = ArtifactCollector()
+
+    def endpoint_preparing(self):
+        with self.app.app_context():
+            for session in self.app.sessions.active():
+                if session.status == "waiting":
+                    log.info("Finding for {}".format(session))
+                    session.set_status("preparing")
+                    self.app.pool.artifact_collector.prepare_endpoint(session.id, self.app)
+                elif session.status == "running":
+                    self.app.pool.artifact_collector.record_screencast(session.id, self.app)
+
+    def endpoint_finalizing(self):
+        with self.app.app_context():
+            for session in self.app.sessions.last_closed():
+                if not session.endpoint.deleted:
+                    session.restore_from_db()
+                    if session.status != "succeed":
+                        self.app.pool.artifact_collector.save_selenium_log(session.id, self.app)
+                    session.endpoint.delete(try_to_rebuild=True)
 
     def run(self):
         log.info("EndpointWorker starting...")
         while self.running:
-            with self.app.app_context():
-                for session in self.sessions.active():
-                    if session.status == "waiting" \
-                            and self.platforms.check_platform(session.platform) \
-                            and session.id not in self.queue.in_queue.keys():
-                            log.info("Finding for {}".format(session))
-                            session.set_status("preparing")
-                            self.queue.add_task(
-                                session.id,
-                                prepare_endpoint,
-                                *(self.app, session.id, self.queue)
-                            )
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = {executor.submit(task) for task in [self.endpoint_preparing, self.endpoint_finalizing]}
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except:
+                        future.cancel()
                 time.sleep(5)
 
     def stop(self):

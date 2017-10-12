@@ -57,8 +57,12 @@ class Session(models.BaseSession):
         if self.endpoint_id:
             self.endpoint = current_app.pool.get_by_id(self.endpoint_id)
 
-    def restore_current_log_step(self):
+    def set_current_log_step(self):
         self.current_log_step = current_app.database.get_last_session_step(self.id)
+
+    def restore_from_db(self):
+        self.set_endpoint()
+        self.set_current_log_step()
 
     @property
     def inactivity(self):
@@ -107,15 +111,15 @@ class Session(models.BaseSession):
     def stop_timer(self):
         self.is_active = True
 
-    def save_artifacts(self):
-        if not self.endpoint.ip:
-            return False
+    # def save_artifacts(self):
+    #     if not self.endpoint.ip:
+    #         return False
+    #
+    #     return self.endpoint.save_artifacts(self)
 
-        return self.endpoint.save_artifacts(self)
-
-    def wait_for_artifacts(self):
-        # FIXME: remove sync wait for task
-        current_app.pool.artifact_collector.wait_for_complete(self.id)
+    # def wait_for_artifacts(self):
+    #     # FIXME: remove sync wait for task
+    #     current_app.pool.artifact_collector.wait_for_complete(self.id)
 
     def close(self, reason=None):
         self.closed = True
@@ -127,11 +131,11 @@ class Session(models.BaseSession):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint", None):
-            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
-            self.save_artifacts()
-            self.wait_for_artifacts()
-            self.endpoint.delete(try_to_rebuild=True)
+        # if getattr(self, "endpoint", None):
+        #     log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
+        #     self.save_artifacts()
+        #     self.wait_for_artifacts()
+        #     self.endpoint.delete(try_to_rebuild=True)
 
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
@@ -218,6 +222,9 @@ class Sessions(object):
     def active(self):
         return self.app.database.get_active_sessions()
 
+    def last_closed(self):
+        return self.app.database.last_closed()
+
     def running(self):
         return [s for s in self.active() if s.status == "running"]
 
@@ -235,8 +242,7 @@ class Sessions(object):
 
         if session and session_maybe_closed:
             log.debug("Recovering {} from db".format(session))
-            session.restore_current_log_step()
-            session.set_endpoint()
+            session.restore_from_db()
         elif getattr(session, "closed", False):
             raise SessionException("There is no active session {} ({})".format(session_id, session.reason))
         else:
