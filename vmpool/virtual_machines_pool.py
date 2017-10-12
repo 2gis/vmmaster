@@ -59,7 +59,6 @@ class VirtualMachinesPool(object):
     id = None
     provider = None
     lock = Lock()
-    config = {}
 
     def __str__(self):
         return str(self.active_endpoints)

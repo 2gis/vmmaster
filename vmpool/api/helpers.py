@@ -13,10 +13,3 @@ def get_pool():
 
 def get_artifact_collector_queue():
     return current_app.pool.artifact_collector.get_queue()
-
-
-def get_provider_info():
-    return {
-        "name": current_app.pool.name,
-        "config": current_app.pool.config
-    }
