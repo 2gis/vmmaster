@@ -117,12 +117,18 @@ class Database(object):
         base_query = base_query.filter(clone.deleted.is_(False))
         if efilter == "active":
             return base_query.all()
-        if efilter == "using":
+        elif efilter == "using":
             return base_query.filter(clone.in_use.is_(True)).all()
-        if efilter == "pool":
+        elif efilter == "pool":
             return base_query.filter(clone.in_use.is_(False)).all()
+        elif efilter == "service":
+            return base_query.filter_by(mode=efilter).order_by(desc(clone.id)).all()
         else:
             return []
+
+    @transaction
+    def get_session_by_endpoint_id(self, endpoint_id, dbsession=None):
+        return dbsession.query(Session).filter_by(endpoint_id=endpoint_id).order_by(desc(Session.id)).first()
 
     @transaction
     def get_provider(self, provider_id, dbsession=None):
