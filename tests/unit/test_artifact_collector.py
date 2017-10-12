@@ -46,7 +46,7 @@ class TestArtifactCollector(BaseTestCase):
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'origin_1'})
+            session = Session("origin_1")
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
             endpoint = PropertyMock(
@@ -91,7 +91,7 @@ class TestArtifactCollector(BaseTestCase):
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'origin_1'})
+            session = Session("origin_1")
             session.id = 1
             endpoint = PropertyMock(
                 ip='127.0.0.1', name='test_endpoint', delete=Mock(),
@@ -131,7 +131,7 @@ class TestArtifactCollector(BaseTestCase):
             'core.db.Database', DatabaseMock()
         ):
             from core.sessions import Session
-            session = Session(dc={'platform': 'origin_1'})
+            session = Session("origin_1")
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
             endpoint = PropertyMock(

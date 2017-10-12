@@ -223,10 +223,11 @@ def get_session():
     profiler.register_get_session_call()
 
     dc = commands.get_desired_capabilities(request)
-    if not current_app.match(dc):
+    matched_platforms = current_app.get_matched_platforms(dc)
+    if not matched_platforms:
         raise SessionException("Cannot match platform for DesiredCapabilities: {}".format(dc))
 
-    session = Session(dc=dc)
+    session = Session(platform=matched_platforms[0], dc=dc)
     request.session = session
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     yield session

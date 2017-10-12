@@ -43,8 +43,8 @@ class Session(models.BaseSession):
             msg += " name={} ip={} ports={}".format(self.endpoint.name, self.endpoint.ip, self.endpoint.ports)
         return msg
 
-    def __init__(self, name=None, dc=None):
-        super(Session, self).__init__(name, dc)
+    def __init__(self, platform, name=None, dc=None):
+        super(Session, self).__init__(platform, name, dc)
         if dc and dc.get('takeScreencast', None):
             self.take_screencast = True
         self.save()

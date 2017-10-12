@@ -35,7 +35,7 @@ class TestCleanup(unittest.TestCase):
 
     def test_file_deletion(self):
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.status = 'unknown'
         session.name = '__test_file_deletion'
         session.save()
@@ -61,7 +61,7 @@ class TestCleanup(unittest.TestCase):
         user = Mock(id=1, max_stored_sessions=0)
 
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.status = 'unknown'
         session.closed = True
         session.name = '__test_outdated_sessions'
@@ -76,12 +76,12 @@ class TestCleanup(unittest.TestCase):
         user = Mock(id=1, max_stored_sessions=0)
 
         from core.sessions import Session
-        session1 = Session(name='__test_keep_forever_sessions_1')
+        session1 = Session(platform='some_platform', name='__test_keep_forever_sessions_1')
         session1.closed = True
         session1.keep_forever = True
         session1.save()
 
-        session2 = Session(name='__test_keep_forever_sessions_2')
+        session2 = Session(platform='some_platform', name='__test_keep_forever_sessions_2')
         session2.closed = True
         session2.keep_forever = False
         session2.save()

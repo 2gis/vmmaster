@@ -69,7 +69,7 @@ class CommonCommandsTestCase(BaseTestCase):
             'flask.current_app.sessions', Mock()
         ):
             from core.sessions import Session
-            self.session = Session()
+            self.session = Session('origin_1')
             self.session.name = "session1"
 
             vm = PropertyMock()

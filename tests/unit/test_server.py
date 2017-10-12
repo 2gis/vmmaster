@@ -65,7 +65,7 @@ class BaseTestFlaskApp(BaseTestCase):
         ):
             from vmmaster.app import create_app
             self.app = create_app()
-            self.app.match = Mock(return_value=True)
+            self.app.get_matched_platforms = Mock(return_value=['origin_1'])
 
         self.desired_caps = {
             'desiredCapabilities': {
@@ -162,7 +162,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: session exception without any reason
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.selenium_session = '1'
         session.succeed()
 
@@ -184,7 +184,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: session exception with reason 'Session timeout'
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.selenium_session = '1'
         session.timeout()
 
@@ -218,7 +218,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: session deleted
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.succeed = Mock()
         session.add_session_step = Mock()
 
@@ -247,7 +247,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: session deleted
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.succeed = Mock()
         session.add_session_step = Mock()
 
@@ -273,7 +273,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: vmmaster session deleted
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         with patch(
             'core.sessions.Sessions.get_session', Mock(return_value=session)
         ), patch.object(
@@ -308,7 +308,7 @@ class TestServer(BaseTestFlaskApp):
         Expected: script executed, output contains echo message
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.selenium_session = '1'
         output = json.dumps({"output": "hello world\n"})
 
@@ -329,7 +329,7 @@ class TestServer(BaseTestFlaskApp):
     )
     def test_vmmaster_label(self):
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         with patch(
             'core.sessions.Sessions.get_session', Mock(return_value=session)
         ):
@@ -341,7 +341,7 @@ class TestServer(BaseTestFlaskApp):
 
     @patch('vmmaster.webdriver.helpers.swap_session', Mock())
     def test_vmmaster_no_such_platform(self):
-        self.app.match = Mock(return_value=False)
+        self.app.get_matched_platforms = Mock(return_value=[])
         desired_caps = {
             'desiredCapabilities': {
                 'platform': 'no_platform'
@@ -565,7 +565,7 @@ class TestServerShutdown(BaseTestCase):
         Expected: session not deleted
         """
         from core.sessions import Session
-        session = Session()
+        session = Session('some_platform')
         session.closed = False
 
         with patch('core.sessions.Sessions.get_session', Mock(return_value=session)):

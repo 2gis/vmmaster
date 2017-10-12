@@ -72,7 +72,7 @@ class TestApi(BaseTestCase):
 
     def test_api_sessions(self):
         from core.sessions import Session
-        session = Session("session1", self.desired_caps["desiredCapabilities"])
+        session = Session(self.platform, "session1", self.desired_caps["desiredCapabilities"])
         session.created = session.modified = datetime.now()
 
         with patch('flask.current_app.sessions.active',
@@ -100,7 +100,7 @@ class TestApi(BaseTestCase):
 
     def test_api_stop_session(self):
         from core.sessions import Session
-        session = Session()
+        session = Session("some_platform")
         session.failed = Mock()
 
         with patch(
@@ -179,7 +179,7 @@ class TestApi(BaseTestCase):
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
         )
-        session = Session()
+        session = Session("some_platform")
         session.name = "session1"
         session.created = session.modified = datetime.now()
         session.endpoint = endpoint
@@ -215,7 +215,7 @@ class TestApi(BaseTestCase):
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
         )
-        session = Session()
+        session = Session("some_platform")
         session.name = "session1"
         session.created = session.modified = datetime.now()
         session.endpoint = endpoint

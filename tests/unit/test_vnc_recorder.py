@@ -53,7 +53,7 @@ class TestVNCVideoHelper(BaseTestCase):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             from vmpool.clone import Clone
 
-            session = Session(dc=dc)
+            session = Session(platform='some_platform', dc=dc)
             session.name = "session1"
             session.id = 1
 

@@ -94,6 +94,7 @@ class BaseSession(Base, FeaturesMixin):
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
     endpoint_id = Column(ForeignKey('endpoints.id', ondelete='SET NULL'))
     name = Column(String)
+    platform = Column(String)
     dc = Column(String)
     selenium_session = Column(String)
     take_screenshot = Column(Boolean)
@@ -126,7 +127,9 @@ class BaseSession(Base, FeaturesMixin):
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
 
-    def __init__(self, name=None, dc=None):
+    def __init__(self, platform, name=None, dc=None):
+        self.platform = platform
+
         if name:
             self.name = name
 
@@ -148,10 +151,6 @@ class BaseSession(Base, FeaturesMixin):
         if not self.name:
             self.name = "Unnamed session " + str(self.id)
             self.save()
-
-    @property
-    def platform(self):
-        return json.loads(self.dc).get("platform", None)
 
     def add_session_step(self, control_line, body=None, created=None):
         return SessionLogStep(control_line=control_line,

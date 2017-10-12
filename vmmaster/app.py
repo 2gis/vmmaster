@@ -45,7 +45,7 @@ class Vmmaster(Flask):
     def providers(self):
         return self.database.get_active_providers()
 
-    def match(self, dc):
+    def get_matched_platforms(self, dc):
         from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
         for provider in self.providers:
             platforms = self.database.get_platforms(provider.id)
@@ -53,9 +53,10 @@ class Vmmaster(Flask):
                 platforms=provider.config,
                 fallback_matcher=PlatformsBasedMatcher(platforms)
             )
-            if matcher.match(dc):
-                return True
-        return False
+            matched_platforms = matcher.get_matched_platforms(dc)
+            if matched_platforms:
+                return matched_platforms
+        return []
 
 
 def register_blueprints(app):
