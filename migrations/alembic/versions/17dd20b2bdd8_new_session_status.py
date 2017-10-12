@@ -15,7 +15,6 @@ down_revision = '349c69643197'
 
 
 def upgrade():
-    op.drop_constraint('status', 'sessions')
     op.alter_column(
         table_name='sessions', column_name='status',
         server_default='waiting',

@@ -16,13 +16,14 @@ class JSONEncoder(json.JSONEncoder):
 
 
 class Vmmaster(Flask):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name, reactor, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
         from vmpool.virtual_machines_pool import VirtualMachinesPool
 
-        super(Vmmaster, self).__init__(*args, **kwargs)
+        super(Vmmaster, self).__init__(name, *args, **kwargs)
         self.running = True
+        self.reactor = reactor
         self.json_encoder = JSONEncoder
         self.database = Database()
         self.pool = VirtualMachinesPool(app=self, name=getattr(config, "PROVIDER_NAME", None))
@@ -68,11 +69,11 @@ def register_blueprints(app):
     app.register_blueprint(webdriver, url_prefix='/wd/hub')
 
 
-def create_app():
+def create_app(reactor):
     if config is None:
         raise Exception("Need to setup config.py in application directory")
 
-    app = Vmmaster(__name__)
+    app = Vmmaster(__name__, reactor)
 
     register_blueprints(app)
     return app

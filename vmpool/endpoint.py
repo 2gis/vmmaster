@@ -3,7 +3,6 @@
 import time
 import logging
 from threading import Thread
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core import constants
 from core.utils import generator_wait_for
@@ -114,6 +113,7 @@ class EndpointWorker(Thread):
         self.app = pool.app
 
     def endpoint_preparing(self):
+        log.info("task 1")
         with self.app.app_context():
             for session in self.app.sessions.active():
                 if session.status == "waiting":
@@ -124,10 +124,11 @@ class EndpointWorker(Thread):
                     self.app.pool.artifact_collector.record_screencast(session.id, self.app)
 
     def endpoint_finalizing(self):
+        log.info("task 2")
         with self.app.app_context():
             for session in self.app.sessions.last_closed():
+                session.restore_from_db()
                 if not session.endpoint.deleted:
-                    session.restore_from_db()
                     if session.status != "succeed":
                         self.app.pool.artifact_collector.save_selenium_log(session.id, self.app)
                     session.endpoint.delete(try_to_rebuild=True)
@@ -135,14 +136,9 @@ class EndpointWorker(Thread):
     def run(self):
         log.info("EndpointWorker starting...")
         while self.running:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = {executor.submit(task) for task in [self.endpoint_preparing, self.endpoint_finalizing]}
-                for future in as_completed(futures):
-                    try:
-                        future.result()
-                    except:
-                        future.cancel()
-                time.sleep(5)
+            self.app.reactor.callInThread(self.endpoint_preparing)
+            self.app.reactor.callInThread(self.endpoint_finalizing)
+            time.sleep(5)
 
     def stop(self):
         self.running = False

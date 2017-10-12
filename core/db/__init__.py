@@ -73,7 +73,7 @@ class Database(object):
             return None
 
     @transaction
-    def last_closed(self, count=100, dbsession=None):
+    def get_(self, count=100, dbsession=None):
         from core.sessions import Session
         return dbsession.query(Session).filter(Session.closed.is_(True)).order_by(Session.id.desc()).limit(count).all()
 
