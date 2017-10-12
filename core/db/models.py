@@ -232,16 +232,6 @@ class Session(Base, FeaturesMixin):
     def stop_timer(self):
         self.is_active = True
 
-    def save_artifacts(self):
-        if not self.endpoint.ip:
-            return False
-
-        return self.endpoint.save_artifacts(self)
-
-    def wait_for_artifacts(self):
-        # FIXME: remove sync wait for task
-        current_app.pool.artifact_collector.wait_for_complete(self.id)
-
     def close(self, reason=None):
         self.closed = True
         if reason:
@@ -252,12 +242,8 @@ class Session(Base, FeaturesMixin):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if getattr(self, "endpoint", None):
-            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
-            self.save_artifacts()
-            self.wait_for_artifacts()
-            self.endpoint.delete(try_to_rebuild=True)
-
+        if getattr(self, "endpoint", None) and getattr(self.endpoint, "send_to_service", None):
+            self.endpoint.send_to_service()
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
     def succeed(self):
@@ -313,6 +299,7 @@ class Endpoint(Base, FeaturesMixin):
     ports = Column(JSON, default={})
     platform_name = Column(String, nullable=False)
 
+    mode = Column(String, default="default")
     ready = Column(Boolean, default=False)
     in_use = Column(Boolean, default=False)
     deleted = Column(Boolean, default=False)

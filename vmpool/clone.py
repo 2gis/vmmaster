@@ -43,6 +43,7 @@ class Clone(models.Endpoint):
         self.deleted_time = datetime.now()
         self.deleted = True
         self.save()
+        self.service_mode_off()
         log.info("Deleted {}".format(self.name))
 
     def create(self):
@@ -51,6 +52,7 @@ class Clone(models.Endpoint):
 
     def rebuild(self):
         self.set_in_use(False)
+        self.service_mode_off()
         log.info("Rebuild {} was successful".format(self.name))
 
     @property
@@ -76,6 +78,19 @@ class Clone(models.Endpoint):
     @property
     def agent_ws_url(self):
         return "{}:{}".format(self.ip, self.agent_port)
+
+    def service_mode_on(self):
+        self.set_mode("service")
+
+    def service_mode_off(self):
+        self.set_mode("default")
+
+    def send_to_service(self):
+        self.set_mode("wait for service")
+
+    def set_mode(self, mode):
+        self.mode = mode
+        self.save()
 
     def set_ready(self, value):
         self.ready = value
@@ -108,9 +123,6 @@ class Clone(models.Endpoint):
     def start_recorder(self, session):
         # FIXME: replace current_pool by direct self.pool usage (blocked by db.models state restore issues)
         return current_app.pool.start_recorder(session)
-
-    def save_artifacts(self, session):
-        return current_app.pool.save_artifacts(session)
 
     def is_preloaded(self):
         return 'preloaded' in self.name

@@ -4,7 +4,9 @@ import time
 import logging
 from threading import Thread, Lock
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
+from core import constants
 from core.config import config
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
@@ -54,6 +56,51 @@ class VirtualMachinesPoolPreloader(Thread):
         log.info("Preloader stopped")
 
 
+class EndpointRemover(Thread):
+    def __init__(self, pool):
+        Thread.__init__(self)
+        self.running = True
+        self.daemon = True
+        self.pool = pool
+
+    def remove_endpoint(self, endpoint):
+        try:
+            with self.pool.app.app_context():
+                session = self.pool.app.database.get_session_by_endpoint_id(endpoint.id)
+                if session:
+                    self.pool.save_artifacts(session)
+                    self.pool.artifact_collector.wait_for_complete(session.id)
+                endpoint.delete(try_to_rebuild=True)
+        except:
+            log.exception("Failed")
+            endpoint.send_to_service()
+
+    def on_success(self, r):
+        log.info("Success")
+
+    @staticmethod
+    def on_failure(r):
+        log.exception("Service was failed: {}".format(r))
+
+    def run(self):
+        from twisted.internet import threads
+        log.info("EndpointRemover was started...")
+        while self.running:
+            with self.pool.app.app_context():
+                for endpoint in self.pool.wait_for_service:
+                    endpoint.service_mode_on()
+                    defer = threads.deferToThread(lambda: self.remove_endpoint(endpoint))
+                    defer.addBoth(self.on_success)
+                    defer.addErrback(self.on_failure)
+            time.sleep(constants.TIME_OF_SLEEP_AFTER_ATTEMPT)
+
+    def stop(self):
+        self.running = False
+        self.pool.free()
+        self.join(1)
+        log.info("EndpointRemover was stopped")
+
+
 class VirtualMachinesPool(object):
     id = None
     provider = None
@@ -62,8 +109,8 @@ class VirtualMachinesPool(object):
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, name=None, platforms_class=Platforms,
-                 preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
+    def __init__(self, app, name=None, platforms_class=Platforms, preloader_class=VirtualMachinesPoolPreloader,
+                 artifact_collector_class=ArtifactCollector, endpoint_remover_class=EndpointRemover):
         self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
 
@@ -71,6 +118,7 @@ class VirtualMachinesPool(object):
         self.platforms = platforms_class()
         self.preloader = preloader_class(self)
         self.artifact_collector = artifact_collector_class()
+        self.endpoint_remover = endpoint_remover_class(self)
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
             from core.network import DockerNetwork
@@ -107,16 +155,26 @@ class VirtualMachinesPool(object):
     def using(self):
         return self.platforms.get_endpoints(self.id, efilter="using")
 
+    @property
+    def wait_for_service(self):
+        return self.platforms.get_endpoints(self.id, efilter="wait for service")
+
+    @property
+    def on_service(self):
+        return self.platforms.get_endpoints(self.id, efilter="service")
+
     def start_workers(self):
         self.register()
         self.preloader.start()
+        self.endpoint_remover.start()
 
     def stop_workers(self):
         if self.preloader:
             self.preloader.stop()
         if self.artifact_collector:
             self.artifact_collector.stop()
-        self.free()
+        if self.endpoint_remover:
+            self.endpoint_remover.stop()
         self.unregister()
         self.platforms.cleanup()
 
