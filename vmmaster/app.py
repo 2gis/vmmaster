@@ -25,7 +25,7 @@ class Vmmaster(Flask):
         self.running = True
         self.json_encoder = JSONEncoder
         self.database = Database()
-        self.pool = VirtualMachinesPool(app=self, name=config.PROVIDER_NAME)
+        self.pool = VirtualMachinesPool(app=self, name=getattr(config, "PROVIDER_NAME", None))
         self.sessions = Sessions(self)
 
         self.pool.start_workers()
@@ -35,6 +35,7 @@ class Vmmaster(Flask):
     def cleanup(self):
         log.info("Cleanup...")
         try:
+            self.pool.stop_workers()
             self.sessions.stop_workers()
             log.info("Cleanup done")
         except:

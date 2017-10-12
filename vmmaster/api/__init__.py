@@ -41,12 +41,7 @@ def status():
 
 @api.route('/platforms')
 def platforms():
-    # TODO: test me
-    return render_json(
-        result={
-            'platforms': helpers.get_platforms()
-        }
-    )
+    return render_json(result={'platforms': helpers.get_platforms()})
 
 
 @api.route('/config', methods=['GET', 'POST'])
