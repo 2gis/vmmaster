@@ -136,11 +136,14 @@ class VNCVideoHelper:
         )
         self.recorder.daemon = True
         self.recorder.start()
-        log.info(
-            "Started screencast recording(pid:{}) for {}:{} to {}".format(
-                self.recorder.pid, self.host, self.port, self.dir_path
+        if self.recorder.is_alive():
+            log.info(
+                "Started screencast recording(pid:{}) for {}:{} to {}".format(
+                    self.recorder.pid, self.host, self.port, self.dir_path
+                )
             )
-        )
+        else:
+            raise Exception("ScreencastRecorderException")
 
     def stop_recording(self):
         if self.recorder and self.recorder.is_alive():
