@@ -4,8 +4,9 @@ import json
 from datetime import datetime
 from mock import Mock, patch, PropertyMock
 from multiprocessing import Process
-from tests.helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for, custom_wait
 from lode_runner import dataprovider
+
+from tests.helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for, custom_wait
 from core import constants
 
 
@@ -71,7 +72,7 @@ class TestApi(BaseTestCase):
         del self.app
 
     def test_api_sessions(self):
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session(self.platform, "session1", self.desired_caps["desiredCapabilities"])
         session.created = session.modified = datetime.now()
 
@@ -99,7 +100,7 @@ class TestApi(BaseTestCase):
         self.assertEqual(200, body['metacode'])
 
     def test_api_stop_session(self):
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session("some_platform")
         session.failed = Mock()
 
@@ -173,12 +174,12 @@ class TestApi(BaseTestCase):
         self.assertEqual(200, body['metacode'])
 
     def test_failed_get_vnc_info_with_create_proxy(self):
-        from core.sessions import Session
         endpoint = PropertyMock(ip='127.0.0.1')
         endpoint.vnc_helper = Mock(
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
         )
+        from core.db.models import Session
         session = Session("some_platform")
         session.name = "session1"
         session.created = session.modified = datetime.now()
@@ -209,12 +210,12 @@ class TestApi(BaseTestCase):
             lambda: not session.endpoint.vnc_helper.proxy.is_alive()))
 
     def test_get_vnc_info_for_running_proxy(self):
-        from core.sessions import Session
         endpoint = PropertyMock(ip='127.0.0.1')
         endpoint.vnc_helper = Mock(
             proxy=Process(target=lambda: None),
             get_proxy_port=Mock(return_value=5900)
         )
+        from core.db.models import Session
         session = Session("some_platform")
         session.name = "session1"
         session.created = session.modified = datetime.now()

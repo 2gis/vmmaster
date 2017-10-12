@@ -4,7 +4,7 @@ import logging
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.db.models import SessionLogStep, User, Platform, Provider
+from core.db.models import Session, SessionLogStep, User, Platform, Provider
 from core.utils import to_thread
 from core.config import config
 
@@ -65,7 +65,6 @@ class Database(object):
     def get_session(self, session_id, dbsession=None):
         if not session_id:
             return None
-        from core.sessions import Session
         try:
             return dbsession.query(Session).get(session_id)
         except:
@@ -74,7 +73,6 @@ class Database(object):
 
     @transaction
     def get_active_sessions(self, dbsession=None):
-        from core.sessions import Session
         return dbsession.query(Session).filter(Session.closed.is_(False)).all()
 
     @transaction

@@ -53,7 +53,7 @@ class BaseTestFlaskApp(BaseTestCase):
         ), patch(
             'core.sessions.SessionWorker', Mock()
         ), patch(
-            'core.sessions.Session.save_artifacts', Mock()
+            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[self.mocked_image]),
@@ -126,7 +126,7 @@ class TestServer(BaseTestFlaskApp):
         result2 = deffered2.get()
         self.assertEqual([result1.status_code, result2.status_code].count(200), 2)
 
-    @patch('core.sessions.Session.set_user', Mock())
+    @patch('core.db.models.Session.set_user', Mock())
     def test_server_create_new_session_with_user_and_token(self):
         """
         - pass user and token via desired capabilities
@@ -161,7 +161,7 @@ class TestServer(BaseTestFlaskApp):
         - try to get this session
         Expected: session exception without any reason
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.selenium_session = '1'
         session.succeed()
@@ -183,7 +183,7 @@ class TestServer(BaseTestFlaskApp):
         - try to get this session
         Expected: session exception with reason 'Session timeout'
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.selenium_session = '1'
         session.timeout()
@@ -203,7 +203,7 @@ class TestServer(BaseTestFlaskApp):
         session.close()
 
     @patch(
-        'core.sessions.Session.make_request',
+        'core.db.models.Session.make_request',
         Mock(side_effect=Mock(return_value=(200, {}, None)))
     )
     @patch(
@@ -217,7 +217,7 @@ class TestServer(BaseTestFlaskApp):
         - delete session by id
         Expected: session deleted
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.succeed = Mock()
         session.add_session_step = Mock()
@@ -230,7 +230,7 @@ class TestServer(BaseTestFlaskApp):
         session.close()
 
     @patch(
-        'core.sessions.Session.make_request',
+        'core.db.models.Session.make_request',
         Mock(side_effect=Mock(return_value=(200, {}, None)))
     )
     @patch(
@@ -246,7 +246,7 @@ class TestServer(BaseTestFlaskApp):
         - repeat deleting session
         Expected: session deleted
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.succeed = Mock()
         session.add_session_step = Mock()
@@ -272,7 +272,7 @@ class TestServer(BaseTestFlaskApp):
         - try to get vmmaster session
         Expected: vmmaster session deleted
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         with patch(
             'core.sessions.Sessions.get_session', Mock(return_value=session)
@@ -307,7 +307,7 @@ class TestServer(BaseTestFlaskApp):
         - send run_script request
         Expected: script executed, output contains echo message
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.selenium_session = '1'
         output = json.dumps({"output": "hello world\n"})
@@ -328,7 +328,7 @@ class TestServer(BaseTestFlaskApp):
         {'vmmasterLabel': Mock(return_value=(200, {}, json.dumps({"value": "step-label"})))}
     )
     def test_vmmaster_label(self):
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         with patch(
             'core.sessions.Sessions.get_session', Mock(return_value=session)
@@ -421,7 +421,7 @@ class TestConnectionClose(BaseTestCase):
         ), patch(
             'core.sessions.SessionWorker', Mock()
         ), patch(
-            'core.sessions.Session.save_artifacts', Mock()
+            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[mocked_image]),
@@ -529,7 +529,7 @@ class TestServerShutdown(BaseTestCase):
         ), patch(
             'core.sessions.SessionWorker', Mock()
         ), patch(
-            'core.sessions.Session.save_artifacts', Mock()
+            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[mocked_image]),
@@ -564,7 +564,7 @@ class TestServerShutdown(BaseTestCase):
         - delete server with active session
         Expected: session not deleted
         """
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.closed = False
 
@@ -614,9 +614,9 @@ class TestSessionSteps(BaseTestFlaskApp):
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=raise_exception)
         ), patch(
-            'core.sessions.Session.save_artifacts', Mock(return_value=False),
+            'core.db.models.Session.save_artifacts', Mock(return_value=False),
         ), patch(
-            'core.sessions.Session.add_session_step', Mock()
+            'core.db.models.Session.add_session_step', Mock()
         ) as add_step_mock:
             response = new_session_request(self.vmmaster_client, self.desired_caps)
 
@@ -645,10 +645,10 @@ class TestSessionSteps(BaseTestFlaskApp):
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=new_vm_mock)
         ), patch(
-            'core.sessions.Session.make_request',
+            'core.db.models.Session.make_request',
             Mock(__name__="make_request", side_effect=raise_exception)
         ), patch(
-            'core.sessions.Session.add_sub_step', Mock()
+            'core.db.models.Session.add_sub_step', Mock()
         ) as add_sub_step_mock:
             response = new_session_request(self.vmmaster_client, self.desired_caps)
 

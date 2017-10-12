@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import json
+import logging
 from uuid import uuid4
 from datetime import datetime
 
@@ -10,6 +11,11 @@ from sqlalchemy.orm import relationship, backref
 
 from flask import current_app
 
+from core import constants
+from core.exceptions import RequestTimeoutException, EndpointUnreachableError
+from core.utils import network_utils
+
+log = logging.getLogger(__name__)
 Base = declarative_base()
 
 
@@ -87,7 +93,7 @@ class SessionLogStep(Base, FeaturesMixin):
                                  parent_id=self.id)
 
 
-class BaseSession(Base, FeaturesMixin):
+class Session(Base, FeaturesMixin):
     __tablename__ = 'sessions'
 
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
@@ -97,7 +103,8 @@ class BaseSession(Base, FeaturesMixin):
     platform = Column(String)
     dc = Column(String)
     selenium_session = Column(String)
-    take_screenshot = Column(Boolean)
+    take_screenshot = Column(Boolean, default=False)
+    take_screencast = Column(Boolean, default=False)
     run_script = Column(String)
     created = Column(DateTime, default=datetime.now)
     modified = Column(DateTime, default=datetime.now)
@@ -113,6 +120,10 @@ class BaseSession(Base, FeaturesMixin):
     closed = Column(Boolean, default=False)
     keep_forever = Column(Boolean, default=False)
 
+    current_log_step = None
+    is_active = True
+    endpoint = None
+
     # Relationships
     session_steps = relationship(
         SessionLogStep,
@@ -123,9 +134,6 @@ class BaseSession(Base, FeaturesMixin):
             single_parent=True
         )
     )
-
-    def set_user(self, username):
-        self.user = current_app.database.get_user(username=username)
 
     def __init__(self, platform, name=None, dc=None):
         self.platform = platform
@@ -141,8 +149,13 @@ class BaseSession(Base, FeaturesMixin):
 
             if dc.get("user", None):
                 self.set_user(dc["user"])
+
             if dc.get("takeScreenshot", None):
                 self.take_screenshot = True
+
+            if dc and dc.get('takeScreencast', None):
+                self.take_screencast = True
+
             if dc.get("runScript", None):
                 self.run_script = json.dumps(dc["runScript"])
 
@@ -152,11 +165,141 @@ class BaseSession(Base, FeaturesMixin):
             self.name = "Unnamed session " + str(self.id)
             self.save()
 
+    def __str__(self):
+        msg = "Session id={} status={}".format(self.id, self.status)
+        if self.endpoint:
+            msg += " name={} ip={} ports={}".format(self.endpoint.name, self.endpoint.ip, self.endpoint.ports)
+        return msg
+
+    @property
+    def inactivity(self):
+        return (datetime.now() - self.modified).total_seconds()
+
+    @property
+    def duration(self):
+        return (datetime.now() - self.created).total_seconds()
+
+    @property
+    def is_waiting(self):
+        return self.status == 'waiting'
+
+    @property
+    def is_running(self):
+        return self.status == 'running'
+
+    @property
+    def is_done(self):
+        return self.status in ('failed', 'succeed')
+
+    @property
+    def is_succeed(self):
+        return self.status == 'succeed'
+
     def add_session_step(self, control_line, body=None, created=None):
-        return SessionLogStep(control_line=control_line,
-                              body=body,
-                              session_id=self.id,
-                              created=created)
+        self.current_log_step = SessionLogStep(
+            control_line=control_line,
+            body=body,
+            session_id=self.id,
+            created=created
+        )
+        self.save()
+        return self.current_log_step
+
+    @property
+    def info(self):
+        stat = {
+            "id": self.id,
+            "name": self.name,
+            "status": self.status,
+            "platform": self.platform,
+            "duration": self.duration,
+            "inactivity": self.inactivity,
+        }
+
+        self.refresh()
+        if self.endpoint:
+            stat["endpoint"] = {
+                "ip": self.endpoint.ip,
+                "name": self.endpoint.name
+            }
+        return stat
+
+    def start_timer(self):
+        self.modified = datetime.now()
+        self.save()
+        self.is_active = False
+
+    def stop_timer(self):
+        self.is_active = True
+
+    def save_artifacts(self):
+        if not self.endpoint.ip:
+            return False
+
+        return self.endpoint.save_artifacts(self)
+
+    def wait_for_artifacts(self):
+        # FIXME: remove sync wait for task
+        current_app.pool.artifact_collector.wait_for_complete(self.id)
+
+    def close(self, reason=None):
+        self.closed = True
+        if reason:
+            self.reason = "%s" % reason
+        self.deleted = datetime.now()
+        self.save()
+
+        if hasattr(self, "ws"):
+            self.ws.close()
+
+        if getattr(self, "endpoint", None):
+            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
+            self.save_artifacts()
+            self.wait_for_artifacts()
+            self.endpoint.delete(try_to_rebuild=True)
+
+        log.info("Session %s closed. %s" % (self.id, self.reason))
+
+    def succeed(self):
+        self.status = "succeed"
+        self.close()
+
+    def failed(self, tb=None, reason=None):
+        if self.closed:
+            log.warn("Session %s already closed with reason %s. "
+                     "In this method call was tb='%s' and reason='%s'"
+                     % (self.id, self.reason, tb, reason))
+            return
+
+        self.status = "failed"
+        self.error = tb
+        self.close(reason)
+
+    def run(self):
+        self.modified = datetime.now()
+        self.endpoint.start_recorder(self)
+        self.status = "running"
+        log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
+        self.save()
+
+    def timeout(self):
+        self.timeouted = True
+        self.failed(reason="Session timeout. No activity since %s" % str(self.modified))
+
+    def set_user(self, username):
+        self.user = current_app.database.get_user(username=username)
+
+    def add_sub_step(self, control_line, body=None):
+        if self.current_log_step:
+            return self.current_log_step.add_sub_step(control_line, body)
+
+    def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
+        try:
+            return network_utils.make_request(self.endpoint.ip, port, request, timeout)
+        except RequestTimeoutException as e:
+            if not self.endpoint.ping_vm(ports=self.endpoint.bind_ports):
+                raise EndpointUnreachableError("Endpoint {} unreachable".format(self.endpoint))
+            raise e
 
 
 class Endpoint(Base, FeaturesMixin):
@@ -232,7 +375,7 @@ class User(Base, FeaturesMixin):
     max_stored_sessions = Column(Integer, default=100)
 
     # Relationships
-    sessions = relationship(BaseSession, backref=backref("user", enable_typechecks=False), passive_deletes=True)
+    sessions = relationship(Session, backref=backref("user", enable_typechecks=False), passive_deletes=True)
 
 
 class UserGroup(Base):

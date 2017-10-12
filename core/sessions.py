@@ -3,15 +3,11 @@
 import time
 import logging
 
-from threading import Thread
-from datetime import datetime
+from threading import Thread  # TODO: stop using threading.Thread, replace with twisted.reactor.callInThread
 from flask import current_app
 
-from core import constants
-from core.db import models
 from core.config import config
-from core.exceptions import SessionException, RequestTimeoutException, EndpointUnreachableError
-from core.utils import network_utils
+from core.exceptions import SessionException
 
 log = logging.getLogger(__name__)
 
@@ -31,147 +27,6 @@ class SimpleResponse:
         self.content = content
 
 
-class Session(models.BaseSession):
-    endpoint = None
-    current_log_step = None
-    take_screencast = None
-    is_active = True
-
-    def __str__(self):
-        msg = "Session id={} status={}".format(self.id, self.status)
-        if self.endpoint:
-            msg += " name={} ip={} ports={}".format(self.endpoint.name, self.endpoint.ip, self.endpoint.ports)
-        return msg
-
-    def __init__(self, platform, name=None, dc=None):
-        super(Session, self).__init__(platform, name, dc)
-        if dc and dc.get('takeScreencast', None):
-            self.take_screencast = True
-        self.save()
-
-    @property
-    def inactivity(self):
-        return (datetime.now() - self.modified).total_seconds()
-
-    @property
-    def duration(self):
-        return (datetime.now() - self.created).total_seconds()
-
-    @property
-    def is_waiting(self):
-        return self.status == 'waiting'
-
-    @property
-    def is_running(self):
-        return self.status == 'running'
-
-    @property
-    def is_done(self):
-        return self.status in ('failed', 'succeed')
-
-    @property
-    def info(self):
-        stat = {
-            "id": self.id,
-            "name": self.name,
-            "status": self.status,
-            "platform": self.platform,
-            "duration": self.duration,
-            "inactivity": self.inactivity,
-        }
-
-        self.refresh()
-        if self.endpoint:
-            stat["endpoint"] = {
-                "ip": self.endpoint.ip,
-                "name": self.endpoint.name
-            }
-        return stat
-
-    def start_timer(self):
-        self.modified = datetime.now()
-        self.save()
-        self.is_active = False
-
-    def stop_timer(self):
-        self.is_active = True
-
-    def save_artifacts(self):
-        if not self.endpoint.ip:
-            return False
-
-        return self.endpoint.save_artifacts(self)
-
-    def wait_for_artifacts(self):
-        # FIXME: remove sync wait for task
-        current_app.pool.artifact_collector.wait_for_complete(self.id)
-
-    def close(self, reason=None):
-        self.closed = True
-        if reason:
-            self.reason = "%s" % reason
-        self.deleted = datetime.now()
-        self.save()
-
-        if hasattr(self, "ws"):
-            self.ws.close()
-
-        if getattr(self, "endpoint", None):
-            log.info("Deleting endpoint {} ({}) for session {}".format(self.endpoint.name, self.endpoint.ip, self.id))
-            self.save_artifacts()
-            self.wait_for_artifacts()
-            self.endpoint.delete(try_to_rebuild=True)
-
-        log.info("Session %s closed. %s" % (self.id, self.reason))
-
-    def succeed(self):
-        self.status = "succeed"
-        self.close()
-
-    def failed(self, tb=None, reason=None):
-        if self.closed:
-            log.warn("Session %s already closed with reason %s. "
-                     "In this method call was tb='%s' and reason='%s'"
-                     % (self.id, self.reason, tb, reason))
-            return
-
-        self.status = "failed"
-        self.error = tb
-        self.close(reason)
-
-    def run(self):
-        self.modified = datetime.now()
-        self.endpoint.start_recorder(self)
-        self.status = "running"
-        log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
-        self.save()
-
-    def timeout(self):
-        self.timeouted = True
-        self.failed(reason="Session timeout. No activity since %s" % str(self.modified))
-
-    def add_sub_step(self, control_line, body=None):
-        if self.current_log_step:
-            return self.current_log_step.add_sub_step(control_line, body)
-
-    def add_session_step(self, control_line, body=None, created=None):
-        step = super(Session, self).add_session_step(
-            control_line=control_line, body=body, created=created
-        )
-        self.current_log_step = step
-        self.save()
-
-        return step
-
-    def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
-        try:
-            return network_utils.make_request(self.endpoint.ip, port, request, timeout)
-        except RequestTimeoutException as e:
-            if not self.endpoint.ping_vm(ports=self.endpoint.bind_ports):
-                raise EndpointUnreachableError("Endpoint {} unreachable".format(self.endpoint))
-            raise e
-
-
 class SessionWorker(Thread):
     def __init__(self, sessions):
         Thread.__init__(self)
@@ -180,6 +35,7 @@ class SessionWorker(Thread):
         self.sessions = sessions
 
     def run(self):
+        # TODO: remove app_context usage
         with self.sessions.app.app_context():
             while self.running:
                 for session in self.sessions.running():

@@ -1,13 +1,12 @@
 # coding: utf-8
 
-from mock import Mock, patch, PropertyMock
-from core.config import setup_config, config
-
-from tests.helpers import (vmmaster_server_mock, server_is_up, server_is_down,
-                           BaseTestCase, get_free_port, ServerMock)
-
 import requests
 from twisted.internet import defer
+from mock import Mock, patch, PropertyMock
+
+from core.config import setup_config, config
+from tests.helpers import (vmmaster_server_mock, server_is_up, server_is_down,
+                           BaseTestCase, get_free_port, ServerMock)
 
 
 @patch('core.utils.openstack_utils.nova_client', Mock())
@@ -24,8 +23,8 @@ class TestHttpProxy(BaseTestCase):
         self.ctx = self.vmmaster.app.app_context()
         self.ctx.push()
 
-        from core.sessions import Session
-        self.session = Session()
+        from core.db.models import Session
+        self.session = Session('some_platform')
         self.session.endpoint = PropertyMock(ip='localhost')
 
     @defer.inlineCallbacks

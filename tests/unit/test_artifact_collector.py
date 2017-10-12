@@ -1,8 +1,10 @@
 # coding: utf-8
+
 import os
 
 from flask import Flask
 from mock import patch, Mock, PropertyMock
+
 from tests.helpers import BaseTestCase, DatabaseMock, wait_for
 from core.config import config, setup_config
 
@@ -45,8 +47,8 @@ class TestArtifactCollector(BaseTestCase):
         with patch(
             'core.db.Database', DatabaseMock()
         ):
-            from core.sessions import Session
-            session = Session("origin_1")
+            from core.db.models import Session
+            session = Session('origin_1')
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
             endpoint = PropertyMock(
@@ -90,7 +92,7 @@ class TestArtifactCollector(BaseTestCase):
         with patch(
             'core.db.Database', DatabaseMock()
         ):
-            from core.sessions import Session
+            from core.db.models import Session
             session = Session("origin_1")
             session.id = 1
             endpoint = PropertyMock(
@@ -130,7 +132,7 @@ class TestArtifactCollector(BaseTestCase):
         with patch(
             'core.db.Database', DatabaseMock()
         ):
-            from core.sessions import Session
+            from core.db.models import Session
             session = Session("origin_1")
             session.id = 1
             log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])

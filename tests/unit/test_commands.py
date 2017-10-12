@@ -68,7 +68,7 @@ class CommonCommandsTestCase(BaseTestCase):
         ), patch(
             'flask.current_app.sessions', Mock()
         ):
-            from core.sessions import Session
+            from core.db.models import Session
             self.session = Session('origin_1')
             self.session.name = "session1"
 
@@ -137,7 +137,7 @@ class TestStartSessionCommands(CommonCommandsTestCase):
             yield 200, {}, json.dumps({'status': 1})
 
         with patch(
-            'core.sessions.Session.make_request', Mock(
+            'core.db.models.Session.make_request', Mock(
                 __name__="make_request",
                 side_effect=make_request_mock
             )
@@ -478,7 +478,7 @@ class TestLabelCommands(CommonCommandsTestCase):
         label = "step-label"
         label_id = 1
         request.data = json.dumps({"label": label})
-        with patch('core.sessions.Session.current_log_step',
+        with patch('core.db.models.Session.current_log_step',
                    PropertyMock(return_value=Mock(id=label_id))):
             status, headers, body = self.commands.vmmaster_label(
                 request, self.session

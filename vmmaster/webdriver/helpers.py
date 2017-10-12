@@ -13,11 +13,11 @@ from flask import Response, request, current_app
 from core.exceptions import CreationException, ConnectionError, TimeoutException, SessionException
 from core.config import config
 
-from core import constants
-from core import utils
+from core import constants, utils
 from core.utils.network_utils import RequestHelper
 from core.profiler import profiler
-from core.sessions import Session
+from core.db.models import Session
+
 from vmpool import endpoint
 
 

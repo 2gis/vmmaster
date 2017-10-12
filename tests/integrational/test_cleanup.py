@@ -34,7 +34,7 @@ class TestCleanup(unittest.TestCase):
         self.ctx.pop()
 
     def test_file_deletion(self):
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.status = 'unknown'
         session.name = '__test_file_deletion'
@@ -59,8 +59,7 @@ class TestCleanup(unittest.TestCase):
 
     def test_sessions_overflow(self):
         user = Mock(id=1, max_stored_sessions=0)
-
-        from core.sessions import Session
+        from core.db.models import Session
         session = Session('some_platform')
         session.status = 'unknown'
         session.closed = True
@@ -75,7 +74,7 @@ class TestCleanup(unittest.TestCase):
     def test_session_keep_forever(self):
         user = Mock(id=1, max_stored_sessions=0)
 
-        from core.sessions import Session
+        from core.db.models import Session
         session1 = Session(platform='some_platform', name='__test_keep_forever_sessions_1')
         session1.closed = True
         session1.keep_forever = True

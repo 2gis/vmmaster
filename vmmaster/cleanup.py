@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import ArgumentError
 
 from core.config import config, setup_config
-from core.db.models import BaseSession as Session, User
+from core.db.models import Session, User
 from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
 

@@ -49,7 +49,7 @@ class TestVNCVideoHelper(BaseTestCase):
         ) as start_rec_mock, patch(
             'core.video.VNCVideoHelper.stop', Mock()
         ) as stop_rec_mock:
-            from core.sessions import Session
+            from core.db.models import Session
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             from vmpool.clone import Clone
 
