@@ -14,6 +14,7 @@ Create Date: ${create_date}
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
 
+
 def upgrade():
     ${upgrades if upgrades else "pass"}
 

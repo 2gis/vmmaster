@@ -8,7 +8,8 @@ from collections import defaultdict
 from core.config import config
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
-from vmpool.endpoint import EndpointRemover
+from vmpool.endpoint import EndpointRemover, EndpointPreparer
+
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +64,8 @@ class VirtualMachinesPool(object):
         return str(self.active_endpoints)
 
     def __init__(self, app, name=None, platforms_class=Platforms, preloader_class=VirtualMachinesPoolPreloader,
-                 artifact_collector_class=ArtifactCollector, endpoint_remover_class=EndpointRemover):
+                 artifact_collector_class=ArtifactCollector, endpoint_remover_class=EndpointRemover,
+                 endpoint_preparer_class=EndpointPreparer):
         self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
 
@@ -73,6 +75,9 @@ class VirtualMachinesPool(object):
         self.artifact_collector = artifact_collector_class(self.app.database)
         self.endpoint_remover = endpoint_remover_class(
             self.platforms, self.artifact_collector, self.app.database, self.app.app_context
+        )
+        self.endpoint_preparer = endpoint_preparer_class(
+            self.app.sessions, self.artifact_collector, self.app.app_context
         )
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
@@ -121,12 +126,15 @@ class VirtualMachinesPool(object):
     def start_workers(self):
         self.register()
         self.preloader.start()
+        self.endpoint_preparer.start()
         self.endpoint_remover.start()
         log.info("Provider #{} ({}) was started...".format(self.provider.id, self.name))
 
     def stop_workers(self):
         if self.preloader:
             self.preloader.stop()
+        if self.endpoint_preparer:
+            self.endpoint_preparer.stop()
         if self.artifact_collector:
             self.artifact_collector.stop()
         if self.endpoint_remover:
@@ -291,11 +299,8 @@ class VirtualMachinesPool(object):
                 'count': len(self.on_service),
                 'list': print_view(self.on_service),
             },
-            "already_use": self.count(),
+            "total": self.count(),
         }
 
     def check_platform(self, platform):
         return self.platforms.check_platform(platform)
-
-    def start_recorder(self, session):
-        return self.artifact_collector.record_screencast(session)

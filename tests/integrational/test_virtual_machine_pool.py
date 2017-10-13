@@ -22,6 +22,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.ctx = self.app.app_context()
         self.ctx.push()
         self.app.database = Database()
+        self.app.sessions = Mock()
 
         self.mocked_image = Mock(
             id=1, status='active',
@@ -41,6 +42,8 @@ class TestVirtualMachinePool(BaseTestCase):
                 'maxTotalCores': 10, 'maxTotalInstances': 10,
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch(
+            'vmpool.endpoint.EndpointPreparer', Mock()
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)

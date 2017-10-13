@@ -18,8 +18,6 @@ from core.utils.network_utils import RequestHelper
 from core.profiler import profiler
 from core.db.models import Session
 
-from vmpool import endpoint
-
 
 log = logging.getLogger(__name__)
 
@@ -183,41 +181,6 @@ def check_to_exist_ip(session, tries=10, timeout=5):
             time.sleep(timeout)
 
 
-def get_endpoint(session_id, platform):
-    _endpoint = None
-    attempt = 0
-    attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
-                       constants.GET_ENDPOINT_ATTEMPTS)
-    wait_time = 0
-    wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
-                                  constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
-
-    while not _endpoint:
-        attempt += 1
-        wait_time += wait_time_increment
-        try:
-            log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
-            for vm in endpoint.get_vm(platform):
-                _endpoint = vm
-                yield _endpoint
-            profiler.register_success_get_endpoint(attempt)
-            log.info("Attempt %s to get endpoint %s for session %s was succeed"
-                     % (attempt, _endpoint, session_id))
-        except CreationException as e:
-            log.exception("Attempt %s to get endpoint for session %s was failed: %s"
-                          % (attempt, session_id, str(e)))
-            if _endpoint and not _endpoint.ready:
-                _endpoint.delete()
-                _endpoint = None
-            if attempt < attempts:
-                time.sleep(wait_time)
-            else:
-                profiler.register_fail_get_endpoint()
-                raise e
-
-    yield _endpoint
-
-
 @connection_watcher
 def get_session():
     profiler.register_get_session_call()
@@ -232,13 +195,13 @@ def get_session():
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     yield session
 
-    for _endpoint in get_endpoint(session.id, session.platform):
-        if _endpoint:
-            session.refresh()
-            session.endpoint_id = _endpoint.id
-            session.endpoint = _endpoint
-            session.save()
-        yield session
+    start_time = time.time()
+    while not session.endpoint_id:
+        time.sleep(constants.GET_SESSION_SLEEP_TIME)
+        if time.time() - start_time >= config.GET_VM_TIMEOUT:
+            raise CreationException("Timeout getting endpoint for {}".format(session))
+        session.refresh()
 
+    session.restore_endpoint()
     session.run()
     yield session

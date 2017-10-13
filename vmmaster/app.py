@@ -24,8 +24,8 @@ class Vmmaster(Flask):
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
         self.database = Database()
-        self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
         self.sessions = Sessions(self)
+        self.pool = VirtualMachinesPool(self, getattr(config, "PROVIDER_NAME", None))
         self.json_encoder = JSONEncoder
 
         self.pool.start_workers()

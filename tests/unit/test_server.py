@@ -10,8 +10,8 @@ from uuid import uuid4
 from core.config import setup_config, config
 from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
-    vmmaster_label, run_script, request_with_drop, BaseTestCase, \
-    DatabaseMock, custom_wait, request_mock, wait_for
+    vmmaster_label, run_script, BaseTestCase, \
+    DatabaseMock, custom_wait, request_mock
 
 from nose.twistedtools import reactor
 
@@ -32,34 +32,14 @@ def transparent_mock():
     return 200, {}, None
 
 
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
 class BaseTestFlaskApp(BaseTestCase):
     def setUp(self):
-        self.mocked_image = Mock(
-            id=1, status='active',
-            get=Mock(return_value='snapshot'),
-            min_disk=20,
-            min_ram=2,
-            instance_type_flavorid=1,
-            short_name="origin_1"
-        )
-        type(self.mocked_image).name = PropertyMock(
-            return_value='test_origin_1')
-
         with patch(
             'core.db.Database', DatabaseMock()
         ), patch(
-            'core.video.VNCVideoHelper', Mock()
-        ), patch(
             'core.sessions.SessionWorker', Mock()
-        ), patch.multiple(
-            'vmpool.platforms.OpenstackPlatforms',
-            images=Mock(return_value=[self.mocked_image]),
-            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
-            limits=Mock(return_value={
-                'maxTotalCores': 10, 'maxTotalInstances': 10,
-                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
-                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch(
+            'vmpool.virtual_machines_pool.VirtualMachinesPool', Mock()
         ):
             from vmmaster.app import create_app
             self.app = create_app()
@@ -67,7 +47,7 @@ class BaseTestFlaskApp(BaseTestCase):
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.app.pool.platforms.platforms.keys()[0]
+                'platform': 'origin_1'
             }
         }
 
@@ -79,14 +59,18 @@ class BaseTestFlaskApp(BaseTestCase):
     start_selenium_session=Mock(return_value=(200, {}, json.dumps({'sessionId': "1"})))
 )
 @patch.multiple(
-    "vmpool.clone.OpenstackClone",
-    vnc_port=5900,
-    agent_port=9000,
-    selenium_port=4455,
-    _get_nova_client=Mock(return_value=Mock()),
-    _wait_for_activated_service=custom_wait,
-    ping_vm=Mock(return_value=True),
-    is_broken=Mock(return_value=False),
+    "core.db.models.Session",
+    restore_endpoint=Mock(),
+    endpoint_id=Mock(return_value=1),
+    endpoint=Mock(
+        vnc_port=5900,
+        agent_port=9000,
+        selenium_port=4455,
+        _get_nova_client=Mock(return_value=Mock()),
+        _wait_for_activated_service=custom_wait,
+        ping_vm=Mock(return_value=True),
+        is_broken=Mock(return_value=False)
+    )
 )
 class TestServer(BaseTestFlaskApp):
     def setUp(self):
@@ -351,7 +335,6 @@ class TestServer(BaseTestFlaskApp):
         self.assertIn('Cannot match platform for DesiredCapabilities: {u\'platform\': u\'no_platform\'}', error)
 
 
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
 class TestSessionWorker(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -386,123 +369,38 @@ class TestSessionWorker(BaseTestCase):
         session.close()
 
 
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
-@patch.multiple(
-    "vmpool.clone.OpenstackClone",
-    vnc_port=5900,
-    agent_port=9000,
-    selenium_port=4455,
-    _get_nova_client=Mock(return_value=Mock()),
-    _wait_for_activated_service=custom_wait,
-    ping_vm=Mock(return_value=True),
-    is_broken=Mock(return_value=False),
-)
-class TestConnectionClose(BaseTestCase):
+class TestConnectionClose(BaseTestFlaskApp):
     def setUp(self):
         setup_config('data/config_openstack.py')
-        self.address = ("localhost", config.PORT)
-        mocked_image = Mock(
-            id=1, status='active',
-            get=Mock(return_value='snapshot'),
-            min_disk=20,
-            min_ram=2,
-            instance_type_flavorid=1,
-            short_name="origin_1"
-        )
-        type(mocked_image).name = PropertyMock(
-            return_value='test_origin_1')
-
-        with patch(
-            'core.db.Database', DatabaseMock()
-        ), patch(
-            'core.video.VNCVideoHelper', Mock()
-        ), patch(
-            'core.sessions.SessionWorker', Mock()
-        ), patch.multiple(
-            'vmpool.platforms.OpenstackPlatforms',
-            images=Mock(return_value=[mocked_image]),
-            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
-            limits=Mock(return_value={
-                'maxTotalCores': 10, 'maxTotalInstances': 10,
-                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
-                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
-        ):
-            from vmmaster.server import VMMasterServer
-            self.vmmaster = VMMasterServer(reactor, config.PORT)
+        super(TestConnectionClose, self).setUp()
 
         self.desired_caps = {
             'desiredCapabilities': {
-                'platform': self.vmmaster.app.pool.platforms.platforms.keys()[0]
+                'platform': 'origin_1'
             }
         }
-
-        self.ctx = self.vmmaster.app.app_context()
+        self.vmmaster_client = self.app.test_client()
+        self.ctx = self.app.app_context()
         self.ctx.push()
 
-    @defer.inlineCallbacks
     def tearDown(self):
-        self.vmmaster.app.sessions.kill_all()
-        yield self.vmmaster.stop_services()
-        server_is_down(self.address)
+        self.app.sessions.kill_all()
+        self.app.cleanup()
+        self.ctx.pop()
 
     def test_req_closed_during_session_creating(self):
         """
         - close the connection when the session was created
         Expected: session deleted, vm deleted
         """
-        def pool_fake_return():
-            time.sleep(2)
-            return Mock()
-
-        self.assertEqual(0, self.vmmaster.app.pool.count())
-
         with patch(
-            'flask.current_app.pool.has', Mock(side_effect=pool_fake_return)
+            'vmmaster.webdriver.helpers.is_request_closed', Mock(return_value=True)
         ):
-            request_with_drop(self.address, self.desired_caps, None)
-
-        self.assertEqual(0, self.vmmaster.app.pool.count())
-
-    def test_req_closed_when_request_append_to_queue(self):
-        """
-        - close the connection when the request is queued
-        Expected: session deleted, vm deleted
-        """
-        with patch(
-            'flask.current_app.pool.has', Mock(return_value=False)
-        ), patch(
-            'flask.current_app.pool.can_produce', Mock(return_value=False)
-        ):
-            request_with_drop(self.address, self.desired_caps, None)
-
-        self.assertEqual(0, self.vmmaster.app.pool.count())
-
-    def test_req_closed_when_platform_queued(self):
-        """
-        - wait until platform is queued
-        - check queue state
-        - drop request while platform is queued
-        Expected: platform no more in queue
-        """
-        with patch(
-            'flask.current_app.pool.has', Mock(return_value=False)
-        ), patch(
-            'flask.current_app.pool.can_produce', Mock(return_value=True)
-        ):
-            q = self.vmmaster.app.sessions.active()
-
-            def wait_for_platform_in_queue():
-                wait_for(lambda: q, timeout=2)
-                self.assertEqual(len(q), 0)
-
-            request_with_drop(
-                self.address, self.desired_caps, wait_for_platform_in_queue
-            )
-            wait_for(lambda: not q, timeout=2)
-            self.assertEqual(len(q), 0)
+            response = new_session_request(self.vmmaster_client, self.desired_caps)
+            self.assertEqual(response.status_code, 500)
+            self.assertIn("ConnectionError: Client has disconnected", response.data)
 
 
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
 class TestServerShutdown(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -521,17 +419,9 @@ class TestServerShutdown(BaseTestCase):
         with patch(
             'core.db.Database', DatabaseMock()
         ), patch(
-            'core.video.VNCVideoHelper', Mock()
-        ), patch(
             'core.sessions.SessionWorker', Mock()
-        ), patch.multiple(
-            'vmpool.platforms.OpenstackPlatforms',
-            images=Mock(return_value=[mocked_image]),
-            flavor_params=Mock(return_value={'vcpus': 1, 'ram': 2}),
-            limits=Mock(return_value={
-                'maxTotalCores': 10, 'maxTotalInstances': 10,
-                'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
-                'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
+        ), patch(
+            'vmpool.virtual_machines_pool.VirtualMachinesPool', Mock()
         ):
             from vmmaster.server import VMMasterServer
             self.vmmaster = VMMasterServer(reactor, config.PORT)
@@ -572,17 +462,19 @@ class TestServerShutdown(BaseTestCase):
 
 
 @patch.multiple(
-    "vmpool.clone.OpenstackClone",
-    vnc_port=5900,
-    agent_port=9000,
-    selenium_port=4455,
-    _get_nova_client=Mock(return_value=Mock()),
-    _wait_for_activated_service=custom_wait,
-    ping_vm=Mock(return_value=True),
-    is_broken=Mock(return_value=False),
+    "core.db.models.Session",
+    endpoint_id=Mock(return_value=1),
+    endpoint=Mock(
+        vnc_port=5900,
+        agent_port=9000,
+        selenium_port=4455,
+        _get_nova_client=Mock(return_value=Mock()),
+        _wait_for_activated_service=custom_wait,
+        ping_vm=Mock(return_value=True),
+        is_broken=Mock(return_value=False)
+    )
 )
 @patch('vmmaster.webdriver.helpers.swap_session', Mock())
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
 class TestSessionSteps(BaseTestFlaskApp):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -596,17 +488,22 @@ class TestSessionSteps(BaseTestFlaskApp):
         self.app.cleanup()
         self.ctx.pop()
 
+    @patch.multiple(
+        'vmmaster.webdriver.commands',
+        ping_vm=Mock(side_effect=ping_vm_true_mock),
+        selenium_status=Mock(return_value=(200, {}, json.dumps({'status': 0})))
+    )
     def test_add_first_two_steps(self):
         """
         - exception while waiting endpoint
         Expected: session was created, session_step was created
         """
 
-        def raise_exception(dc):
+        def raise_exception():
             raise Exception('something ugly happened in get_vm')
 
         with patch(
-            'vmpool.endpoint.get_vm', Mock(side_effect=raise_exception)
+            'core.db.models.Session.restore_endpoint', Mock(side_effect=raise_exception)
         ), patch(
             'core.db.models.Session.add_session_step', Mock()
         ) as add_step_mock:
@@ -635,8 +532,6 @@ class TestSessionSteps(BaseTestFlaskApp):
             yield PropertyMock(ip=1)
 
         with patch(
-            'vmpool.endpoint.get_vm', Mock(side_effect=new_vm_mock)
-        ), patch(
             'core.db.models.Session.make_request',
             Mock(__name__="make_request", side_effect=raise_exception)
         ), patch(
@@ -652,16 +547,18 @@ class TestSessionSteps(BaseTestFlaskApp):
 
 
 @patch.multiple(
-    "vmpool.clone.OpenstackClone",
-    vnc_port=5900,
-    agent_port=9000,
-    selenium_port=4455,
-    _get_nova_client=Mock(return_value=Mock()),
-    _wait_for_activated_service=custom_wait,
-    ping_vm=Mock(return_value=True),
-    is_broken=Mock(return_value=False),
+    "core.db.models.Session",
+    endpoint_id=Mock(return_value=1),
+    endpoint=Mock(
+        vnc_port=5900,
+        agent_port=9000,
+        selenium_port=4455,
+        _get_nova_client=Mock(return_value=Mock()),
+        _wait_for_activated_service=custom_wait,
+        ping_vm=Mock(return_value=True),
+        is_broken=Mock(return_value=False)
+    )
 )
-@patch('core.utils.openstack_utils.nova_client', Mock(return_value=Mock()))
 class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
     def setUp(self):
         setup_config('data/config_openstack.py')

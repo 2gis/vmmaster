@@ -115,10 +115,11 @@ class Session(Base, FeaturesMixin):
     selenium_log = Column(String)
 
     # State
-    status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting',
+    status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting', 'preparing',
                          name='status', native_enum=False), default='waiting')
     reason = Column(String)
     error = Column(String)
+    screencast_started = Column(Boolean, default=False)
     timeouted = Column(Boolean, default=False)
     closed = Column(Boolean, default=False)
     keep_forever = Column(Boolean, default=False)
@@ -208,10 +209,6 @@ class Session(Base, FeaturesMixin):
         self.save()
         return self.current_log_step
 
-    def restore(self):
-        self.current_log_step = current_app.database.get_last_session_step(self.id)
-        self.endpoint = current_app.pool.get_by_id(self.endpoint_id)
-
     @property
     def info(self):
         stat = {
@@ -268,13 +265,33 @@ class Session(Base, FeaturesMixin):
         self.error = tb
         self.close(reason)
 
+    def set_status(self, status):
+        self.status = status
+        self.save()
+
+    def set_endpoint_id(self, endpoint_id):
+        self.endpoint_id = endpoint_id
+        self.save()
+
+    def set_screencast_started(self, value):
+        self.screencast_started = value
+        self.save()
+
+    def restore_endpoint(self):
+        self.endpoint = current_app.pool.get_by_id(self.endpoint_id)
+
+    def restore_current_log_step(self):
+        self.current_log_step = current_app.database.get_last_session_step(self.id)
+
+    def restore(self):
+        self.restore_endpoint()
+        self.restore_current_log_step()
+
     def run(self):
         self.modified = datetime.now()
-        if self.take_screencast:
-            self.endpoint.start_recorder(self)
         self.status = "running"
-        log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
         self.save()
+        log.info("{} starting...".format(self))
 
     def timeout(self):
         self.timeouted = True
