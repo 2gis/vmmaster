@@ -242,9 +242,8 @@ class Session(Base, FeaturesMixin):
         if hasattr(self, "ws"):
             self.ws.close()
 
-        if self.endpoint_id:
-            current_app.pool.stop_using(self.endpoint_id)
-
+        if getattr(self, "endpoint", None) and getattr(self.endpoint, "send_to_service", None):
+            self.endpoint.send_to_service()
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
     def succeed(self):

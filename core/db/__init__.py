@@ -121,7 +121,7 @@ class Database(object):
             return base_query.filter(clone.in_use.is_(True)).all()
         elif efilter == "pool":
             return base_query.filter(clone.in_use.is_(False)).all()
-        elif efilter == "service":
+        elif efilter == "wait for service" or efilter == "service":
             return base_query.filter_by(mode=efilter).order_by(desc(clone.id)).all()
         else:
             return []

@@ -85,6 +85,9 @@ class Clone(models.Endpoint):
     def service_mode_off(self):
         self.set_mode("default")
 
+    def send_to_service(self):
+        self.set_mode("wait for service")
+
     def set_mode(self, mode):
         self.mode = mode
         self.save()

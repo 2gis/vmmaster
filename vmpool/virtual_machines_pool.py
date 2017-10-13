@@ -64,20 +64,37 @@ class EndpointRemover(Thread):
         self.pool = pool
 
     def remove_endpoint(self, endpoint):
-        with self.pool.app.app_context():
-            session = self.pool.app.database.get_session_by_endpoint_id(endpoint.id)
-            if session:
-                self.pool.save_artifacts(session)
-                self.pool.artifact_collector.wait_for_complete(session.id)
-            endpoint.delete(try_to_rebuild=True)
+        try:
+            with self.pool.app.app_context():
+                session = self.pool.app.database.get_session_by_endpoint_id(endpoint.id)
+                if session:
+                    self.pool.save_artifacts(session)
+                    self.pool.artifact_collector.wait_for_complete(session.id)
+                endpoint.delete(try_to_rebuild=True)
+        except:
+            log.exception("Failed")
+            endpoint.send_to_service()
+
+    def on_success(self, r):
+        log.info("Success")
+
+    @staticmethod
+    def on_failure(r):
+        log.exception("Service was failed: {}".format(r))
 
     def run(self):
+        from twisted.internet import threads
         log.info("EndpointRemover was started...")
         while self.running:
             with self.pool.app.app_context():
-                with ThreadPoolExecutor(max_workers=constants.ENDPOINT_REMOVER_THREADS) as executor:
-                    for endpoint in self.pool.on_service:
-                        executor.submit(self.remove_endpoint, endpoint)
+                for endpoint in self.pool.wait_for_service:
+                    endpoint.service_mode_on()
+                    defer = threads.deferToThread(lambda: self.remove_endpoint(endpoint))
+                    defer.addBoth(self.on_success)
+                    defer.addErrback(self.on_failure)
+                # with ThreadPoolExecutor(max_workers=constants.ENDPOINT_REMOVER_THREADS) as executor:
+                #     for endpoint in self.pool.on_service:
+                #         executor.submit(self.remove_endpoint, endpoint)
             time.sleep(constants.TIME_OF_SLEEP_AFTER_ATTEMPT)
 
     def stop(self):
@@ -140,6 +157,10 @@ class VirtualMachinesPool(object):
     @property
     def using(self):
         return self.platforms.get_endpoints(self.id, efilter="using")
+
+    @property
+    def wait_for_service(self):
+        return self.platforms.get_endpoints(self.id, efilter="wait for service")
 
     @property
     def on_service(self):
@@ -293,11 +314,6 @@ class VirtualMachinesPool(object):
 
     def preload(self, origin_name, prefix="preloaded"):
         return self.add(origin_name, prefix)
-
-    def stop_using(self, endpoint_id):
-        endpoint = self.get_by_id(endpoint_id)
-        if endpoint:
-            endpoint.service_mode_on()
 
     @property
     def info(self):
