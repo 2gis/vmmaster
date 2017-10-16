@@ -106,9 +106,7 @@ class ProxyResource(Resource):
                 "make sure you request uri has "
                 "/proxy/session/<session_id>/port/<port_number>/<destination>")
 
-        with self.app.app_context():
-            session = self.app.sessions.get_session(session_id)
-
+        session = self.app.database.get_session(session_id)
         host = session.endpoint.ip
         client_factory = ClientFactory(request, dest)
         client_factory.server = request.channel
