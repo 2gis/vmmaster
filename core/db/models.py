@@ -24,7 +24,7 @@ class FeaturesMixin(object):
         current_app.database.add(self)
 
     def save(self):
-        current_app.database.add(self)
+        current_app.database.update(self)
 
     def refresh(self):
         current_app.database.refresh(self)
