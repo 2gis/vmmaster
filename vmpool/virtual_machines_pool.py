@@ -68,7 +68,7 @@ class VirtualMachinesPool(object):
         self.url = "{}:{}".format("localhost", config.PORT)
 
         self.app = app
-        self.platforms = platforms_class()
+        self.platforms = platforms_class(self.app.database)
         self.preloader = preloader_class(self)
         self.artifact_collector = artifact_collector_class()
 

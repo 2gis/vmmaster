@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import logging
-from flask import current_app
 
 from core.config import config
 from core.utils import openstack_utils, exception_handler
@@ -45,30 +44,8 @@ class OpenstackOrigin(Platform):
         return OpenstackClone(origin, prefix, pool)
 
 
-class PlatformsInterface(object):
-    @classmethod
-    def get(cls, platform):
-        raise NotImplementedError
-
-    @property
-    def platforms(self):
-        raise NotImplementedError
-
-    @staticmethod
-    def max_count():
-        raise NotImplementedError
-
-    @staticmethod
-    def get_limit(platform):
-        raise NotImplementedError
-
-
 class DockerImage(Platform):
     def __init__(self, origin):
-        """
-
-        :type origin: Image
-        """
         self.origin = origin
 
     @exception_handler()
@@ -96,8 +73,32 @@ class DockerImage(Platform):
         return DockerClone(origin, prefix, pool)
 
 
+class PlatformsInterface(object):
+    @classmethod
+    def get(cls, platform):
+        raise NotImplementedError
+
+    @property
+    def platforms(self):
+        raise NotImplementedError
+
+    @staticmethod
+    def max_count():
+        raise NotImplementedError
+
+    @staticmethod
+    def get_limit(platform):
+        raise NotImplementedError
+
+
 class DockerPlatforms(PlatformsInterface):
     client = DockerManageClient()
+
+    def __init__(self, database):
+        self.database = database
+
+        from vmpool.clone import DockerClone
+        self.clone_class = DockerClone
 
     @classmethod
     def get(cls, platform):
@@ -113,20 +114,23 @@ class DockerPlatforms(PlatformsInterface):
 
     @staticmethod
     def get_limit(platform):
+        # FIXME: make classmethod
         return DockerPlatforms.max_count()
 
-    @classmethod
-    def get_endpoint(cls, endpoint_id):
-        from vmpool.clone import DockerClone
-        return current_app.database.get_endpoint(DockerClone, endpoint_id)
+    def get_endpoint(self, endpoint_id):
+        return self.database.get_endpoint(self.clone_class, endpoint_id)
 
-    @classmethod
-    def get_endpoints(cls, provider_id, efilter="all"):
-        from vmpool.clone import DockerClone
-        return current_app.database.get_endpoints(DockerClone, provider_id, efilter=efilter)
+    def get_endpoints(self, provider_id, efilter="all"):
+        return self.database.get_endpoints(self.clone_class, provider_id, efilter=efilter)
 
 
 class OpenstackPlatforms(PlatformsInterface):
+    def __init__(self, database):
+        self.database = database
+
+        from vmpool.clone import OpenstackClone
+        self.clone_class = OpenstackClone
+
     @classmethod
     def limits(cls, if_none):
         return openstack_utils.nova_client().limits.get().to_dict().get(
@@ -159,15 +163,11 @@ class OpenstackPlatforms(PlatformsInterface):
     def get_limit(platform):
         return OpenstackPlatforms.max_count()
 
-    @classmethod
-    def get_endpoint(cls, endpoint_id):
-        from vmpool.clone import OpenstackClone
-        return current_app.database.get_endpoint(OpenstackClone, endpoint_id)
+    def get_endpoint(self, endpoint_id):
+        return self.database.get_endpoint(self.clone_class, endpoint_id)
 
-    @classmethod
-    def get_endpoints(cls, provider_id, efilter="all"):
-        from vmpool.clone import OpenstackClone
-        return current_app.database.get_endpoints(OpenstackClone, provider_id, efilter=efilter)
+    def get_endpoints(self, provider_id, efilter="all"):
+        return self.database.get_endpoints(self.clone_class, provider_id, efilter=efilter)
 
 
 class Platforms(object):
@@ -175,85 +175,78 @@ class Platforms(object):
     openstack_platforms = {}
     docker_platforms = {}
 
-    def __new__(cls, *args, **kwargs):
-        log.info("Load platforms...")
-        inst = object.__new__(cls)
+    def __init__(self, database):
+        log.info("Loading platforms...")
+
+        self.openstack = OpenstackPlatforms(database)
+        self.docker = DockerPlatforms(database)
+
         if config.USE_OPENSTACK:
-            cls.openstack_platforms = {vm.short_name: vm for vm in OpenstackPlatforms().platforms}
+            self.openstack_platforms = {vm.short_name: vm for vm in self.openstack.platforms}
             log.info("Openstack platforms: {}".format(
-                cls.openstack_platforms.keys())
+                self.openstack_platforms.keys())
             )
         if config.USE_DOCKER:
-            cls.docker_platforms = {vm.name: vm for vm in DockerPlatforms().platforms}
+            self.docker_platforms = {vm.name: vm for vm in self.docker.platforms}
             log.info("Docker platforms: {}".format(
-                cls.docker_platforms.keys())
+                self.docker_platforms.keys())
             )
-        cls._load_platforms()
-        return inst
+        self._load_platforms()
 
-    @classmethod
-    def _load_platforms(cls):
-        if bool(cls.openstack_platforms):
-            cls.platforms.update(cls.openstack_platforms)
-        if bool(cls.docker_platforms):
-            cls.platforms.update(cls.docker_platforms)
+    def _load_platforms(self):
+        if bool(self.openstack_platforms):
+            self.platforms.update(self.openstack_platforms)
+        if bool(self.docker_platforms):
+            self.platforms.update(self.docker_platforms)
 
-        log.info("Platforms loaded: {}".format(str(cls.platforms.keys())))
+        log.info("Platforms loaded: {}".format(str(self.platforms.keys())))
 
-    @classmethod
-    def max_count(cls):
+    def max_count(self):
         m_count = 0
-        if bool(cls.openstack_platforms):
-            m_count += OpenstackPlatforms.max_count()
-        if bool(cls.docker_platforms):
-            m_count += DockerPlatforms.max_count()
+        if bool(self.openstack_platforms):
+            m_count += self.openstack.max_count()
+        if bool(self.docker_platforms):
+            m_count += self.docker.max_count()
         return m_count
 
-    @classmethod
-    def get_limit(cls, platform):
-        if config.USE_OPENSTACK and platform in cls.openstack_platforms.keys():
-            return OpenstackPlatforms.get_limit(platform)
-        if config.USE_DOCKER and platform in cls.docker_platforms.keys():
-            return DockerPlatforms.get_limit(platform)
+    def get_limit(self, platform):
+        if config.USE_OPENSTACK and platform in self.openstack_platforms.keys():
+            return self.openstack.get_limit(platform)
+        if config.USE_DOCKER and platform in self.docker_platforms.keys():
+            return self.docker.get_limit(platform)
 
-    @classmethod
-    def check_platform(cls, platform):
-        if platform in cls.platforms.keys():
+    def check_platform(self, platform):
+        if platform in self.platforms.keys():
             return True
         else:
             return False
 
-    @classmethod
-    def get(cls, platform):
-        cls.check_platform(platform)
-        return cls.platforms.get(platform, None)
+    def get(self, platform):
+        self.check_platform(platform)
+        return self.platforms.get(platform, None)
 
-    @classmethod
-    def get_endpoint(cls, endpoint_id):
-        if config.USE_OPENSTACK and cls.openstack_platforms:
-            return OpenstackPlatforms.get_endpoint(endpoint_id)
-        if config.USE_DOCKER and cls.docker_platforms:
-            return DockerPlatforms.get_endpoint(endpoint_id)
+    def get_endpoint(self, endpoint_id):
+        if config.USE_OPENSTACK and self.openstack_platforms:
+            return self.openstack.get_endpoint(endpoint_id)
+        if config.USE_DOCKER and self.docker_platforms:
+            return self.docker.get_endpoint(endpoint_id)
 
-    @classmethod
-    def get_endpoints(cls, provider_id, efilter="all"):
-        if config.USE_OPENSTACK and cls.openstack_platforms:
-            return OpenstackPlatforms.get_endpoints(provider_id, efilter=efilter)
-        if config.USE_DOCKER and cls.docker_platforms:
-            return DockerPlatforms.get_endpoints(provider_id, efilter=efilter)
+    def get_endpoints(self, provider_id, efilter="all"):
+        if config.USE_OPENSTACK and self.openstack_platforms:
+            return self.openstack.get_endpoints(provider_id, efilter=efilter)
+        if config.USE_DOCKER and self.docker_platforms:
+            return self.docker.get_endpoints(provider_id, efilter=efilter)
         return []
 
-    @classmethod
-    def info(cls):
-        return list(cls.platforms.keys())
+    def info(self):
+        return list(self.platforms.keys())
 
-    @classmethod
-    def cleanup(cls):
-        if bool(cls.openstack_platforms):
-            for platform in cls.openstack_platforms:
-                del cls.platforms[platform]
-            cls.openstack_platforms = {}
-        if bool(cls.docker_platforms):
-            for platform in cls.docker_platforms:
-                del cls.platforms[platform]
-            cls.docker_platforms = {}
+    def cleanup(self):
+        if bool(self.openstack_platforms):
+            for platform in self.openstack_platforms:
+                del self.platforms[platform]
+            self.openstack_platforms = {}
+        if bool(self.docker_platforms):
+            for platform in self.docker_platforms:
+                del self.platforms[platform]
+            self.docker_platforms = {}

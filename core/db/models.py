@@ -329,16 +329,14 @@ class Endpoint(Base, FeaturesMixin):
 
     def __init__(self, name_prefix, platform, provider):
         self.provider = provider
-
+        self.created_time = datetime.now()
+        self.platform_name = platform
         self.add()
 
         if name_prefix:
             self.name = "{}-{}".format(name_prefix, self.id)
         else:
             self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), platform)
-
-        self.created_time = datetime.now()
-        self.platform_name = platform
 
         self.save()
 

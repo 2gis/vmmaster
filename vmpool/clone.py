@@ -149,11 +149,8 @@ class OpenstackClone(Clone):
         openstack_endpoint_prefix = getattr(config, 'OPENSTACK_ENDPOINT_PREFIX', None)
         if openstack_endpoint_prefix:
             prefix = "{}-{}".format(openstack_endpoint_prefix, prefix)
-
         super(OpenstackClone, self).__init__(origin, prefix, pool)
         self.nova_client = self._get_nova_client()
-        self.ports = {"{}".format(port): port for port in config.PORTS}
-        self.save()
 
     @staticmethod
     def _get_nova_client():
@@ -177,7 +174,8 @@ class OpenstackClone(Clone):
         log.info(
             "Creating openstack clone of {} with image={}, "
             "flavor={}".format(self.name, self.image, self.flavor))
-
+        self.ports = {"{}".format(port): port for port in config.PORTS}
+        self.save()
         kwargs = {
             'name': self.name,
             'image': self.image,
