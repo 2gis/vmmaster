@@ -277,7 +277,8 @@ class Session(Base, FeaturesMixin):
 
     def run(self):
         self.modified = datetime.now()
-        self.endpoint.start_recorder(self)
+        if self.take_screencast:
+            self.endpoint.start_recorder(self)
         self.status = "running"
         log.info("Session {} starting on {} ({}).".format(self.id, self.endpoint.name, self.endpoint.ip))
         self.save()
