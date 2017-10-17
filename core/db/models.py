@@ -1,7 +1,9 @@
 # coding: utf-8
 
+import time
 import json
 import logging
+from functools import partial
 from uuid import uuid4
 from datetime import datetime
 
@@ -11,6 +13,7 @@ from sqlalchemy.orm import relationship, backref
 
 from flask import current_app
 
+from core.config import config
 from core import constants
 from core.exceptions import RequestTimeoutException, EndpointUnreachableError
 from core.utils import network_utils
@@ -313,6 +316,7 @@ class Endpoint(Base, FeaturesMixin):
     ip = Column(String)
     ports = Column(JSON, default={})
     platform_name = Column(String, nullable=False)
+    endpoint_type = Column(String(20))
 
     ready = Column(Boolean, default=False)
     in_use = Column(Boolean, default=False)
@@ -325,21 +329,133 @@ class Endpoint(Base, FeaturesMixin):
     # Relationships
     provider = relationship("Provider", backref=backref("endpoints", enable_typechecks=False))
 
-    def __str__(self):
-        return "Endpoint {}({})".format(self.name, self.id)
+    # Mapping
+    __mapper_args__ = {
+        'polymorphic_on': endpoint_type,
+        'polymorphic_identity': 'endpoint',
+    }
 
-    def __init__(self, name_prefix, platform, provider):
+    def __str__(self):
+        return "{name}({ip})".format(name=self.name, ip=self.ip)
+
+    def __init__(self, origin, prefix, provider):
+        self.origin = origin
         self.provider = provider
         self.created_time = datetime.now()
-        self.platform_name = platform
+        self.platform_name = origin.short_name
         self.add()
 
+        name_prefix = "{}-p{}".format(prefix, provider.id)
         if name_prefix:
             self.name = "{}-{}".format(name_prefix, self.id)
         else:
-            self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), platform)
+            self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), self.platform_name)
 
         self.save()
+
+    def delete(self, try_to_rebuild=False):
+        self.set_in_use(False)
+        self.deleted_time = datetime.now()
+        self.deleted = True
+        self.save()
+        log.info("Deleted {}".format(self.name))
+
+    def create(self):
+        if self.ready:
+            log.info("Creation {} was successful".format(self.name))
+
+    def rebuild(self):
+        self.set_in_use(False)
+        log.info("Rebuild {} was successful".format(self.name))
+
+    @property
+    def bind_ports(self):
+        return self.ports.values()
+
+    @property
+    def original_ports(self):
+        return self.ports.keys()
+
+    @property
+    def vnc_port(self):
+        return config.VNC_PORT
+
+    @property
+    def selenium_port(self):
+        return config.SELENIUM_PORT
+
+    @property
+    def agent_port(self):
+        return config.VMMASTER_AGENT_PORT
+
+    @property
+    def agent_ws_url(self):
+        return "{}:{}".format(self.ip, self.agent_port)
+
+    def set_ready(self, value):
+        self.ready = value
+        self.save()
+
+    def set_in_use(self, value):
+        # TODO: lazy save in db, remove direct calls for Clone and Session
+        if not value:
+            self.used_time = datetime.now()
+        self.in_use = value
+        self.save()
+
+    @property
+    def info(self):
+        return {
+            "id": str(self.id),
+            "uuid": str(self.uuid),
+            "name": str(self.name),
+            "ip": str(self.ip),
+            "ports": self.ports,
+            "platform": str(self.platform_name),
+            "created_time": str(self.created_time) if self.used_time else None,
+            "used_time": str(self.used_time) if self.used_time else None,
+            "deleted_time": str(self.deleted_time) if self.deleted_time else None,
+            "ready": str(self.ready),
+            "in_use": str(self.in_use),
+            "deleted": str(self.deleted)
+        }
+
+    def start_recorder(self, session):
+        # FIXME: replace current_pool by direct self.pool usage (blocked by db.models state restore issues)
+        return current_app.pool.start_recorder(session)
+
+    def save_artifacts(self, session):
+        return current_app.pool.save_artifacts(session)
+
+    def is_preloaded(self):
+        return 'preloaded' in self.name
+
+    def ping_vm(self):
+        ports = self.bind_ports
+        timeout = config.PING_TIMEOUT
+        result = [False, False]
+
+        log.info("Starting ping vm {clone}: {ip}:{port}".format(
+            clone=self.name, ip=self.ip, port=ports))
+        start = time.time()
+        _ping = partial(network_utils.ping, self.ip)
+        while time.time() - start < timeout:
+            result = map(_ping, ports)
+            if all(result):
+                log.info(
+                    "Successful ping for {clone} with {ip}:{ports}".format(
+                        clone=self.name, ip=self.ip, ports=ports))
+                break
+            time.sleep(0.1)
+
+        if not all(result):
+            fails = [port for port, res in zip(ports, result) if res is False]
+            log.info("Failed ping for {clone} with {ip}:{ports}".format(
+                clone=self.name, ip=self.ip, ports=str(fails))
+            )
+            return False
+
+        return True
 
 
 class User(Base, FeaturesMixin):

@@ -178,6 +178,7 @@ class Platforms(object):
     def __init__(self, database):
         log.info("Loading platforms...")
 
+        self.db = database
         self.openstack = OpenstackPlatforms(database)
         self.docker = DockerPlatforms(database)
 
@@ -226,17 +227,10 @@ class Platforms(object):
         return self.platforms.get(platform, None)
 
     def get_endpoint(self, endpoint_id):
-        if config.USE_OPENSTACK and self.openstack_platforms:
-            return self.openstack.get_endpoint(endpoint_id)
-        if config.USE_DOCKER and self.docker_platforms:
-            return self.docker.get_endpoint(endpoint_id)
+        return self.db.get_endpoint(endpoint_id)
 
     def get_endpoints(self, provider_id, efilter="all"):
-        if config.USE_OPENSTACK and self.openstack_platforms:
-            return self.openstack.get_endpoints(provider_id, efilter=efilter)
-        if config.USE_DOCKER and self.docker_platforms:
-            return self.docker.get_endpoints(provider_id, efilter=efilter)
-        return []
+        return self.db.get_endpoints(provider_id, efilter)
 
     def info(self):
         return list(self.platforms.keys())

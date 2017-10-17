@@ -1,18 +1,14 @@
 # coding: utf-8
+
 import os
 import time
 import logging
-
 from functools import wraps
-from functools import partial
-from flask import current_app
-
-from core.db import models
-from datetime import datetime
 
 from core.exceptions import CreationException
 from core.config import config
 from core.utils import network_utils, exception_handler
+from core.db.models import Endpoint
 
 
 log = logging.getLogger(__name__)
@@ -28,128 +24,18 @@ def clone_watcher(func):
     return wrapper
 
 
-class Clone(models.Endpoint):
-    def __init__(self, origin, prefix, pool):
-        self.origin = origin
-        self.pool = pool
-        name_prefix = "{}-p{}".format(prefix, pool.id)
-        super(Clone, self).__init__(name_prefix=name_prefix, platform=origin.short_name, provider=pool.provider)
+class OpenstackClone(Endpoint):
+    __mapper_args__ = {
+        'polymorphic_identity': 'openstack',
+    }
 
-    def __str__(self):
-        return "{name}({ip})".format(name=self.name, ip=self.ip)
-
-    def delete(self, try_to_rebuild=False):
-        self.set_in_use(False)
-        self.deleted_time = datetime.now()
-        self.deleted = True
-        self.save()
-        log.info("Deleted {}".format(self.name))
-
-    def create(self):
-        if self.ready:
-            log.info("Creation {} was successful".format(self.name))
-
-    def rebuild(self):
-        self.set_in_use(False)
-        log.info("Rebuild {} was successful".format(self.name))
-
-    @property
-    def bind_ports(self):
-        return self.ports.values()
-
-    @property
-    def original_ports(self):
-        return self.ports.keys()
-
-    @property
-    def vnc_port(self):
-        return config.VNC_PORT
-
-    @property
-    def selenium_port(self):
-        return config.SELENIUM_PORT
-
-    @property
-    def agent_port(self):
-        return config.VMMASTER_AGENT_PORT
-
-    @property
-    def agent_ws_url(self):
-        return "{}:{}".format(self.ip, self.agent_port)
-
-    def set_ready(self, value):
-        self.ready = value
-        self.save()
-
-    def set_in_use(self, value):
-        # TODO: lazy save in db, remove direct calls for Clone and Session
-        if not value:
-            self.used_time = datetime.now()
-        self.in_use = value
-        self.save()
-
-    @property
-    def info(self):
-        return {
-            "id": str(self.id),
-            "uuid": str(self.uuid),
-            "name": str(self.name),
-            "ip": str(self.ip),
-            "ports": self.ports,
-            "platform": str(self.platform_name),
-            "created_time": str(self.created_time) if self.used_time else None,
-            "used_time": str(self.used_time) if self.used_time else None,
-            "deleted_time": str(self.deleted_time) if self.deleted_time else None,
-            "ready": str(self.ready),
-            "in_use": str(self.in_use),
-            "deleted": str(self.deleted)
-        }
-
-    def start_recorder(self, session):
-        # FIXME: replace current_pool by direct self.pool usage (blocked by db.models state restore issues)
-        return current_app.pool.start_recorder(session)
-
-    def save_artifacts(self, session):
-        return current_app.pool.save_artifacts(session)
-
-    def is_preloaded(self):
-        return 'preloaded' in self.name
-
-    def ping_vm(self, ports=config.PORTS):
-        result = [False, False]
-        timeout = config.PING_TIMEOUT
-        start = time.time()
-
-        log.info("Starting ping vm {clone}: {ip}:{port}".format(
-            clone=self.name, ip=self.ip, port=ports))
-        _ping = partial(network_utils.ping, self.ip)
-        while time.time() - start < timeout:
-            result = map(_ping, ports)
-            if all(result):
-                log.info(
-                    "Successful ping for {clone} with {ip}:{ports}".format(
-                        clone=self.name, ip=self.ip, ports=ports))
-                break
-            time.sleep(0.1)
-
-        if not all(result):
-            fails = [port for port, res in zip(ports, result) if res is False]
-            log.info("Failed ping for {clone} with {ip}:{ports}".format(
-                clone=self.name, ip=self.ip, ports=str(fails))
-            )
-            return False
-
-        return True
-
-
-class OpenstackClone(Clone):
     nova_client = None
 
     def __init__(self, origin, prefix, pool):
         openstack_endpoint_prefix = getattr(config, 'OPENSTACK_ENDPOINT_PREFIX', None)
         if openstack_endpoint_prefix:
             prefix = "{}-{}".format(openstack_endpoint_prefix, prefix)
-        super(OpenstackClone, self).__init__(origin, prefix, pool)
+        super(OpenstackClone, self).__init__(origin, prefix, pool.provider)
         self.nova_client = self._get_nova_client()
 
     @staticmethod
@@ -347,12 +233,17 @@ class OpenstackClone(Clone):
         yield self.ready
 
 
-class DockerClone(Clone):
+class DockerClone(Endpoint):
+    __mapper_args__ = {
+        'polymorphic_identity': 'docker',
+    }
+
     client = None
     __container = None
 
     def __init__(self, origin, prefix, pool):
-        super(DockerClone, self).__init__(origin, prefix, pool)
+        self.pool = pool
+        super(DockerClone, self).__init__(origin, prefix, pool.provider)
         self.client = self._get_client()
 
     @staticmethod
@@ -460,7 +351,7 @@ class DockerClone(Clone):
                     log.info("Waiting ip for {}".format(self.name))
                     continue
                 self.ip = self.__container.ip
-                if self.ping_vm(ports=self.bind_ports) and self.selenium_is_ready:
+                if self.ping_vm() and self.selenium_is_ready:
                     self.set_ready(True)
                     break
                 if ping_retry > config.VM_PING_RETRY_COUNT:

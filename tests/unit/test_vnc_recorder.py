@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from flask import Flask
-from mock import patch, Mock
+from mock import patch, Mock, PropertyMock
 from tests.helpers import BaseTestCase, DatabaseMock, wait_for
 
 
@@ -45,17 +45,17 @@ class TestVNCVideoHelper(BaseTestCase):
         ) as stop_rec_mock, patch(
             'core.video.VNCVideoHelper.is_alive', Mock(return_value=True)
         ):
-            from core.db.models import Session
+            from core.db.models import Session, Endpoint
             from vmpool.virtual_machines_pool import VirtualMachinesPool
-            from vmpool.clone import Clone
 
             session = Session(platform='some_platform', dc=dc)
             session.name = "session1"
             session.id = 1
 
             self.app.pool = VirtualMachinesPool(self.app, platforms_class=Mock(), preloader_class=Mock())
+            self.app.pool.provider = PropertyMock(id=1)
 
-            endpoint = Clone(origin=Mock(), prefix="ondemand", pool=self.app.pool)
+            endpoint = Endpoint(origin=Mock(), prefix="ondemand", provider=self.app.pool.provider)
             endpoint.ip = '127.0.0.1'
 
             session.endpoint = endpoint

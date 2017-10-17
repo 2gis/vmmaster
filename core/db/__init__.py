@@ -4,7 +4,7 @@ import logging
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
-from core.db.models import Session, SessionLogStep, User, Platform, Provider
+from core.db.models import Session, SessionLogStep, User, Platform, Provider, Endpoint
 from core.utils import to_thread
 from core.config import config
 
@@ -102,25 +102,25 @@ class Database(object):
         return None
 
     @transaction
-    def get_endpoint(self, clone, endpoint_id, dbsession=None):
+    def get_endpoint(self, endpoint_id, dbsession=None):
         try:
-            return dbsession.query(clone).get(endpoint_id)
+            return dbsession.query(Endpoint).get(endpoint_id)
         except:
             return None
 
     @transaction
-    def get_endpoints(self, clone, provider_id, efilter="all", dbsession=None):
-        base_query = dbsession.query(clone).filter_by(provider_id=provider_id)
+    def get_endpoints(self, provider_id, efilter="all", dbsession=None):
+        base_query = dbsession.query(Endpoint).filter_by(provider_id=provider_id)
         if efilter == "all":
             return base_query.all()
 
-        base_query = base_query.filter(clone.deleted.is_(False))
+        base_query = base_query.filter(Endpoint.deleted.is_(False))
         if efilter == "active":
             return base_query.all()
         if efilter == "using":
-            return base_query.filter(clone.in_use.is_(True)).all()
+            return base_query.filter(Endpoint.in_use.is_(True)).all()
         if efilter == "pool":
-            return base_query.filter(clone.in_use.is_(False)).all()
+            return base_query.filter(Endpoint.in_use.is_(False)).all()
         else:
             return []
 
