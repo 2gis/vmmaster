@@ -54,7 +54,7 @@ class VNCVideoHelper:
         return_code = 0
         try:
             def sigterm_handler(sig, frame):
-                log.debug("%s %s" % (sig, frame))
+                log.debug("VNCHelper: sigterm handler: %s %s" % (sig, frame))
                 raise SystemExit
             signal.signal(signal.SIGTERM, sigterm_handler)
             client.open()
@@ -68,18 +68,18 @@ class VNCVideoHelper:
                         raise SystemExit
                     client.idle()
             finally:
+                log.debug('VNCHelper: close client...')
                 client.close()
-        except Exception as e:
-            if isinstance(e, SystemExit):
-                log.info("VNC recorder process({}): Got SIGTERM. stopping...".format(filename))
-            else:
-                log.exception("Error in VNC recorder process({})".format(filename))
-                return_code = 1
+        except SystemExit:
+            log.info("VNC recorder process({}): Got SIGTERM. stopping...".format(filename))
+        except:
+            log.exception("Error in VNC recorder process({})".format(filename))
+            return_code = 1
         finally:
             writer.close()
             fp.close()
+            log.info('VNCHelper stopped recording to {}'.format(filename))
             exit(return_code)
-            log.info('Stopped vnc recording to %s' % filename)
 
     def delete_source_video(self):
         if self.__filepath and os.path.isfile(self.__filepath):
@@ -104,7 +104,8 @@ class VNCVideoHelper:
         ]
 
         self.proxy = multiprocessing.Process(
-            target=websockify.websocketproxy.websockify_init
+            target=websockify.websocketproxy.websockify_init,
+            name="{}.proxy".format(__name__)
         )
 
         self.proxy.start()
@@ -132,7 +133,8 @@ class VNCVideoHelper:
         self.recorder = multiprocessing.Process(
             target=self._flvrec,
             args=(self.__filepath, self.host, self.port),
-            kwargs=kwargs
+            kwargs=kwargs,
+            name="{}.recorder".format(__name__)
         )
         self.recorder.daemon = True
         self.recorder.start()
@@ -150,6 +152,11 @@ class VNCVideoHelper:
                     self.recorder.pid, self.host, self.port, self.dir_path
                 )
             )
+
+    def is_alive(self):
+        if self.recorder:
+            return self.recorder.is_alive()
+        return False
 
     def stop(self):
         self.stop_recording()

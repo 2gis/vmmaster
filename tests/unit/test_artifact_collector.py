@@ -25,10 +25,6 @@ class TestArtifactCollector(BaseTestCase):
         cls.app.database = DatabaseMock()
         cls.app.sessions = Mock()
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.app
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
@@ -43,7 +39,7 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
+        from vmpool.artifact_collector import ArtifactCollector
         with patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -62,12 +58,8 @@ class TestArtifactCollector(BaseTestCase):
             vmpool.app = self.app
             self.app.pool = vmpool
 
-            art_collector = ArtifactCollector()
-            in_queue = art_collector.add_task(
-                session.id, save_selenium_log, *(
-                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
-                )
-            )
+            art_collector = ArtifactCollector(database=Mock())
+            in_queue = art_collector.save_selenium_log(session)
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
@@ -88,7 +80,7 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
+        from vmpool.artifact_collector import ArtifactCollector
         with patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -100,18 +92,8 @@ class TestArtifactCollector(BaseTestCase):
                 selenium_port=4455, agent_port=9000, vnc_port=5900
             )
             session.endpoint = endpoint
-            self.app.sessions.get_session = Mock(return_value=session)
-
-            vmpool = Mock(get_by_name=Mock(return_value=endpoint))
-            vmpool.app = self.app
-            self.app.pool = vmpool
-
-            art_collector = ArtifactCollector()
-            in_queue = art_collector.add_task(
-                session.id, save_selenium_log, *(
-                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
-                )
-            )
+            art_collector = ArtifactCollector(database=Mock())
+            in_queue = art_collector.save_selenium_log(session)
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
@@ -128,7 +110,7 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: selenium log was saved and endpoint was deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector, save_selenium_log
+        from vmpool.artifact_collector import ArtifactCollector
         with patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -143,16 +125,8 @@ class TestArtifactCollector(BaseTestCase):
             session.endpoint = endpoint
             self.app.sessions.get_session = Mock(return_value=session)
 
-            vmpool = Mock(get_by_name=Mock(return_value=endpoint))
-            vmpool.app = self.app
-            self.app.pool = vmpool
-
-            art_collector = ArtifactCollector()
-            in_queue = art_collector.add_task(
-                session.id, save_selenium_log, *(
-                    self.app, session.id, "selenium_server", "/var/log/selenium_server.log"
-                )
-            )
+            art_collector = ArtifactCollector(database=Mock())
+            in_queue = art_collector.save_selenium_log(session)
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
@@ -172,15 +146,15 @@ class TestArtifactCollector(BaseTestCase):
 
         Expected: all tasks were deleted
         """
-        from vmpool.artifact_collector import ArtifactCollector
+        from vmpool.artifact_collector import ArtifactCollector, Task
         from multiprocessing.pool import AsyncResult
 
-        art_collector = ArtifactCollector()
+        art_collector = ArtifactCollector(database=Mock())
         task = AsyncResult(cache={1: ""}, callback=None)
         task._job = 1
         task._ready = True
         art_collector.in_queue = {
-            1: [task]
+            1: [Task('my_task', task)]
         }
         art_collector.stop()
 

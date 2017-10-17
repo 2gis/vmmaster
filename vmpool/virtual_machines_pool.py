@@ -70,7 +70,7 @@ class VirtualMachinesPool(object):
         self.app = app
         self.platforms = platforms_class(self.app.database)
         self.preloader = preloader_class(self)
-        self.artifact_collector = artifact_collector_class()
+        self.artifact_collector = artifact_collector_class(self.app.database)
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
             from core.network import DockerNetwork
@@ -121,7 +121,7 @@ class VirtualMachinesPool(object):
         self.platforms.cleanup()
 
     def free(self):
-        log.info("Deleting machines...")
+        log.info("Deleting endpoints: {}".format([e.name for e in self.active_endpoints]))
         with self.app.app_context():
             for vm in self.active_endpoints:
                 vm.delete()
@@ -214,6 +214,7 @@ class VirtualMachinesPool(object):
         return self.count_virtual_machines(self.using)
 
     def add(self, platform_name, prefix="ondemand"):
+        # TODO: remove all app_context usages, use direct link to app/database objects
         if prefix == "preloaded":
             log.info("Preloading {}".format(platform_name))
 
@@ -281,7 +282,7 @@ class VirtualMachinesPool(object):
         return self.platforms.check_platform(platform)
 
     def start_recorder(self, session):
-        return self.artifact_collector.record_screencast(session.id, self.app)
+        return self.artifact_collector.record_screencast(session)
 
     def save_artifacts(self, session):
-        return self.artifact_collector.save_selenium_log(session.id, self.app)
+        return self.artifact_collector.save_selenium_log(session)
