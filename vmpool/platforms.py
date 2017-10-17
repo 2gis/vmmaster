@@ -171,6 +171,7 @@ class OpenstackPlatforms(PlatformsInterface):
 
 
 class Platforms(object):
+    provider_id = None
     platforms = {}
     openstack_platforms = {}
     docker_platforms = {}
@@ -229,8 +230,31 @@ class Platforms(object):
     def get_endpoint(self, endpoint_id):
         return self.db.get_endpoint(endpoint_id)
 
-    def get_endpoints(self, provider_id, efilter="all"):
-        return self.db.get_endpoints(provider_id, efilter)
+    def get_endpoints(self, efilter="all"):
+        return self.db.get_endpoints(self.provider_id, efilter)
+
+    def get_all_endpoints(self):
+        return self.get_endpoints(efilter="all")
+
+    @property
+    def pool(self):
+        return self.get_endpoints(efilter="pool")
+
+    @property
+    def using(self):
+        return self.get_endpoints(efilter="using")
+
+    @property
+    def wait_for_service(self):
+        return self.get_endpoints(efilter="wait for service")
+
+    @property
+    def on_service(self):
+        return self.get_endpoints(efilter="service")
+
+    @property
+    def active_endpoints(self):
+        return self.get_endpoints(efilter="active")
 
     def info(self):
         return list(self.platforms.keys())

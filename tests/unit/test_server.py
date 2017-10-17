@@ -52,8 +52,6 @@ class BaseTestFlaskApp(BaseTestCase):
             'core.video.VNCVideoHelper', Mock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
-        ), patch(
-            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[self.mocked_image]),
@@ -420,8 +418,6 @@ class TestConnectionClose(BaseTestCase):
             'core.video.VNCVideoHelper', Mock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
-        ), patch(
-            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[mocked_image]),
@@ -528,8 +524,6 @@ class TestServerShutdown(BaseTestCase):
             'core.video.VNCVideoHelper', Mock()
         ), patch(
             'core.sessions.SessionWorker', Mock()
-        ), patch(
-            'core.db.models.Session.save_artifacts', Mock()
         ), patch.multiple(
             'vmpool.platforms.OpenstackPlatforms',
             images=Mock(return_value=[mocked_image]),
@@ -613,8 +607,6 @@ class TestSessionSteps(BaseTestFlaskApp):
 
         with patch(
             'vmpool.endpoint.get_vm', Mock(side_effect=raise_exception)
-        ), patch(
-            'core.db.models.Session.save_artifacts', Mock(return_value=False),
         ), patch(
             'core.db.models.Session.add_session_step', Mock()
         ) as add_step_mock:

@@ -44,12 +44,13 @@ class TestVirtualMachinePool(BaseTestCase):
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(self.app)
+            self.pool.endpoint_remover.run = Mock()
             self.pool.start_workers()
             self.ctx = self.app.app_context()
             self.ctx.push()
 
     def tearDown(self):
-        self.pool.free()
+        self.pool.endpoint_remover.remove_all()
         self.pool.unregister()
         self.ctx.pop()
 

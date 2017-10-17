@@ -1,12 +1,12 @@
 # coding: utf-8
 
-import unittest
 from mock import Mock
 
+from tests.helpers import BaseTestCase
 from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
 
 
-class TestSeleniumMatcherNegative(unittest.TestCase):
+class TestSeleniumMatcherNegative(BaseTestCase):
     def test_empty_platforms_config(self):
         matcher = SeleniumMatcher(platforms={})
 
@@ -37,7 +37,7 @@ class TestSeleniumMatcherNegative(unittest.TestCase):
         self.assertEqual([], matcher.get_matched_platforms(dc))
 
 
-class TestSeleniumMatcherPositive(unittest.TestCase):
+class TestSeleniumMatcherPositive(BaseTestCase):
     def setUp(self):
         self.matcher = SeleniumMatcher(
             platforms={
@@ -122,7 +122,7 @@ class TestSeleniumMatcherPositive(unittest.TestCase):
         self.assertListEqual(['ubuntu_1', 'ubuntu_2'], sorted(self.matcher.get_matched_platforms(dc)))
 
 
-class TestMatcherFallback(unittest.TestCase):
+class TestMatcherFallback(BaseTestCase):
     def test_origin_ubuntu_14(self):
         platforms = {'ubuntu-14.04-x64': Mock()}
         dc = {'platform': 'ubuntu-14.04-x64'}

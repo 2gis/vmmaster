@@ -8,6 +8,7 @@ from collections import defaultdict
 from core.config import config
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
+from vmpool.endpoint import EndpointRemover
 
 log = logging.getLogger(__name__)
 
@@ -55,15 +56,14 @@ class VirtualMachinesPoolPreloader(Thread):
 
 
 class VirtualMachinesPool(object):
-    id = None
     provider = None
     lock = Lock()
 
     def __str__(self):
         return str(self.active_endpoints)
 
-    def __init__(self, app, name=None, platforms_class=Platforms,
-                 preloader_class=VirtualMachinesPoolPreloader, artifact_collector_class=ArtifactCollector):
+    def __init__(self, app, name=None, platforms_class=Platforms, preloader_class=VirtualMachinesPoolPreloader,
+                 artifact_collector_class=ArtifactCollector, endpoint_remover_class=EndpointRemover):
         self.name = name if name else "Unnamed provider"
         self.url = "{}:{}".format("localhost", config.PORT)
 
@@ -71,6 +71,9 @@ class VirtualMachinesPool(object):
         self.platforms = platforms_class(self.app.database)
         self.preloader = preloader_class(self)
         self.artifact_collector = artifact_collector_class(self.app.database)
+        self.endpoint_remover = endpoint_remover_class(
+            self.platforms, self.artifact_collector, self.app.database, self.app.app_context
+        )
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
             from core.network import DockerNetwork
@@ -82,11 +85,11 @@ class VirtualMachinesPool(object):
             url=self.url,
             platforms=config.PLATFORMS
         )
-        self.id = self.provider.id
+        self.platforms.provider_id = self.provider.id
         self.register_platforms()
 
     def unregister(self):
-        self.app.database.unregister_provider(self.id)
+        self.app.database.unregister_provider(self.provider.id)
         self.app.database.unregister_platforms(self.provider)
 
     def register_platforms(self):
@@ -94,37 +97,42 @@ class VirtualMachinesPool(object):
 
     @property
     def active_endpoints(self):
-        return self.platforms.get_endpoints(self.id, efilter="active")
+        return self.platforms.active_endpoints
 
     def get_all_endpoints(self):
-        return self.platforms.get_endpoints(self.id, efilter="all")
+        return self.platforms.get_all_endpoints()
 
     @property
     def pool(self):
-        return self.platforms.get_endpoints(self.id, efilter="pool")
+        return self.platforms.pool
 
     @property
     def using(self):
-        return self.platforms.get_endpoints(self.id, efilter="using")
+        return self.platforms.using
+
+    @property
+    def wait_for_service(self):
+        return self.platforms.wait_for_service
+
+    @property
+    def on_service(self):
+        return self.platforms.on_service
 
     def start_workers(self):
         self.register()
         self.preloader.start()
+        self.endpoint_remover.start()
+        log.info("Provider #{} ({}) was started...".format(self.provider.id, self.name))
 
     def stop_workers(self):
         if self.preloader:
             self.preloader.stop()
         if self.artifact_collector:
             self.artifact_collector.stop()
-        self.free()
+        if self.endpoint_remover:
+            self.endpoint_remover.stop()
         self.unregister()
         self.platforms.cleanup()
-
-    def free(self):
-        log.info("Deleting endpoints: {}".format([e.name for e in self.active_endpoints]))
-        with self.app.app_context():
-            for vm in self.active_endpoints:
-                vm.delete()
 
     def count(self):
         return len(self.active_endpoints)
@@ -182,7 +190,7 @@ class VirtualMachinesPool(object):
         if not res:
             return None
 
-        if res.ping_vm(vm.bind_ports):
+        if res.ping_vm():
             return res
         else:
             res.delete()
@@ -275,6 +283,14 @@ class VirtualMachinesPool(object):
                 'count': self.using_virtual_machines(),
                 'list': print_view(self.using),
             },
+            "wait_for_service": {
+                'count': len(self.wait_for_service),
+                'list': print_view(self.wait_for_service),
+            },
+            "on_service": {
+                'count': len(self.on_service),
+                'list': print_view(self.on_service),
+            },
             "already_use": self.count(),
         }
 
@@ -283,6 +299,3 @@ class VirtualMachinesPool(object):
 
     def start_recorder(self, session):
         return self.artifact_collector.record_screencast(session)
-
-    def save_artifacts(self, session):
-        return self.artifact_collector.save_selenium_log(session)

@@ -30,7 +30,6 @@ class Vmmaster(Flask):
 
         self.pool.start_workers()
         self.sessions.start_workers()
-        log.info("Provider #{} ({}) was started...".format(self.pool.id, self.pool.name))
 
     def cleanup(self):
         log.info("Cleanup...")

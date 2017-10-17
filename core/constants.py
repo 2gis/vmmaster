@@ -7,3 +7,6 @@ REQUEST_TIMEOUT = 60
 REQUEST_SLEEP_BASE_TIME = 5
 
 ANY = u'ANY'
+
+# EndpointRemover #
+ER_SLEEP_TIME = 2

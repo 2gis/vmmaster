@@ -10,7 +10,6 @@ import sys
 import logging
 from functools import wraps
 
-from twisted.internet import threads
 from threading import Thread
 from docker.errors import APIError
 
@@ -114,7 +113,15 @@ def change_user_vmmaster():
 
 def to_thread(f):
     def wrapper(*args, **kwargs):
+        from twisted.internet import threads
         return threads.deferToThread(f, *args, **kwargs)
+    return wrapper
+
+
+def call_in_thread(f):
+    def wrapper(*args, **kwargs):
+        from twisted.internet import reactor
+        return reactor.callInThread(f, *args, **kwargs)
     return wrapper
 
 

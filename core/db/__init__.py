@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import logging
-from sqlalchemy import create_engine, desc
+from sqlalchemy import create_engine, asc, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from core.db.models import Session, SessionLogStep, User, Platform, Provider, Endpoint
@@ -121,8 +121,14 @@ class Database(object):
             return base_query.filter(Endpoint.in_use.is_(True)).all()
         if efilter == "pool":
             return base_query.filter(Endpoint.in_use.is_(False)).all()
+        elif efilter == "wait for service" or efilter == "service":
+            return base_query.filter_by(mode=efilter).order_by(asc(Endpoint.id)).all()
         else:
             return []
+
+    @transaction
+    def get_session_by_endpoint_id(self, endpoint_id, dbsession=None):
+        return dbsession.query(Session).filter_by(endpoint_id=endpoint_id).order_by(asc(Session.id)).first()
 
     @transaction
     def get_provider(self, provider_id, dbsession=None):

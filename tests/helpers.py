@@ -22,6 +22,12 @@ class TimeoutException(Exception):
     pass
 
 
+def call_in_thread_mock(f):
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def wait_for(condition, timeout=10):
     start = time.time()
     while not condition() and time.time() - start < timeout:
