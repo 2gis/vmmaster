@@ -2,17 +2,11 @@
 
 import logging
 
-from flask import json, Flask
+from flask import Flask
 from core.config import config
+from core.utils import JSONEncoder
 
 log = logging.getLogger(__name__)
-
-
-class JSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, "to_json"):
-            return obj.to_json()
-        return super(JSONEncoder, self).default(obj)
 
 
 class Vmmaster(Flask):
@@ -58,7 +52,7 @@ class Vmmaster(Flask):
 
 def register_blueprints(app):
     from vmmaster.api import api
-    from webdriver import webdriver
+    from vmmaster.webdriver import webdriver
     app.register_blueprint(api, url_prefix='/api')
     app.register_blueprint(webdriver, url_prefix='/wd/hub')
 

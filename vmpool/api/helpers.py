@@ -18,5 +18,13 @@ def get_artifact_collector_queue():
 def get_provider_info():
     return {
         "name": current_app.pool.name,
-        "config": current_app.pool.config
+        "config": current_app.pool.provider.config
     }
+
+
+def get_endpoint_by_name(endpoint_name):
+    return current_app.pool.get_by_name(endpoint_name)
+
+
+def get_active_sessions():
+    return current_app.pool.active_endpoints

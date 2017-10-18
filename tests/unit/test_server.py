@@ -528,10 +528,11 @@ class TestSessionSteps(BaseTestFlaskApp):
         def raise_exception(*args, **kwargs):
             raise Exception('something ugly happened in make_request')
 
-        def new_vm_mock(arg):
-            yield PropertyMock(ip=1)
-
         with patch(
+            'core.db.models.Session.restore_endpoint', Mock()
+        ), patch(
+            'core.db.models.Session.endpoint_id', Mock(return_value=1)
+        ), patch(
             'core.db.models.Session.make_request',
             Mock(__name__="make_request", side_effect=raise_exception)
         ), patch(
@@ -540,8 +541,7 @@ class TestSessionSteps(BaseTestFlaskApp):
             response = new_session_request(self.vmmaster_client, self.desired_caps)
 
         self.assertEqual(500, response.status_code)
-        self.assertIn(
-            'something ugly happened in make_request', response.data)
+        self.assertIn('something ugly happened in make_request', response.data)
 
         self.assertEqual(add_sub_step_mock.call_count, 2)
 

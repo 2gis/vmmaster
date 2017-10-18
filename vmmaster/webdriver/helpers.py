@@ -202,6 +202,6 @@ def get_session():
             raise CreationException("Timeout getting endpoint for {}".format(session))
         session.refresh()
 
-    session.restore_endpoint()
+    session.restore()
     session.run()
     yield session

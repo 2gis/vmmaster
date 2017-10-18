@@ -157,6 +157,14 @@ class Database(object):
             log.warning("Platform {} not found".format(name))
         return platform
 
+    @transaction
+    def get_all_plaftorms_list(self, dbsession=None):
+        res = set()
+        for provider in dbsession.query(Provider).filter_by(active=True).all():
+            for platform in provider.platforms:
+                res.add(platform.name)
+        return res
+
     def register_platforms(self, provider, platforms):
         for name in platforms:
             platform = Platform(name)

@@ -43,20 +43,35 @@ class TestVirtualMachinePool(BaseTestCase):
                 'maxTotalCores': 10, 'maxTotalInstances': 10,
                 'maxTotalRAMSize': 100, 'totalCoresUsed': 0,
                 'totalInstancesUsed': 0, 'totalRAMUsed': 0}),
-        ), patch(
-            'vmpool.endpoint.EndpointPreparer', Mock()
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
-            self.pool = VirtualMachinesPool(self.app)
-            self.pool.endpoint_remover.run = Mock()
-            self.pool.start_workers()
+            self.pool = VirtualMachinesPool(
+                self.app, preloader_class=Mock(), artifact_collector_class=Mock(),
+                endpoint_remover_class=Mock(), endpoint_preparer_class=Mock()
+            )
             self.ctx = self.app.app_context()
             self.ctx.push()
+            self.pool.register()
 
     def tearDown(self):
-        self.pool.endpoint_remover.remove_all()
         self.pool.unregister()
+        self.pool.platforms.cleanup()
         self.ctx.pop()
+
+    def test_run_workers(self):
+        self.pool.start_workers()
+
+        self.assertTrue(self.pool.endpoint_preparer.start.called)
+        self.assertTrue(self.pool.endpoint_remover.start.called)
+        self.assertTrue(self.pool.preloader.start.called)
+
+    def test_stop_workers(self):
+        self.pool.stop_workers()
+
+        self.assertTrue(self.pool.endpoint_preparer.stop.called)
+        self.assertTrue(self.pool.endpoint_remover.stop.called)
+        self.assertTrue(self.pool.artifact_collector.stop.called)
+        self.assertTrue(self.pool.preloader.stop.called)
 
     def test_pool_count(self):
         self.assertEqual(0, len(self.pool.active_endpoints))

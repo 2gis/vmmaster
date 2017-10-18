@@ -1,35 +1,26 @@
 # coding: utf-8
 
 import logging
-from flask import json, Flask
+from flask import Flask
 from core.config import config
+from core.utils import JSONEncoder
 
 log = logging.getLogger(__name__)
 
 
-class JSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if hasattr(obj, "to_json"):
-            return obj.to_json()
-        return super(JSONEncoder, self).default(obj)
-
-
-class VMPool(Flask):
-    id = None
-
+class Provider(Flask):
     def __init__(self, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
         from vmpool.virtual_machines_pool import VirtualMachinesPool
 
-        super(VMPool, self).__init__(*args, **kwargs)
+        super(Provider, self).__init__(*args, **kwargs)
         self.running = True
         self.json_encoder = JSONEncoder
         self.database = Database()
         self.sessions = Sessions(self)
         self.pool = VirtualMachinesPool(app=self, name=config.PROVIDER_NAME)
         self.pool.start_workers()
-        log.info("Provider #{} was started...".format(self.pool.id))
 
     def cleanup(self):
         try:
@@ -52,7 +43,7 @@ def create_app():
     if config is None:
         raise Exception("Need to setup config.py in application directory")
 
-    app = VMPool(__name__)
+    app = Provider(__name__)
 
     register_blueprints(app)
     return app

@@ -9,13 +9,7 @@ def get_active_providers():
 
 
 def get_platforms():
-    providers = current_app.database.get_active_providers()
-
-    res = set()
-    for provider in providers:
-        for platform in provider.platforms:
-            res += platform
-    return sorted(res)
+    return sorted(current_app.database.get_all_plaftorms_list())
 
 
 def get_session(session_id):

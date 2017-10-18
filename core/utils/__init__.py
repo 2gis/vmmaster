@@ -9,6 +9,8 @@ import time
 import sys
 import logging
 from functools import wraps
+from flask.json import JSONEncoder as FlaskJSONEncoder
+from twisted.web.resource import Resource
 
 from threading import Thread
 from docker.errors import APIError
@@ -28,6 +30,26 @@ class GroupNotFound(Exception):
 
 class NoPermission(Exception):
     pass
+
+
+class RootResource(Resource):
+    def __init__(self, fallback_resource):
+        Resource.__init__(self)
+        self.fallback_resource = fallback_resource
+
+    def getChildWithDefault(self, path, request):
+        if path in self.children:
+            return self.children[path]
+
+        request.postpath.insert(0, path)
+        return self.fallback_resource
+
+
+class JSONEncoder(FlaskJSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, "to_json"):
+            return obj.to_json()
+        return super(JSONEncoder, self).default(obj)
 
 
 def rm(files):

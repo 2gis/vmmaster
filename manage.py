@@ -35,8 +35,8 @@ def runprovider():
     """
     Run provider
     """
-    from vmpool.server import VMPoolServer
-    VMPoolServer(reactor, config.PORT).run()
+    from vmpool.server import ProviderServer
+    ProviderServer(reactor, config.PORT).run()
 
 
 @manager.command

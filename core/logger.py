@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 logging.getLogger("envparse").setLevel(logging.WARNING)
 logging.getLogger("docker").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 
 class LogstashFormatter(logging.Formatter):

@@ -11,6 +11,7 @@ class Config(object):
     #                                              COMMON CONFIG                                                #
     #############################################################################################################
     BASEDIR = env.str("BASEDIR", default=os.path.dirname(os.path.realpath(__file__)))
+    PUBLIC_IP = env.str("PUBLIC_IP", default="127.0.0.1")
     PORT = env.int("PORT", default=9001)
     DATABASE = env.str("DATABASE", default="postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb")
 

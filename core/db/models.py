@@ -282,7 +282,7 @@ class Session(Base, FeaturesMixin):
         self.save()
 
     def restore_endpoint(self):
-        self.endpoint = current_app.pool.get_by_id(self.endpoint_id)
+        self.endpoint = current_app.database.get_endpoint(self.endpoint_id)
 
     def restore_current_log_step(self):
         self.current_log_step = current_app.database.get_last_session_step(self.id)

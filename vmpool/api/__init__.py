@@ -4,7 +4,7 @@ import json
 import helpers
 import logging
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from core.config import config
 
 api = Blueprint('api', __name__)
@@ -62,7 +62,7 @@ def _config():
 def delete_vm_from_pool(endpoint_name):
     result = "Endpoint %s not found in pool" % endpoint_name
 
-    endpoint = current_app.pool.get_by_name(endpoint_name)
+    endpoint = helpers.get_endpoint_by_name(endpoint_name)
 
     if endpoint:
         try:
@@ -81,7 +81,7 @@ def delete_all_vm_from_pool():
     results = []
     failed = []
 
-    for endpoint in current_app.pool.active_endpoints:
+    for endpoint in helpers.get_active_sessions():
         try:
             endpoint.delete()
             results.append(endpoint.name)

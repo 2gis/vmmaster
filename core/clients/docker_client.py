@@ -38,7 +38,7 @@ class DockerContainer:
     @property
     def ip(self):
         if config.BIND_LOCALHOST_PORTS:
-            return "127.0.0.1"
+            return config.PUBLIC_IP
         else:
             networks = self.origin.attrs["NetworkSettings"]["Networks"]
             return networks.get("vmmaster", {}).get("IPAddress", "")

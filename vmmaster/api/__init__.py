@@ -4,7 +4,7 @@ import json
 import helpers
 import logging
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 
 from core import constants
 from core.auth.api_auth import auth
@@ -34,8 +34,7 @@ def status():
         'providers': helpers.get_active_providers(),
         'sessions': helpers.get_sessions(),
         'queue': helpers.get_queue(),
-        'platforms': vmpool_helpers.get_platforms(),
-        'pool': vmpool_helpers.get_pool()
+        'platforms': helpers.get_platforms()
     })
 
 
@@ -150,38 +149,3 @@ def get_vnc_info(session_id):
             )
 
     return render_json(result=result, code=code)
-
-
-@api.route('/pool/<string:endpoint_name>', methods=['DELETE'])
-def delete_vm_from_pool(endpoint_name):
-    result = "Endpoint %s not found in pool" % endpoint_name
-
-    endpoint = current_app.pool.get_by_name(endpoint_name)
-
-    if endpoint:
-        try:
-            endpoint.delete()
-            result = "Endpoint %s was deleted" % endpoint_name
-        except Exception as e:
-            log.info("Cannot delete vm %s through api method" % endpoint_name)
-            result = "Got error during deleting vm %s. " \
-                     "\n\n %s" % (endpoint_name, e.message)
-
-    return render_json(result=result, code=200)
-
-
-@api.route('/pool', methods=['DELETE'])
-def delete_all_vm_from_pool():
-    results = []
-    failed = []
-
-    for endpoint in current_app.pool.active_endpoints:
-        try:
-            endpoint.delete()
-            results.append(endpoint.name)
-        except:
-            log.info("Cannot delete vm %s through api method" % endpoint.name)
-            failed.append(endpoint.name)
-
-    return render_json(result="This endpoints were deleted from "
-                              "pool: %s" % results, code=200)

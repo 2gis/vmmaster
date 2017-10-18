@@ -5,7 +5,6 @@ import logging
 
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
-from twisted.web.resource import Resource
 from twisted.python.threadpool import ThreadPool
 from twisted.internet.defer import inlineCallbacks, maybeDeferred
 from twisted.internet.threads import deferToThread
@@ -14,21 +13,9 @@ from prometheus_client.twisted import MetricsResource
 from app import create_app
 from http_proxy import ProxyResource, HTTPChannelWithClient
 from core.config import config
+from core.utils import RootResource
 
 log = logging.getLogger(__name__)
-
-
-class RootResource(Resource):
-    def __init__(self, fallback_resource):
-        Resource.__init__(self)
-        self.fallback_resource = fallback_resource
-
-    def getChildWithDefault(self, path, request):
-        if path in self.children:
-            return self.children[path]
-
-        request.postpath.insert(0, path)
-        return self.fallback_resource
 
 
 class VMMasterServer(object):
