@@ -14,13 +14,11 @@ from core.db.models import Endpoint
 log = logging.getLogger(__name__)
 
 
-def clone_watcher(func):
+def clone_refresher(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         self.refresh()
-        for value in func(self, *args, **kwargs):
-            time.sleep(0.1)
-        return value
+        return func(self, *args, **kwargs)
     return wrapper
 
 
@@ -55,7 +53,7 @@ class OpenstackClone(Endpoint):
             except:
                 log.exception("Userdata from %s wasn't applied" % file_path)
 
-    @clone_watcher
+    @clone_refresher
     def create(self):
         log.info(
             "Creating openstack clone of {} with image={}, "
@@ -76,8 +74,7 @@ class OpenstackClone(Endpoint):
             kwargs.update({'availability_zone': config.OPENSTACK_ZONE_FOR_VM_CREATE})
 
         self.nova_client.servers.create(**kwargs)
-        for ready in self._wait_for_activated_service():
-            yield ready
+        self._wait_for_activated_service()
         super(OpenstackClone, self).create()
 
         # TODO: fill self.uuid with openstack node id (or rename or remove)
@@ -115,7 +112,6 @@ class OpenstackClone(Endpoint):
         ping_retry = 1
 
         while not self.ready and not self.deleted:
-            yield self.ready
             self.refresh()
             server = self.get_vm(self.name)
             if not server:
@@ -158,7 +154,7 @@ class OpenstackClone(Endpoint):
                 break
         else:
             log.debug("VM {} is deleted: stop threaded wait".format(self.name))
-        yield self.ready
+        return self.ready
 
     @property
     def image(self):
@@ -197,10 +193,10 @@ class OpenstackClone(Endpoint):
             log.exception("Openstack clone %s does not exist" % server_name)
             return None
 
-    @clone_watcher
+    @clone_refresher
     def delete(self, try_to_rebuild=False):
         if try_to_rebuild and self.is_preloaded():
-            yield self.rebuild()
+            return self.rebuild()
         else:
             self.set_ready(False)
             server = self.get_vm(self.name)
@@ -211,9 +207,9 @@ class OpenstackClone(Endpoint):
                 log.exception("Delete vm %s was FAILED." % self.name)
             finally:
                 super(OpenstackClone, self).delete()
-            yield self.deleted
+            return self.deleted
 
-    @clone_watcher
+    @clone_refresher
     def rebuild(self):
         log.info("Rebuilding openstack {clone}".format(clone=self.name))
         self.set_ready(False)
@@ -223,14 +219,13 @@ class OpenstackClone(Endpoint):
         try:
             if server:
                 server.rebuild(self.image)
-                for ready in self._wait_for_activated_service():
-                    yield ready
+                self._wait_for_activated_service()
         except:
             log.exception("Rebuild vm %s was FAILED." % self.name)
-            yield self.delete()
+            return self.delete()
         finally:
             super(OpenstackClone, self).rebuild()
-        yield self.ready
+        return self.ready
 
 
 class DockerClone(Endpoint):
@@ -312,7 +307,7 @@ class DockerClone(Endpoint):
     def is_broken(self):
         return self.status in ('paused', 'exited', 'dead')
 
-    @clone_watcher
+    @clone_refresher
     def create(self):
         self.__container = self.client.run_container(image=self.platform_name, name=self.name)
         self.refresh()
@@ -323,8 +318,7 @@ class DockerClone(Endpoint):
             self.connect_network()
 
         log.info("Preparing {}...".format(self.name))
-        for ready in self._wait_for_activated_service():
-            yield ready
+        self._wait_for_activated_service()
         super(DockerClone, self).create()
 
     @property
@@ -341,7 +335,6 @@ class DockerClone(Endpoint):
         ping_retry = 1
 
         while not self.ready and not self.deleted:
-            yield self.ready
             self.refresh()
             if self.is_spawning:
                 log.info("Container {} is spawning...".format(self.name))
@@ -365,12 +358,12 @@ class DockerClone(Endpoint):
                 raise CreationException("Container {} has not been created.".format(self.name))
             else:
                 log.warning("Unknown status {} for container {}".format(self.status, self.name))
-        yield self.ready
+        return self.ready
 
-    @clone_watcher
+    @clone_refresher
     def delete(self, try_to_rebuild=False):
         if try_to_rebuild and self.is_preloaded():
-            yield self.rebuild()
+            return self.rebuild()
         else:
             self.set_ready(False)
             try:
@@ -384,9 +377,9 @@ class DockerClone(Endpoint):
                 log.exception("Delete {} was failed".format(self.name))
             finally:
                 super(DockerClone, self).delete()
-            yield self.deleted
+            return self.deleted
 
-    @clone_watcher
+    @clone_refresher
     def rebuild(self):
         log.info("Rebuilding container {}".format(self.name))
         self.set_ready(False)
@@ -394,11 +387,10 @@ class DockerClone(Endpoint):
         try:
             if self.__container:
                 self.__container.restart()
-                for ready in self._wait_for_activated_service():
-                    yield ready
+                self._wait_for_activated_service()
         except:
             log.exception("Rebuild {} was failed".format(self.name))
-            yield self.delete()
+            return self.delete()
         finally:
             super(DockerClone, self).rebuild()
-        yield self.ready
+        return self.ready
