@@ -6,6 +6,7 @@ from threading import Thread, Lock
 from collections import defaultdict
 
 from core.config import config
+from core.profiler import profiler
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
 from vmpool.endpoint import EndpointRemover, EndpointPreparer
@@ -77,7 +78,7 @@ class VirtualMachinesPool(object):
             self.platforms, self.artifact_collector, self.app.database, self.app.app_context
         )
         self.endpoint_preparer = endpoint_preparer_class(
-            self.app.sessions, self.artifact_collector, self.app.app_context
+            self, self.app.sessions, self.artifact_collector, self.app.app_context
         )
 
         if config.USE_DOCKER and not config.BIND_LOCALHOST_PORTS:
@@ -258,15 +259,18 @@ class VirtualMachinesPool(object):
         return clone
 
     def get_vm(self, platform_name):
-        vm = self.get_by_platform(platform_name)
+        timer = profiler.functions_duration_manual(self.get_vm.__name__)
+        endpoint = self.get_by_platform(platform_name)
 
-        if vm:
-            return vm
+        if endpoint:
+            timer.end()
+            return endpoint
 
-        vm = self.add(platform_name)
+        endpoint = self.add(platform_name)
 
-        if vm:
-            return vm
+        if endpoint and getattr(endpoint, "ready", False):
+            timer.end()
+            return endpoint
 
     def preload(self, origin_name, prefix="preloaded"):
         return self.add(origin_name, prefix)

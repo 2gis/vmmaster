@@ -1,6 +1,8 @@
 # coding: utf-8
 
 import os
+
+from core.exceptions import CreationException
 from mock import Mock, patch, PropertyMock
 
 from tests.helpers import BaseTestCase, custom_wait, wait_for, DatabaseMock
@@ -47,6 +49,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
 
     @patch.multiple(
         "vmpool.clone.OpenstackClone",
+        ready=True,
         _wait_for_activated_service=custom_wait,
     )
     def test_creation_vm(self):
@@ -64,16 +67,14 @@ class TestOpenstackCloneUnit(BaseTestCase):
         get_vm=Mock(return_value=None),
         delete=Mock(),
     )
-    def test_exception_in_wait_for_activated_service(self):
+    def test_exception_in_create(self):
         """
         - call OpenstackClone.create()
-        - get_vm() return None
 
-        Expected: vm has been deleted
+        Expected: Exception was raised
         """
-        self.clone.create()
-        wait_for(lambda: self.clone.delete.called)
-        self.assertTrue(self.clone.delete.called)
+        with self.assertRaises(CreationException):
+            self.clone.create()
 
     @patch.multiple(
         "vmpool.clone.OpenstackClone",
@@ -91,25 +92,6 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.clone.create()
         wait_for(lambda: self.clone.ready)
         self.assertTrue(self.clone.ready)
-
-    @patch.multiple(
-        "vmpool.clone.OpenstackClone",
-        get_ip=Mock(),
-        get_vm=Mock(return_value=Mock(status="active")),
-        rebuild=Mock(),
-        ping_vm=Mock(return_value=False),
-    )
-    def test_exception_in_wait_for_activated_service_and_ping_failed(self):
-        """
-        - call OpenstackClone.create()
-        - is_active is True
-        - ping failed
-
-        Expected: vm has been rebuilded
-        """
-        self.clone.create()
-        wait_for(lambda: self.clone.rebuild.called)
-        self.assertTrue(self.clone.rebuild.called)
 
     @patch.multiple(
         "vmpool.clone.OpenstackClone",

@@ -15,7 +15,7 @@ from flask import current_app
 
 from core.config import config
 from core import constants
-from core.exceptions import RequestTimeoutException, EndpointUnreachableError
+from core.exceptions import RequestTimeoutException, EndpointUnreachableError, CreationException
 from core.utils import network_utils
 
 log = logging.getLogger(__name__)
@@ -199,6 +199,10 @@ class Session(Base, FeaturesMixin):
     def is_succeed(self):
         return self.status == 'succeed'
 
+    @property
+    def is_preparing(self):
+        return self.status == 'preparing'
+
     def add_session_step(self, control_line, body=None, created=None):
         self.current_log_step = SessionLogStep(
             control_line=control_line,
@@ -371,6 +375,8 @@ class Endpoint(Base, FeaturesMixin):
     def create(self):
         if self.ready:
             log.info("Creation {} was successful".format(self.name))
+        else:
+            raise CreationException("Creation {} was failed".format(self.name))
 
     def rebuild(self):
         self.set_in_use(False)

@@ -3,92 +3,14 @@
 import time
 import logging
 from threading import Thread, Lock
-from flask import current_app
+
+from core.exceptions import CreationException
 
 from core import constants
-from core.utils import generator_wait_for, call_in_thread
-from core.config import config
+from core.utils import call_in_thread
 from core.profiler import profiler
-from core.exceptions import PlatformException, CreationException
 
 log = logging.getLogger(__name__)
-
-
-def get_vm(platform):
-    timer = profiler.functions_duration_manual(get_vm.__name__)
-
-    if not current_app.pool.check_platform(platform):
-        raise PlatformException('No platforms {} found in pool: {})'.format(
-            platform, current_app.pool.platforms.info())
-        )
-
-    vm = None
-    sleep_time, sleep_time_increment = 0.5, 0.5
-    for _ in generator_wait_for(
-        lambda: vm, timeout=config.GET_VM_TIMEOUT
-    ):
-        vm = current_app.pool.get_vm(platform)
-        if vm:
-            break
-        else:
-            sleep_time += sleep_time_increment
-            log.debug("Waiting {} seconds before next attempt to get endpoint".format(sleep_time))
-            time.sleep(sleep_time)
-    else:
-        raise CreationException(
-            "Timeout while waiting for vm with platform %s" % platform
-        )
-
-    for _ in generator_wait_for(
-        lambda: vm.ready, timeout=config.GET_VM_TIMEOUT
-    ):
-        if vm.ready:
-            break
-    else:
-        vm.delete()
-        raise CreationException(
-            'Timeout while building vm %s (platform: %s)' %
-            (vm.name, platform)
-        )
-
-    log.info('Got vm for request with params: %s' % vm.info)
-    timer.end()
-    yield vm
-
-
-def get_endpoint(session_id, platform):
-    _endpoint = None
-    attempt = 0
-    attempts = getattr(config, "GET_ENDPOINT_ATTEMPTS",
-                       constants.GET_ENDPOINT_ATTEMPTS)
-    wait_time = 0
-    wait_time_increment = getattr(config, "GET_ENDPOINT_WAIT_TIME_INCREMENT",
-                                  constants.GET_ENDPOINT_WAIT_TIME_INCREMENT)
-
-    while not _endpoint:
-        attempt += 1
-        wait_time += wait_time_increment
-        try:
-            log.info("Try to get endpoint for session %s. Attempt %s" % (session_id, attempt))
-            for vm in get_vm(platform):
-                _endpoint = vm
-                yield _endpoint
-            profiler.register_success_get_endpoint(attempt)
-            log.info("Attempt %s to get endpoint %s for session %s was succeed"
-                     % (attempt, _endpoint, session_id))
-        except CreationException as e:
-            log.exception("Attempt %s to get endpoint for session %s was failed: %s"
-                          % (attempt, session_id, str(e)))
-            if _endpoint and not _endpoint.ready:
-                _endpoint.delete()
-                _endpoint = None
-            if attempt < attempts:
-                time.sleep(wait_time)
-            else:
-                profiler.register_fail_get_endpoint()
-                raise e
-
-    yield _endpoint
 
 
 class EndpointRemover(Thread):
@@ -149,43 +71,87 @@ class EndpointRemover(Thread):
 
 
 class EndpointPreparer(Thread):
-    def __init__(self, sessions, artifact_collector, app_context):
+    def __init__(self, pool, sessions, artifact_collector, app_context):
         Thread.__init__(self)
         self.running = True
         self.daemon = True
+        self.pool = pool
         self.app_context = app_context
         self.sessions = sessions
         self.artifact_collector = artifact_collector
         self.lock = Lock()
 
     @call_in_thread
-    def prepare_endpoint(self, session):
+    def prepare_endpoint(self, session, get_endpoint_attempts=constants.GET_ENDPOINT_ATTEMPTS):
         with self.app_context():
             with self.lock:
                 session.set_status("preparing")
-            log.info("Finding endpoint for {}".format(session))
-            try:
-                for _endpoint in get_endpoint(session.id, session.platform):
-                    with self.lock:
-                        session.set_endpoint_id(_endpoint.id)
-                    log.info("Founded endpoint({}) for session {}".format(session.endpoint_id, session))
-            except:
+
+            attempt, wait_time = 0, 2
+            while self.running:
+                attempt += 1
+                wait_time *= 2
+
+                session.refresh()
+                if session.closed:
+                    log.warning("Attempt {} was aborted because session {} was closed".format(attempt, session.id))
+                    break
+
+                if session.endpoint_id:
+                    log.warning("Attempt {} was aborted because session {} already have endpoint_id".format(
+                        attempt, session.id, session.endpoint_id)
+                    )
+                    break
+
+                log.info("Try to find endpoint for {}. Attempt {}".format(session, attempt))
+                try:
+                    _endpoint = self.pool.get_vm(session.platform)
+                    if not self.running:
+                        if _endpoint:
+                            _endpoint.delete()
+                        break
+
+                    if self.running and _endpoint:
+                        profiler.register_success_get_endpoint(attempt)
+                        with self.lock:
+                            session.set_endpoint_id(_endpoint.id)
+                            log.info("Attempt {} to find endpoint({}) for session {} was succeed".format(
+                                attempt, session.endpoint_id, session)
+                            )
+                        break
+                    else:
+                        raise CreationException("Got non-ready endpoint or None: {}".format(_endpoint))
+                except:
+                    log.exception("Attempt {} to get endpoint for session {} was failed".format(
+                        attempt, session.id)
+                    )
+                    if attempt < get_endpoint_attempts:
+                        log.debug("Waiting {} seconds before next attempt {} to get endpoint".format(
+                            wait_time, attempt + 1)
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        profiler.register_fail_get_endpoint()
+                        break
+
+            session.refresh()
+            if not session.endpoint_id and session.is_preparing:
                 with self.lock:
                     session.set_status("waiting")
 
     def start_screencast(self, session):
-        with self.app_context():
-            with self.lock:
-                session.set_screencast_started(True)
-            session.restore()
-            self.artifact_collector.record_screencast(session)
+        session.set_screencast_started(True)
+        session.restore()
+        self.artifact_collector.record_screencast(session)
 
     def _run_tasks(self):
-        for session in self.sessions.active():
-            if session.is_running and not session.screencast_started and session.take_screencast:
-                self.start_screencast(session)
-            elif session.is_waiting:
-                self.prepare_endpoint(session)
+        with self.app_context():
+            for session in self.sessions.active():
+                session.refresh()
+                if session.is_running and not session.screencast_started and session.take_screencast:
+                    self.start_screencast(session)
+                elif session.is_waiting:
+                    self.prepare_endpoint(session)
 
     def run(self):
         log.info("EndpointPreparer starting...")

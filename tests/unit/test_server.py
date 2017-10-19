@@ -585,13 +585,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
         - exception while waiting endpoint
         Expected: session was created, session_step was created
         """
-        def get_vm_mock(arg):
-            yield PropertyMock(name="test_vm_1", ip="127.0.0.1")
-
-        with patch(
-            'vmpool.endpoint.get_vm', Mock(side_effect=get_vm_mock)
-        ):
-            response = new_session_request(self.vmmaster_client, self.desired_caps)
+        response = new_session_request(self.vmmaster_client, self.desired_caps)
 
         self.assertEqual(200, response.status_code, response.data)
 
