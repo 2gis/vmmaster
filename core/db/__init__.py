@@ -2,7 +2,7 @@
 
 import logging
 from sqlalchemy import create_engine, asc, desc
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, scoped_session, with_polymorphic
 
 from core.db.models import Session, SessionLogStep, User, Platform, Provider, Endpoint
 from core.utils import to_thread
@@ -103,14 +103,18 @@ class Database(object):
 
     @transaction
     def get_endpoint(self, endpoint_id, dbsession=None):
+        from vmpool.clone import DockerClone, OpenstackClone
         try:
-            return dbsession.query(Endpoint).get(endpoint_id)
+            endpoint_poly = with_polymorphic(Endpoint, [DockerClone, OpenstackClone])
+            return dbsession.query(endpoint_poly).filter_by(id=endpoint_id).first()
         except:
             return None
 
     @transaction
     def get_endpoints(self, provider_id, efilter="all", dbsession=None):
-        base_query = dbsession.query(Endpoint).filter_by(provider_id=provider_id)
+        from vmpool.clone import DockerClone, OpenstackClone
+        endpoint_poly = with_polymorphic(Endpoint, [DockerClone, OpenstackClone])
+        base_query = dbsession.query(endpoint_poly).filter_by(provider_id=provider_id)
         if efilter == "all":
             return base_query.all()
 
