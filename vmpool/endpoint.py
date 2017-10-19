@@ -111,7 +111,7 @@ class EndpointRemover(Thread):
                 if session:
                     session.restore()
                     self.artifact_collector.save_selenium_log(session)
-                    self.artifact_collector.wait_for_complete(session)
+                    self.artifact_collector.wait_for_complete(session.id)
                 endpoint.delete(try_to_rebuild=try_to_rebuild)
                 self.endpoint_service_mode_off(endpoint)
         except:
