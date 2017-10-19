@@ -128,7 +128,7 @@ class Database(object):
 
     @transaction
     def get_session_by_endpoint_id(self, endpoint_id, dbsession=None):
-        return dbsession.query(Session).filter_by(endpoint_id=endpoint_id).order_by(asc(Session.id)).first()
+        return dbsession.query(Session).filter_by(endpoint_id=endpoint_id).order_by(desc(Session.id)).first()
 
     @transaction
     def get_provider(self, provider_id, dbsession=None):
