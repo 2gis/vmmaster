@@ -2,28 +2,84 @@ import os
 from envparse import env
 from os.path import isfile
 
-
 if isfile('.env'):
     env.read_envfile('.env')
 
 
 class Config(object):
+    #############################################################################################################
+    #                                              COMMON CONFIG                                                #
+    #############################################################################################################
     BASEDIR = env.str("BASEDIR", default=os.path.dirname(os.path.realpath(__file__)))
     PORT = env.int("PORT", default=9001)
-    NO_SHUTDOWN_WITH_SESSIONS = env.bool("NO_SHUTDOWN_WITH_SESSIONS", default=False)
-    ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=1)
-
-    # PostgreSQL dbname
     DATABASE = env.str("DATABASE", default="postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb")
 
     # screenshots
     SCREENSHOTS_DIR = env.str("SCREENSHOTS_DIR", default=os.sep.join([BASEDIR, "screenshots"]))
-    SCREENSHOTS_DAYS = env.int("SCREENSHOTS_DAYS", default=7)
 
     # logging
     LOG_TYPE = env.str("LOG_TYPE", default="logstash")
     LOG_LEVEL = env.str("LOG_LEVEL", default="DEBUG")
 
+    THREAD_POOL_MAX = env.int("THREAD_POOL_MAX", default=100)
+
+    """
+        Platforms settings
+
+        Allowed platforms: ANDROID, LINUX, UNIX, MAC, WINDOWS, XP, VISTA
+        Allowed browserNames: android, chrome, firefox, htmlunit, internet explorer, iPhone, iPad, opera, safari
+        (source: https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities)
+
+        Example:
+        PLATFORMS = {
+            "LINUX": {
+                "ubuntu-14.04": {
+                    "browsers": {
+                        "chrome": "48",
+                        "firefox": "25"
+                    }
+                },
+                "ubuntu-16.04": {
+                    "browsers": {
+                        "chrome": "48",
+                        "firefox": "25"
+                    }
+                }
+            },
+            "WINDOWS": {
+                "windows-8": {
+                    "browsers": {
+                        "internet explorer": "9"
+                    }
+                }
+            },
+            "MAC": {},
+            "ANDROID": {}
+        }
+    """
+    PLATFORMS = {
+        "LINUX": {},
+        "MAC": {},
+        "WINDOWS": {},
+        "ANDROID": {},
+    }
+
+    #############################################################################################################
+    #                                              HEAD CONFIG                                                  #
+    #############################################################################################################
+    ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=2)
+
+    # vm pool
+    GET_VM_TIMEOUT = env.int("GET_VM_TIMEOUT", default=180)
+    SCREENCAST_RESOLUTION = env.tuple("SCREENCAST_RESOLUTION", default=(800, 600))
+    MAKE_REQUEST_ATTEMPTS_AMOUNT = env.int("MAKE_REQUEST_ATTEMPTS_AMOUNT", default=5)
+
+    WAIT_ACTIVE_SESSIONS = env.bool("WAIT_ACTIVE_SESSIONS", default=False)
+
+    #############################################################################################################
+    #                                              PROVIDER CONFIG                                              #
+    #############################################################################################################
+    PUBLIC_IP = env.str("PUBLIC_IP", default="127.0.0.1")
     PROVIDER_NAME = env.str("PROVIDER_NAME", default="noname")
 
     # openstack
@@ -31,48 +87,6 @@ class Config(object):
     OPENSTACK_MAX_VM_COUNT = env.int("OPENSTACK_MAX_VM_COUNT", default=1)
     OPENSTACK_ENDPOINT_PREFIX = env.str("OPENSTACK_ENDPOINT_PREFIX", default="noprefix")
     OPENSTACK_PRELOADED = env.json("OPENSTACK_PRELOADED", default={})
-
-    """
-    Platforms settings
-
-    Allowed platforms: ANDROID, LINUX, UNIX, MAC, WINDOWS, XP, VISTA
-    Allowed browserNames: android, chrome, firefox, htmlunit, internet explorer, iPhone, iPad, opera, safari
-    (source: https://github.com/SeleniumHQ/selenium/wiki/DesiredCapabilities)
-
-    Example:
-    PLATFORMS = {
-        "LINUX": {
-            "ubuntu-14.04": {
-                "browsers": {
-                    "chrome": "48",
-                    "firefox": "25"
-                }
-            },
-            "ubuntu-16.04": {
-                "browsers": {
-                    "chrome": "48",
-                    "firefox": "25"
-                }
-            }
-        },
-        "WINDOWS": {
-            "windows-8": {
-                "browsers": {
-                    "internet explorer": "9"
-                }
-            }
-        },
-        "MAC": {},
-        "ANDROID": {}
-    }
-    """
-
-    PLATFORMS = {
-        "LINUX": {},
-        "MAC": {},
-        "WINDOWS": {},
-        "ANDROID": {},
-    }
 
     OPENSTACK_AUTH_URL = env.str("OPENSTACK_AUTH_URL", default="localhost")
     OPENSTACK_PORT = env.int("OPENSTACK_PORT", default=5000)
@@ -115,16 +129,8 @@ class Config(object):
     SESSION_TIMEOUT = env.int("SESSION_TIMEOUT", default=360)
     PING_TIMEOUT = env.int("PING_TIMEOUT", default=180)
 
-    # vm pool
-    GET_VM_TIMEOUT = env.int("GET_VM_TIMEOUT", default=180)
-    SCREENCAST_RESOLUTION = env.tuple("SCREENCAST_RESOLUTION", default=(800, 600))
-    MAKE_REQUEST_ATTEMPTS_AMOUNT = env.int("MAKE_REQUEST_ATTEMPTS_AMOUNT", default=5)
-
     # selenium
     SELENIUM_PORT = env.int("SELENIUM_PORT", default=4455)
     VMMASTER_AGENT_PORT = env.int("VMMASTER_AGENT_PORT", default=9000)
     VNC_PORT = env.int("VNC_PORT", default=5900)
     PORTS = [SELENIUM_PORT, VMMASTER_AGENT_PORT, VNC_PORT]
-
-    THREAD_POOL_MAX = env.int("THREAD_POOL_MAX", default=100)
-    WAIT_ACTIVE_SESSIONS = env.bool("WAIT_ACTIVE_SESSIONS", default=False)
