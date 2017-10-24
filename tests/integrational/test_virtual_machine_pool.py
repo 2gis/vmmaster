@@ -10,7 +10,8 @@ from flask import Flask
 @patch.multiple(
     'vmpool.clone.OpenstackClone',
     _wait_for_activated_service=custom_wait,
-    ping_vm=Mock(return_value=True)
+    ping_vm=Mock(return_value=True),
+    ready=PropertyMock(return_value=True)
 )
 class TestVirtualMachinePool(BaseTestCase):
     def setUp(self):
