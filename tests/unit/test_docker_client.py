@@ -41,6 +41,7 @@ class TestDockerClient(BaseTestCase):
 
     def test_get_image(self):
         from vmpool.platforms import DockerImage
+        DockerImage.tags = Mock(return_value=["test"])
 
         container = self._docker_client.get_image("image")
 

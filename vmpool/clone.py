@@ -307,9 +307,13 @@ class DockerClone(Endpoint):
     def is_broken(self):
         return self.status in ('paused', 'exited', 'dead')
 
+    @property
+    def image(self):
+        return "{}{}".format(config.DOCKER_IMAGE_NAME_PREFIX, self.platform_name)
+
     @clone_refresher
     def create(self):
-        self.__container = self.client.run_container(image=self.platform_name, name=self.name)
+        self.__container = self.client.run_container(image=self.image, name=self.name)
         self.refresh()
         self.ports = self.__container.ports
         self.uuid = self.__container.id

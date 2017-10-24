@@ -47,21 +47,18 @@ class OpenstackOrigin(Platform):
 class DockerImage(Platform):
     def __init__(self, origin):
         self.origin = origin
+        self.name = self.get_name()
+        self.short_name = self.name.replace(config.DOCKER_IMAGE_NAME_PREFIX, "")
 
     @exception_handler()
     def short_id(self):
         return self.origin.short_id
 
-    @property
     @exception_handler()
-    def name(self):
+    def get_name(self):
         tags = self.tags()
         if isinstance(tags, list) and len(tags):
             return tags[0].strip()
-
-    @property
-    def short_name(self):
-        return self.name
 
     @exception_handler()
     def tags(self):
@@ -106,7 +103,7 @@ class DockerPlatforms(PlatformsInterface):
 
     @property
     def platforms(self):
-        return self.client.images()
+        return [image for image in self.client.images() if config.DOCKER_IMAGE_NAME_PREFIX in image.name]
 
     @staticmethod
     def max_count():
@@ -189,7 +186,7 @@ class Platforms(object):
                 self.openstack_platforms.keys())
             )
         if config.USE_DOCKER:
-            self.docker_platforms = {vm.name: vm for vm in self.docker.platforms}
+            self.docker_platforms = {vm.short_name: vm for vm in self.docker.platforms}
             log.info("Docker platforms: {}".format(
                 self.docker_platforms.keys())
             )

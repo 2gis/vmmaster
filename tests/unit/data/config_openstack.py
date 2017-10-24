@@ -62,6 +62,7 @@ class Config(object):
     DNS_SEARCH_LIST = [
         "test"
     ]
+    DOCKER_IMAGE_NAME_PREFIX = ""
 
     VM_PING_RETRY_COUNT = 3
     VM_CREATE_CHECK_PAUSE = 3
