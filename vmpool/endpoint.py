@@ -4,7 +4,7 @@ import time
 import logging
 from threading import Thread, Lock
 
-from core.exceptions import CreationException
+from core.exceptions import CreationException, EndpointUnreachableError
 
 from core import constants
 from core.utils import call_in_thread
@@ -119,20 +119,28 @@ class EndpointPreparer(Thread):
                                 attempt, session.endpoint_id, session)
                             )
                         break
-                    else:
+
+                    if _endpoint and getattr(_endpoint, "ready", False):
                         raise CreationException("Got non-ready endpoint or None: {}".format(_endpoint))
+                    else:
+                        raise EndpointUnreachableError("Endpoint wasn't returned, was returned None")
+                except EndpointUnreachableError as e:
+                    log.debug("Attempt {} to get endpoint for session {} was failed: {}".format(
+                        attempt, session.id, e.message)
+                    )
                 except:
                     log.exception("Attempt {} to get endpoint for session {} was failed".format(
                         attempt, session.id)
                     )
-                    if attempt < get_endpoint_attempts:
-                        log.debug("Waiting {} seconds before next attempt {} to get endpoint".format(
-                            wait_time, attempt + 1)
-                        )
-                        time.sleep(wait_time)
-                    else:
-                        profiler.register_fail_get_endpoint()
-                        break
+
+                if attempt < get_endpoint_attempts:
+                    log.debug("Waiting {} seconds before next attempt {} to get endpoint".format(
+                        wait_time, attempt + 1)
+                    )
+                    time.sleep(wait_time)
+                else:
+                    profiler.register_fail_get_endpoint()
+                    break
 
             session.refresh()
             if not session.endpoint_id and session.is_preparing:
