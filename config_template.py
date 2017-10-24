@@ -11,7 +11,6 @@ class Config(object):
     #                                              COMMON CONFIG                                                #
     #############################################################################################################
     BASEDIR = env.str("BASEDIR", default=os.path.dirname(os.path.realpath(__file__)))
-    PUBLIC_IP = env.str("PUBLIC_IP", default="127.0.0.1")
     PORT = env.int("PORT", default=9001)
     DATABASE = env.str("DATABASE", default="postgresql+psycopg2://vmmaster:vmmaster@localhost/testdb")
 
@@ -68,13 +67,10 @@ class Config(object):
     #############################################################################################################
     #                                              HEAD CONFIG                                                  #
     #############################################################################################################
-    ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=2)
 
     # vm pool
     GET_VM_TIMEOUT = env.int("GET_VM_TIMEOUT", default=180)
-    SCREENCAST_RESOLUTION = env.tuple("SCREENCAST_RESOLUTION", default=(800, 600))
     MAKE_REQUEST_ATTEMPTS_AMOUNT = env.int("MAKE_REQUEST_ATTEMPTS_AMOUNT", default=5)
-
     WAIT_ACTIVE_SESSIONS = env.bool("WAIT_ACTIVE_SESSIONS", default=False)
 
     #############################################################################################################
@@ -82,6 +78,8 @@ class Config(object):
     #############################################################################################################
     PUBLIC_IP = env.str("PUBLIC_IP", default="127.0.0.1")
     PROVIDER_NAME = env.str("PROVIDER_NAME", default="noname")
+    SCREENCAST_RESOLUTION = env.tuple("SCREENCAST_RESOLUTION", default=(800, 600))
+    ENDPOINT_THREADPOOL_PROCESSES = env.int("ENDPOINT_THREADPOOL_PROCESSES", default=2)
 
     # openstack
     USE_OPENSTACK = env.bool("USE_OPENSTACK", default=False)

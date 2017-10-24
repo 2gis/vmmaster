@@ -61,6 +61,8 @@ class Config(object):
         "test"
     ]
 
+    PUBLIC_IP = "127.0.0.1"
+
     VM_PING_RETRY_COUNT = 3
     VM_CREATE_CHECK_PAUSE = 3
     VM_CREATE_CHECK_ATTEMPTS = 5

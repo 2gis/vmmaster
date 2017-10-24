@@ -68,7 +68,7 @@ class VirtualMachinesPool(object):
                  artifact_collector_class=ArtifactCollector, endpoint_remover_class=EndpointRemover,
                  endpoint_preparer_class=EndpointPreparer):
         self.name = name if name else "Unnamed provider"
-        self.url = "{}:{}".format("localhost", config.PORT)
+        self.url = "{}:{}".format(config.PUBLIC_IP, config.PORT)
 
         self.app = app
         self.platforms = platforms_class(self.app.database)
