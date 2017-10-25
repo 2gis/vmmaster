@@ -46,19 +46,20 @@ class TestVirtualMachinePool(BaseTestCase):
         ):
             from vmpool.virtual_machines_pool import VirtualMachinesPool
             self.pool = VirtualMachinesPool(
-                self.app, preloader_class=Mock(), artifact_collector_class=Mock(),
-                endpoint_remover_class=Mock(), endpoint_preparer_class=Mock()
+                self.app, preloader_class=Mock(), artifact_collector_class=Mock(), endpoint_preparer_class=Mock()
             )
             self.ctx = self.app.app_context()
             self.ctx.push()
             self.pool.register()
 
     def tearDown(self):
+        self.pool.endpoint_remover.remove_all()
         self.pool.unregister()
         self.pool.platforms.cleanup()
         self.ctx.pop()
 
     def test_run_workers(self):
+        self.pool.endpoint_remover.start = Mock()
         self.pool.start_workers()
 
         self.assertTrue(self.pool.endpoint_preparer.start.called)
@@ -66,6 +67,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertTrue(self.pool.preloader.start.called)
 
     def test_stop_workers(self):
+        self.pool.endpoint_remover.stop = Mock()
         self.pool.stop_workers()
 
         self.assertTrue(self.pool.endpoint_preparer.stop.called)
