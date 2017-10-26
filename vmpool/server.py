@@ -16,8 +16,9 @@ class ProviderServer(object):
     def __init__(self, reactor, port):
         self.reactor = reactor
         self.reactor.addSystemEventTrigger('before', 'shutdown', self.before_shutdown)
+        self.reactor.suggestThreadPoolSize(config.REACTOR_THREAD_POOL_MAX)
         self.app = create_app()
-        self.thread_pool = ThreadPool(maxthreads=config.THREAD_POOL_MAX)
+        self.thread_pool = ThreadPool(maxthreads=config.FLASK_THREAD_POOL_MAX)
         self.thread_pool.start()
         wsgi_resource = WSGIResource(self.reactor, self.thread_pool, self.app)
 

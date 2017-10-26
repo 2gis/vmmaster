@@ -21,7 +21,8 @@ class Config(object):
     LOG_TYPE = env.str("LOG_TYPE", default="logstash")
     LOG_LEVEL = env.str("LOG_LEVEL", default="DEBUG")
 
-    THREAD_POOL_MAX = env.int("THREAD_POOL_MAX", default=100)
+    FLASK_THREAD_POOL_MAX = env.int("FLASK_THREAD_POOL_MAX", default=100)
+    REACTOR_THREAD_POOL_MAX = env.int("REACTOR_THREAD_POOL_MAX", default=FLASK_THREAD_POOL_MAX)
 
     """
         Platforms settings
