@@ -1,5 +1,4 @@
 # coding: utf-8
-
 import os
 import unittest
 import subprocess
@@ -8,44 +7,39 @@ from StringIO import StringIO
 from multiprocessing.pool import ThreadPool
 from os import setsid, killpg
 from signal import SIGTERM
-from netifaces import ifaddresses, AF_INET
 from ConfigParser import RawConfigParser
 
 from core.utils.network_utils import get_free_port
-
-from tests.config import config as tests_config
+from tests.helpers import get_microapp_address
 
 
 class TestCaseWithMicroApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app_port = get_free_port()
+        cls.p = cls.start_app(cls.app_port)
+
         path = os.path.dirname(os.path.realpath(__file__))
-        cls.p = subprocess.Popen(["gunicorn",
-                                  "--log-level=warning",
-                                  "-w 2",
-                                  "-b 0.0.0.0:{}".format(cls.app_port),
-                                  "tests.functional.app.views:app"
-                                  ], preexec_fn=setsid)
-        config = RawConfigParser()
-        config.read("%s/tests/config" % path)
-
-        micro_app_hostname = tests_config.micro_app_hostname
-        if not micro_app_hostname:
-            try:
-                micro_app_hostname = \
-                    ifaddresses('eth0').setdefault(AF_INET)[0]["addr"]
-            except ValueError:
-                micro_app_hostname = \
-                    ifaddresses('wlan0').setdefault(AF_INET)[0]["addr"]
-
-        config.set("Network", "addr", "http://{}:{}".format(micro_app_hostname, cls.app_port))
+        config_parser = RawConfigParser()
+        config_parser.read("%s/tests/config" % path)
+        config_parser.set("Network", "addr", "http://{}:{}".format(get_microapp_address(), cls.app_port))
         with open('%s/tests/config' % path, 'wb') as configfile:
-            config.write(configfile)
+            config_parser.write(configfile)
 
     @classmethod
     def tearDownClass(cls):
         killpg(cls.p.pid, SIGTERM)
+
+    @staticmethod
+    def start_app(app_port):
+        return subprocess.Popen([
+            "gunicorn",
+            "--log-level=warning",
+            "-w 2",
+            "-b 0.0.0.0:{}".format(app_port),
+            "tests.functional.app.views:app"
+            ], preexec_fn=setsid
+        )
 
     def setUp(self):
         self.loader = unittest.TestLoader()
@@ -62,8 +56,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
     def test_two_same_tests_parallel_run(self):
-        from tests.test_normal import \
-            TestParallelSessions1, TestParallelSessions2
+        from tests.test_normal import TestParallelSessions1, TestParallelSessions2
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
@@ -93,8 +86,7 @@ class TestCase(unittest.TestCase):
         self.stream = StringIO()
 
     def test_run_script_on_session_creation(self):
-        from tests.test_normal import \
-            TestRunScriptOnSessionCreation
+        from tests.test_normal import TestRunScriptOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
@@ -104,8 +96,7 @@ class TestCase(unittest.TestCase):
 
     @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
     def test_run_script_with_install_package_on_session_creation(self):
-        from tests.test_normal import \
-            TestRunScriptWithInstallPackageOnSessionCreation
+        from tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptWithInstallPackageOnSessionCreation)
         result = self.runner.run(suite)
@@ -115,9 +106,7 @@ class TestCase(unittest.TestCase):
 
     @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
     def test_run_script_tests_parallel_run(self):
-        from tests.test_normal import\
-            TestParallelSlowRunScriptOnSession1, \
-            TestParallelSlowRunScriptOnSession2
+        from tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSlowRunScriptOnSession1("test"))
         suite2 = unittest.TestSuite()

@@ -1,10 +1,11 @@
 # coding: utf-8
 
 
-class config:
+class Config:
     platform = "ubuntu-14.04-x64"
     host = "localhost"
     port = 9001
     username = None
     token = None
     micro_app_hostname = None
+    interfaces = ['eth0', 'wlan0', 'en0']
