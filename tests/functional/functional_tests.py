@@ -8,11 +8,14 @@ from multiprocessing.pool import ThreadPool
 from os import setsid, killpg
 from signal import SIGTERM
 from ConfigParser import RawConfigParser
+from lode_runner import dataprovider
 
 from core.utils.network_utils import get_free_port
 from tests.helpers import get_microapp_address
+from tests.config import Config
 
 
+@dataprovider(Config.platforms)
 class TestCaseWithMicroApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -46,8 +49,9 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.runner = unittest.TextTestRunner(stream=StringIO())
         self.stream = StringIO()
 
-    def test_positive_case(self):
+    def test_positive_case(self, platform):
         from tests.test_normal import TestPositiveCase
+        TestPositiveCase.platform = platform
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
         self.assertEqual(2, result.testsRun, result.errors)
@@ -55,8 +59,10 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
         self.assertEqual("test_error", result.errors[0][0]._testMethodName)
 
-    def test_two_same_tests_parallel_run(self):
+    def test_two_same_tests_parallel_run(self, platform):
         from tests.test_normal import TestParallelSessions1, TestParallelSessions2
+        TestParallelSessions1.platform = platform
+        TestParallelSessions2.platform = platform
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
@@ -79,14 +85,16 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.assertEqual(0, len(result2.failures), result2.failures)
 
 
+@dataprovider(Config.platforms)
 class TestCase(unittest.TestCase):
     def setUp(self):
         self.loader = unittest.TestLoader()
         self.runner = unittest.TextTestRunner(stream=StringIO())
         self.stream = StringIO()
 
-    def test_run_script_on_session_creation(self):
+    def test_run_script_on_session_creation(self, platform):
         from tests.test_normal import TestRunScriptOnSessionCreation
+        TestRunScriptOnSessionCreation.platform = platform
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptOnSessionCreation)
         result = self.runner.run(suite)
@@ -95,8 +103,9 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
-    def test_run_script_with_install_package_on_session_creation(self):
+    def test_run_script_with_install_package_on_session_creation(self, platform):
         from tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation
+        TestRunScriptWithInstallPackageOnSessionCreation.platform = platform
         suite = self.loader.loadTestsFromTestCase(
             TestRunScriptWithInstallPackageOnSessionCreation)
         result = self.runner.run(suite)
@@ -105,8 +114,10 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.failures), result.failures)
 
     @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
-    def test_run_script_tests_parallel_run(self):
+    def test_run_script_tests_parallel_run(self, platform):
         from tests.test_normal import TestParallelSlowRunScriptOnSession1, TestParallelSlowRunScriptOnSession2
+        TestParallelSlowRunScriptOnSession1.platform = platform
+        TestParallelSlowRunScriptOnSession2.platform = platform
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSlowRunScriptOnSession1("test"))
         suite2 = unittest.TestSuite()

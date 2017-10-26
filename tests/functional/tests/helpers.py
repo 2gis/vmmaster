@@ -32,15 +32,14 @@ def get_microapp_address():
 
 
 class TestCase(unittest.TestCase):
+    platform = None
     desired_capabilities = None
 
     def __new__(cls, *args, **kwargs):
         if cls.desired_capabilities is None:
             cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
         cls.desired_capabilities["name"] = cls.__name__
-
-        if hasattr(Config, 'platform'):
-            cls.desired_capabilities["platform"] = getattr(Config, 'platform', 'ANY')
+        cls.desired_capabilities["platform"] = cls.platform
 
         if hasattr(Config, 'browser'):
             cls.desired_capabilities["browserName"] = getattr(Config, 'browser', 'ANY')

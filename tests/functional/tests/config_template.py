@@ -2,7 +2,7 @@
 
 
 class Config:
-    platform = "ubuntu-14.04-x64"
+    platforms = ["ubuntu-14.04-x64"]
     host = "localhost"
     port = 9001
     username = None
