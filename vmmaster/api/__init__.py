@@ -9,6 +9,8 @@ from flask import Blueprint, jsonify, request
 from core import constants
 from core.auth.api_auth import auth
 from core.config import config
+from core.video import start_vnc_proxy
+from core.utils import kill_process
 
 api = Blueprint('api', __name__)
 log = logging.getLogger(__name__)
@@ -134,18 +136,29 @@ def get_screenshots_for_label(session_id, label_id):
 
 @api.route('/session/<int:session_id>/vnc_info', methods=['GET'])
 def get_vnc_info(session_id):
-    result, code = {}, 500
+    vnc_proxy_port, code, _session = None, 500, helpers.get_session(session_id)
 
-    _session = helpers.get_session(session_id)
-    if _session and getattr(_session, "endpoint", None) and _session.endpoint.ip:
-        if _session.endpoint.vnc_helper.proxy:
-            result, code = (
-                {'vnc_proxy_port': _session.endpoint.vnc_helper.get_proxy_port()}, 200
-            )
-        else:
-            _session.endpoint.vnc_helper.start_proxy()
-            result, code = (
-                {'vnc_proxy_port': _session.endpoint.vnc_helper.get_proxy_port()}, 200
-            )
+    if not _session or not _session.is_running:
+        return render_json(result={}, code=code)
 
-    return render_json(result=result, code=code)
+    if _session.vnc_proxy_port:
+        return render_json(result={'vnc_proxy_port': _session.vnc_proxy_port}, code=200)
+
+    (vnc_proxy_port, vnc_proxy_pid), code = start_vnc_proxy(_session.endpoint.ip, _session.endpoint.vnc_port), 200
+    _session.refresh()
+
+    if _session.closed:
+        kill_process(vnc_proxy_pid)
+        return render_json(result={}, code=500)
+
+    if _session.vnc_proxy_port and _session.vnc_proxy_pid:
+        kill_process(vnc_proxy_pid)
+        vnc_proxy_port = _session.vnc_proxy_port
+    else:
+        log.info("VNC Proxy(pid:{}, port:{}) was started for {}".format(
+            vnc_proxy_pid, vnc_proxy_port, _session)
+        )
+        _session.vnc_proxy_port, _session.vnc_proxy_pid = vnc_proxy_port, vnc_proxy_pid
+        _session.save()
+
+    return render_json(result={'vnc_proxy_port': vnc_proxy_port}, code=code)

@@ -12,14 +12,13 @@ import multiprocessing
 from core.config import config
 from vnc2flv import flv, rfb, video
 from core.utils.network_utils import get_free_port
+from core.exceptions import VNCProxyException
 
 log = logging.getLogger(__name__)
 
 
 class VNCVideoHelper:
     recorder = None
-    proxy = None
-    __proxy_port = None
     __filepath = None
 
     def __init__(self, host, port=5900, filename_prefix='vnc'):
@@ -93,30 +92,6 @@ class VNCVideoHelper:
             os.remove(vnc_log)
             log.debug('File %s was deleted' % vnc_log)
 
-    def start_proxy(self):
-        self.__proxy_port = get_free_port()
-        sys.argv = [
-            "--daemon",
-            "--wrap-mode=ignore",
-            "--record=%s/proxy_vnc_%s.log" % (self.dir_path, self.port),
-            "0.0.0.0:%d" % self.__proxy_port,
-            "%s:%s" % (self.host, self.port)
-        ]
-
-        self.proxy = multiprocessing.Process(
-            target=websockify.websocketproxy.websockify_init,
-            name="{}.proxy".format(__name__)
-        )
-
-        self.proxy.start()
-
-    def get_proxy_port(self):
-        return self.__proxy_port
-
-    def stop_proxy(self):
-        if self.proxy and self.proxy.is_alive():
-            self.proxy.terminate()
-
     def start_recording(self):
         log.info("Screencast recorder starting for session {}".format(self.filename_prefix))
         sys.stderr = sys.stdout = open(os.sep.join([
@@ -160,4 +135,27 @@ class VNCVideoHelper:
 
     def stop(self):
         self.stop_recording()
-        self.stop_proxy()
+
+
+def start_vnc_proxy(vnc_server_host, vnc_server_port=5900):
+    port = get_free_port()
+    sys.argv = [
+        "--daemon",
+        "--wrap-mode=ignore",
+        "--record=/tmp/proxy_vnc_{}.log".format(port),
+        "0.0.0.0:{}".format(port),
+        "{}:{}".format(vnc_server_host, vnc_server_port)
+    ]
+
+    proxy = multiprocessing.Process(
+        target=websockify.websocketproxy.websockify_init,
+        name="{}.proxy".format(__name__)
+    )
+
+    proxy.start()
+    if proxy.is_alive():
+        return port, proxy.pid
+    else:
+        raise VNCProxyException("VNCScreencastProxy wasn't ran for {}:{}".format(
+            vnc_server_host, vnc_server_port)
+        )

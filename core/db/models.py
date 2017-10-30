@@ -17,7 +17,8 @@ from flask import current_app
 from core.config import config
 from core import constants
 from core.exceptions import RequestTimeoutException, EndpointUnreachableError, CreationException
-from core.utils import network_utils, exception_handler
+from core.utils import network_utils, exception_handler, kill_process
+
 
 log = logging.getLogger(__name__)
 Base = declarative_base()
@@ -114,6 +115,8 @@ class Session(Base, FeaturesMixin):
     modified = Column(DateTime, default=datetime.now)
     deleted = Column(DateTime)
     selenium_log = Column(String)
+    vnc_proxy_port = Column(Integer, default=None)
+    vnc_proxy_pid = Column(Integer, default=None)
 
     # State
     status = Column(Enum('unknown', 'running', 'succeed', 'failed', 'waiting', 'preparing',
@@ -249,12 +252,19 @@ class Session(Base, FeaturesMixin):
     def stop_timer(self):
         self.is_active = True
 
+    def stop_vnc_proxy(self):
+        if self.vnc_proxy_pid:
+            return kill_process(self.vnc_proxy_pid)
+
     def close(self, reason=None):
         self.closed = True
         if reason:
             self.reason = "%s" % reason
         self.deleted = datetime.now()
         self.save()
+
+        if self.stop_vnc_proxy():
+            log.info("VNC Proxy was stopped for {}".format(self))
 
         if hasattr(self, "ws"):
             self.ws.close()

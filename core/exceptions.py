@@ -35,3 +35,7 @@ class EndpointUnreachableError(Exception):
 
 class AddTaskException(Exception):
     pass
+
+
+class VNCProxyException(Exception):
+    pass

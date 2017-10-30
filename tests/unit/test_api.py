@@ -1,13 +1,11 @@
 # coding: utf-8
 
 import json
-from unittest import skip
 from datetime import datetime
 from mock import Mock, patch, PropertyMock
-from multiprocessing import Process
 from lode_runner import dataprovider
 
-from tests.helpers import BaseTestCase, fake_home_dir, DatabaseMock, wait_for
+from tests.helpers import BaseTestCase, fake_home_dir, DatabaseMock
 from core import constants
 
 
@@ -18,6 +16,10 @@ class TestVmmasterApi(BaseTestCase):
 
         with patch(
             'core.utils.init.home_dir', Mock(return_value=fake_home_dir())
+        ), patch(
+            'core.video.start_vnc_proxy', Mock(return_value=(99999, 99999))
+        ), patch(
+            'core.utils.kill_process', Mock()
         ), patch(
             'core.db.Database', DatabaseMock()
         ):
@@ -41,6 +43,160 @@ class TestVmmasterApi(BaseTestCase):
         self.ctx.pop()
         self.app.cleanup()
         del self.app
+
+    def test_get_vnc_proxy_port_if_session_is_waiting(self):
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = '127.0.0.1'
+        endpoint.name = 'test_endpoint'
+        endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+        session = Session("some_platform")
+        session.name = "session1"
+        session.id = 1
+        session.status = "waiting"
+        session.vnc_proxy_port = None
+        session.vnc_proxy_pid = None
+        session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
+
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=session)
+        ):
+            response = self.vmmaster_client.get('/api/session/{}/vnc_info'.format(session.id))
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({}, body['result'])
+        self.assertEqual(500, body['metacode'])
+
+    def test_start_new_proxy(self):
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = '127.0.0.1'
+        endpoint.name = 'test_endpoint'
+        endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+        session = Session("some_platform")
+        session.id = 1
+        session.name = "session1"
+        session.status = "running"
+        session.vnc_proxy_port = None
+        session.vnc_proxy_pid = None
+        session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
+        session.stop_vnc_proxy = Mock()
+
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=session)
+        ):
+            response = self.vmmaster_client.get('/api/session/{}/vnc_info'.format(session.id))
+            session.close()
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({'vnc_proxy_port': 99999}, body['result'])
+        self.assertEqual(200, body['metacode'])
+        self.assertTrue(session.stop_vnc_proxy.called)
+
+    def test_when_during_proxy_starting_already_started_from_other_thread(self):
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = '127.0.0.1'
+        endpoint.name = 'test_endpoint'
+        endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+        session = Session("some_platform")
+        session.id = 1
+        session.name = "session1"
+        session.status = "running"
+        type(session).vnc_proxy_port = PropertyMock(side_effect=[None, 55555, 55555])
+        session.vnc_proxy_pid = 55555
+        session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
+        session.stop_vnc_proxy = Mock()
+
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=session)
+        ):
+            response = self.vmmaster_client.get('/api/session/{}/vnc_info'.format(session.id))
+            session.close()
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({'vnc_proxy_port': 55555}, body['result'])
+        self.assertEqual(200, body['metacode'])
+        self.assertTrue(session.stop_vnc_proxy.called)
+
+    def test_when_during_proxy_starting_session_was_closed(self):
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = '127.0.0.1'
+        endpoint.name = 'test_endpoint'
+        endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+        session = Session("some_platform")
+        session.id = 1
+        session.name = "session1"
+        session.status = "running"
+        session.closed = True
+        type(session).vnc_proxy_port = PropertyMock(side_effect=[None, 55555, 55555])
+        session.vnc_proxy_pid = 55555
+        session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
+        session.stop_vnc_proxy = Mock()
+
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=session)
+        ):
+            response = self.vmmaster_client.get('/api/session/%s/vnc_info' % session.id)
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({}, body['result'])
+        self.assertEqual(500, body['metacode'])
+
+    def test_get_vnc_port_if_running_proxy(self):
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = '127.0.0.1'
+        endpoint.name = 'test_endpoint'
+        endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+        session = Session("some_platform")
+        session.id = 1
+        session.name = "session1"
+        session.status = "running"
+        session.vnc_proxy_port = 55555
+        session.vnc_proxy_pid = 55555
+        session.created = session.modified = datetime.now()
+        session.endpoint = endpoint
+        session.stop_vnc_proxy = Mock()
+
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=session)
+        ), patch(
+            'core.utils.kill_process', Mock(return_value=True)
+        ):
+            response = self.vmmaster_client.get('/api/session/%s/vnc_info' % session.id)
+            session.close()
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({'vnc_proxy_port': 55555}, body['result'])
+        self.assertEqual(200, body['metacode'])
+        self.assertTrue(session.stop_vnc_proxy.called)
+
+    def test_get_vnc_info_if_session_not_found(self):
+        with patch(
+            'flask.current_app.sessions.get_session', Mock(return_value=None)
+        ):
+            response = self.vmmaster_client.get('/api/session/1/vnc_info')
+
+        body = json.loads(response.data)
+        self.assertEqual(200, response.status_code)
+        self.assertDictEqual({}, body['result'])
+        self.assertEqual(500, body['metacode'])
 
     def test_api_sessions(self):
         from core.db.models import Session
@@ -174,95 +330,6 @@ class TestProviderApi(BaseTestCase):
 
         self.assertEqual(names[0], self.platform)
         self.assertEqual(200, body['metacode'])
-
-    @skip
-    def test_failed_get_vnc_info_with_create_proxy(self):
-        endpoint = PropertyMock(ip='127.0.0.1')
-        endpoint.vnc_helper = Mock(
-            proxy=Process(target=lambda: None),
-            get_proxy_port=Mock(return_value=5900)
-        )
-        from core.db.models import Session
-        session = Session("some_platform")
-        session.name = "session1"
-        session.created = session.modified = datetime.now()
-        session.endpoint = endpoint
-
-        expected = 5901
-
-        with patch(
-            'flask.current_app.sessions.get_session',
-            Mock(return_value=session)
-        ), patch(
-                'websockify.websocketproxy.websockify_init', Mock()
-        ):
-            session.run()
-            response = self.vmmaster_client.get(
-                '/api/session/%s/vnc_info' % session.id)
-
-        body = json.loads(response.data)
-        self.assertEqual(200, response.status_code)
-
-        vnc_proxy_port = body['result']['vnc_proxy_port']
-        self.assertEqual(type(expected), type(vnc_proxy_port))
-        self.assertEqual(200, body['metacode'])
-        self.assertTrue(isinstance(session.endpoint.vnc_helper.proxy, Process))
-
-        session.close()
-        self.assertTrue(wait_for(
-            lambda: not session.endpoint.vnc_helper.proxy.is_alive()))
-
-    @skip
-    def test_get_vnc_info_for_running_proxy(self):
-        endpoint = PropertyMock(ip='127.0.0.1')
-        endpoint.vnc_helper = Mock(
-            proxy=Process(target=lambda: None),
-            get_proxy_port=Mock(return_value=5900)
-        )
-        from core.db.models import Session
-        session = Session("some_platform")
-        session.name = "session1"
-        session.created = session.modified = datetime.now()
-        session.endpoint = endpoint
-        with patch(
-                'flask.current_app.sessions.get_session',
-                Mock(return_value=session)
-        ):
-            session.run()
-
-            expected = {
-                'vnc_proxy_port': 5900
-            }
-
-            response = self.vmmaster_client.get(
-                '/api/session/%s/vnc_info' % session.id)
-
-        body = json.loads(response.data)
-        self.assertEqual(200, response.status_code)
-
-        vnc_proxy_port = body['result']
-        self.assertDictEqual(expected, vnc_proxy_port)
-        self.assertEqual(200, body['metacode'])
-        session.close()
-
-    @skip
-    def test_get_vnc_info_if_session_not_found(self):
-        with patch(
-                'flask.current_app.sessions.active',
-                Mock(return_value=[])
-        ), patch(
-                'websockify.websocketproxy.websockify_init', Mock()
-        ), patch(
-                'core.utils.network_utils.get_free_port',
-                Mock(side_effect=5900)
-        ):
-            response = self.vmmaster_client.get('/api/session/1/vnc_info')
-        body = json.loads(response.data)
-        self.assertEqual(200, response.status_code)
-
-        vnc_proxy_port = body['result']
-        self.assertDictEqual({}, vnc_proxy_port)
-        self.assertEqual(500, body['metacode'])
 
     def test_api_success_delete_endpoint(self):
         vm_for_delete = Mock(name='test_vm_1', delete=Mock())

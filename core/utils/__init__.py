@@ -9,6 +9,8 @@ import time
 import sys
 import logging
 from functools import wraps
+from signal import SIGTERM
+
 from flask.json import JSONEncoder as FlaskJSONEncoder
 from twisted.web.resource import Resource
 
@@ -236,3 +238,11 @@ def api_exception_handler(return_on_exc=None):
             return return_on_exc
         return wrapper
     return _api_exception_handler
+
+
+def kill_process(pid):
+    try:
+        os.kill(pid, SIGTERM)
+        return True
+    except:
+        log.exception("Can't kill process {}".format(pid))
