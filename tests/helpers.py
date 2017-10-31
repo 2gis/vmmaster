@@ -277,7 +277,7 @@ def vmmaster_server_mock(port):
         'core.utils.openstack_utils',
         nova_client=Mock(return_value=Mock())
     ), patch.multiple(
-        'vmpool.clone.OpenstackClone',
+        'core.db.models.OpenstackClone',
         _wait_for_activated_service=custom_wait,
         ping_vm=Mock(return_value=True)
     ):

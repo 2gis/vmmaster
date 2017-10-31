@@ -36,7 +36,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         ), patch(
             "flask.current_app", self.app
         ):
-            from vmpool.clone import OpenstackClone
+            from core.db.models import OpenstackClone
             self.clone = OpenstackClone(self.mocked_origin, "preloaded", self.pool)
 
     def tearDown(self):
@@ -48,7 +48,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertTrue(hasattr(file_object, "read"))
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         ready=True,
         _wait_for_activated_service=custom_wait,
     )
@@ -63,7 +63,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertTrue(self.clone.nova_client.servers.create.called)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         get_vm=Mock(return_value=None),
         delete=Mock(),
     )
@@ -77,7 +77,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
             self.clone.create()
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         get_ip=Mock(),
         get_vm=Mock(return_value=Mock(status="active")),
         ping_vm=Mock(return_value=True),
@@ -94,7 +94,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertTrue(self.clone.ready)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         image=PropertyMock(side_effect=Exception("Exception in image")),
     )
     def test_exception_in_getting_image(self):
@@ -108,7 +108,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
             self.clone.create()
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         flavor=PropertyMock(side_effect=Exception("Exception in flavor")),
     )
     def test_exception_in_getting_flavor(self):
@@ -122,7 +122,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
             self.clone.create()
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         get_vm=Mock(status="active", delete=Mock(), rebuild=Mock()),
     )
     def test_delete_vm(self):
@@ -137,7 +137,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertFalse(self.clone.ready)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         get_vm=Mock(return_value=None),
         _wait_for_activated_service=custom_wait,
     )
@@ -153,7 +153,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertIsNone(self.clone.deleted)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         _wait_for_activated_service=custom_wait,
         get_vm=Mock(status="active", delete=Mock(), rebuild=Mock()),
     )
@@ -167,7 +167,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         wait_for(lambda: self.clone.ready is True)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         _wait_for_activated_service=custom_wait,
         get_vm=Mock(return_value=Mock(
             delete=Mock(), rebuild=Mock(side_effect=Exception("Rebuild error")), status="active")
@@ -185,7 +185,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertTrue(self.clone.deleted)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         ping_vm=Mock(return_value=True),
         get_vm=Mock(return_value=Mock(
             rebuild=Mock(return_value=True),
@@ -206,7 +206,7 @@ class TestOpenstackCloneUnit(BaseTestCase):
         self.assertTrue(self.clone.ready)
 
     @patch.multiple(
-        "vmpool.clone.OpenstackClone",
+        "core.db.models.OpenstackClone",
         ping_vm=Mock(return_value=True),
         is_created=Mock(return_value=True),
         ip="127.0.0.1",

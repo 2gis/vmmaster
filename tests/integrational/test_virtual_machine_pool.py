@@ -8,7 +8,7 @@ from flask import Flask
 
 @patch('core.utils.openstack_utils.nova_client', Mock())
 @patch.multiple(
-    'vmpool.clone.OpenstackClone',
+    'core.db.models.OpenstackClone',
     _wait_for_activated_service=custom_wait,
     ping_vm=Mock(return_value=True),
     ready=PropertyMock(return_value=True)
@@ -101,7 +101,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(0, len(self.pool.active_endpoints))
         self.pool.preload(self.platform_name)
 
-        from vmpool.clone import OpenstackClone
+        from core.db.models import OpenstackClone
         self.assertIsInstance(self.pool.active_endpoints[0], OpenstackClone)
         self.assertEqual(1, len(self.pool.active_endpoints))
 
@@ -109,7 +109,7 @@ class TestVirtualMachinePool(BaseTestCase):
         self.assertEqual(0, len(self.pool.active_endpoints))
         self.pool.add(self.platform_name)
 
-        from vmpool.clone import OpenstackClone
+        from core.db.models import OpenstackClone
         self.assertIsInstance(self.pool.active_endpoints[0], OpenstackClone)
         self.assertEqual(1, len(self.pool.active_endpoints))
 

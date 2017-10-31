@@ -40,7 +40,7 @@ class OpenstackOrigin(Platform):
 
     @staticmethod
     def make_clone(origin, prefix, pool):
-        from clone import OpenstackClone
+        from core.db.models import OpenstackClone
         return OpenstackClone(origin, prefix, pool)
 
 
@@ -66,7 +66,7 @@ class DockerImage(Platform):
 
     @staticmethod
     def make_clone(origin, prefix, pool):
-        from vmpool.clone import DockerClone
+        from core.db.models import DockerClone
         return DockerClone(origin, prefix, pool)
 
 
@@ -94,7 +94,7 @@ class DockerPlatforms(PlatformsInterface):
     def __init__(self, database):
         self.database = database
 
-        from vmpool.clone import DockerClone
+        from core.db.models import DockerClone
         self.clone_class = DockerClone
 
     @classmethod
@@ -125,7 +125,7 @@ class OpenstackPlatforms(PlatformsInterface):
     def __init__(self, database):
         self.database = database
 
-        from vmpool.clone import OpenstackClone
+        from core.db.models import OpenstackClone
         self.clone_class = OpenstackClone
 
     @classmethod
