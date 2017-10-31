@@ -36,6 +36,8 @@ class VMMasterServer(object):
         site = Site(root_resource)
         site.protocol = HTTPChannelWithClient
         self.bind = self.reactor.listenTCP(port, site)
+
+        self._wait_for_end_active_sessions = getattr(config, 'WAIT_ACTIVE_SESSIONS', False)
         log.info('Server is listening on %s ...' % port)
 
     def run(self):
@@ -52,29 +54,43 @@ class VMMasterServer(object):
         )
 
     def wait_for_end_active_sessions(self):
-        active_sessions = self.app.sessions.active()
-
         def wait_for():
-            while active_sessions:
-                log.info("Waiting for {} sessions to complete: {}"
-                         .format(len(active_sessions), [(i.id, i.status) for i in active_sessions]))
-                for session in active_sessions:
-                    if session.is_done:
-                        log.debug("Session {} is done".format(session.id))
-                        active_sessions.remove(session)
+            with self.app.app_context():
+                active_sessions = self.app.sessions.active()
+                while active_sessions:
+                    log.info("Waiting for {} sessions to complete: {}"
+                             .format(len(active_sessions), [(i.id, i.status) for i in active_sessions]))
+                    for session in active_sessions:
+                        session.refresh()
+                        if session.is_done:
+                            log.debug("Session {} is done".format(session.id))
+                            active_sessions.remove(session)
 
-                time.sleep(1)
+                    time.sleep(1)
 
         return deferToThread(wait_for).addCallbacks(
             callback=lambda _: log.info("All active sessions has been completed"),
             errback=lambda failure: log.error("Error while waiting for active_sessions: {}".format(failure))
         )
 
+    def terminate_sessions(self):
+        def interrupt():
+            with self.app.app_context():
+                for session in self.app.sessions.active():
+                    session.close('Interrupted by server shut down')
+
+        return deferToThread(interrupt).addCallbacks(
+            callback=lambda _: log.info("Sessions terminated"),
+            errback=lambda failure: log.error("Error while terminating sessions: {}".format(failure))
+        )
+
     @inlineCallbacks
     def before_shutdown(self):
         self.app.stop()
-        if getattr(config, 'WAIT_ACTIVE_SESSIONS', None):
+        if self._wait_for_end_active_sessions:
             yield self.wait_for_end_active_sessions()
+        else:
+            yield self.terminate_sessions()
 
     @inlineCallbacks
     def during_shutdown(self):

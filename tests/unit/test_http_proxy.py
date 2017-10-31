@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import requests
-from twisted.internet import defer
 from mock import Mock, patch, PropertyMock
 
 from core.config import setup_config, config
@@ -9,7 +8,6 @@ from tests.helpers import (vmmaster_server_mock, server_is_up, server_is_down,
                            BaseTestCase, get_free_port, ServerMock)
 
 
-@patch('core.utils.openstack_utils.nova_client', Mock())
 class TestHttpProxy(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
@@ -17,7 +15,7 @@ class TestHttpProxy(BaseTestCase):
         self.port = config.PORT
         self.address = (self.host, self.port)
         self.vmmaster = vmmaster_server_mock(self.port)
-        server_is_up(self.address)
+        self.assertTrue(server_is_up(self.address))
         self.free_port = get_free_port()
 
         self.ctx = self.vmmaster.app.app_context()
@@ -27,14 +25,13 @@ class TestHttpProxy(BaseTestCase):
         self.session = Session('some_platform')
         self.session.endpoint = PropertyMock(ip='localhost')
 
-    @defer.inlineCallbacks
     def tearDown(self):
         self.session.close()
         self.ctx.pop()
         self.vmmaster.app.sessions.kill_all()
         self.vmmaster.app.cleanup()
-        yield self.vmmaster.stop_services()
-        server_is_down(self.address)
+        self.vmmaster.stop_services()
+        self.assertTrue(server_is_down(self.address))
 
     def test_proxy_successful(self):
         server = ServerMock(self.host, self.free_port)

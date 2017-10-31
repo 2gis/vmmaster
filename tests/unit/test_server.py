@@ -3,15 +3,14 @@
 import json
 import time
 from multiprocessing.pool import ThreadPool
-from twisted.internet import defer
 
-from mock import Mock, patch, PropertyMock
+from mock import Mock, patch
 from uuid import uuid4
 from core.config import setup_config, config
 from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, BaseTestCase, \
-    DatabaseMock, custom_wait, request_mock
+    DatabaseMock, custom_wait, request_mock, wait_for
 
 from nose.twistedtools import reactor
 
@@ -405,16 +404,6 @@ class TestServerShutdown(BaseTestCase):
     def setUp(self):
         setup_config('data/config_openstack.py')
         self.address = ("localhost", config.PORT)
-        mocked_image = Mock(
-            id=1, status='active',
-            get=Mock(return_value='snapshot'),
-            min_disk=20,
-            min_ram=2,
-            instance_type_flavorid=1,
-            short_name="origin_1"
-        )
-        type(mocked_image).name = PropertyMock(
-            return_value='test_origin_1')
 
         with patch(
             'core.db.Database', DatabaseMock()
@@ -426,39 +415,59 @@ class TestServerShutdown(BaseTestCase):
             from vmmaster.server import VMMasterServer
             self.vmmaster = VMMasterServer(reactor, config.PORT)
 
-        self.ctx = self.vmmaster.app.app_context()
-        self.ctx.push()
+            self.assertTrue(server_is_up(self.address))
 
     def tearDown(self):
-        self.ctx.pop()
+        self.vmmaster.stop_services()
+        self.assertTrue(server_is_down(self.address))
 
-    @defer.inlineCallbacks
-    def test_server_shutdown(self):
+    def test_server_stop_port_listening(self):
         """
-        - shutdown current instance
-        Expected: server is down
+        - send SIGTERM to reactor
+        Expected: server is down, port free, reactor stopped
         """
-        yield self.vmmaster.stop_services()
-        with self.assertRaises(RuntimeError):
-            server_is_up(self.address, wait=1)
+        self.vmmaster.reactor.sigTerm()
+        self.assertTrue(server_is_down(self.address, wait=10))
+        self.assertTrue(self.vmmaster.reactor._stopped)
 
-    @defer.inlineCallbacks
-    def test_session_is_not_deleted_after_server_shutdown(self):
+    def test_session_wait_for_active_sessions(self):
         """
-        - delete server with active session
-        Expected: session not deleted
+        Test all sessions completed before shutdown
+            - send SIGTERM to reactor
+            - all sessions still not closed
+            - server is up
+            - finish all sessions
+            - check server is down
+        Expected: server not stopped while sessions are active
         """
-        from core.db.models import Session
-        session = Session('some_platform')
-        session.closed = False
+        sessions = [Mock(is_done=False)] * 5
 
-        with patch('core.sessions.Sessions.get_session', Mock(return_value=session)):
-            yield self.vmmaster.stop_services()
+        with patch('core.sessions.Sessions.active', Mock(return_value=sessions)):
+            self.vmmaster._wait_for_end_active_sessions = True
+            self.vmmaster.reactor.sigTerm()
 
-        self.assertTrue(session.closed)
-        session.failed()
+            self.assertFalse(any([session.close.called for session in sessions]))
+            self.assertTrue(server_is_up(self.address))
 
-        server_is_down(self.address)
+            for session in sessions:
+                session.is_done = True
+
+        self.assertTrue(server_is_down(self.address, wait=10))
+        self.assertTrue(self.vmmaster.reactor._stopped)
+
+    def test_server_kill_all_active_sessions(self):
+        """
+        Test all active sessions closed while shutdown
+        Expected: all sessions has been stopped, port free, reactor stopped
+        """
+        sessions = [Mock(is_done=False)] * 5
+
+        with patch('core.sessions.Sessions.active', Mock(return_value=sessions)):
+            self.vmmaster.reactor.sigTerm()
+            self.assertTrue(wait_for(lambda: all([session.close.called for session in sessions])))
+
+        self.assertTrue(server_is_down(self.address))
+        self.assertTrue(self.vmmaster.reactor._stopped)
 
 
 @patch.multiple(

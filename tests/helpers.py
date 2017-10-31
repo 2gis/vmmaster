@@ -100,25 +100,23 @@ def vmmaster_label(client, session, label=None):
 
 
 def server_is_up(address, wait=5):
-    s = get_socket(address[0], address[1])
     time_start = time.time()
-    timeout = wait
-    while not s:
-        s = get_socket(address[0], address[1])
+    while time.time() - time_start < wait:
         time.sleep(0.1)
-        if time.time() - time_start > timeout:
-            raise RuntimeError("server is not running on %s:%s" % address)
+        if get_socket(address[0], address[1]):
+            return True
+
+    return False
 
 
 def server_is_down(address, wait=5):
-    s = get_socket(address[0], address[1])
     time_start = time.time()
-    timeout = wait
-    while s:
-        s = get_socket(address[0], address[1])
+    while time.time() - time_start < wait:
         time.sleep(0.1)
-        if time.time() - time_start > timeout:
-            raise RuntimeError("server is running on %s:%s" % address)
+        if not get_socket(address[0], address[1]):
+            return True
+
+    return False
 
 
 def fake_home_dir():
