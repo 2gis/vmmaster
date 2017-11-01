@@ -224,12 +224,6 @@ class VirtualMachinesPool(object):
 
         return result
 
-    def pooled_virtual_machines(self):
-        return self.count_virtual_machines(self.pool)
-
-    def using_virtual_machines(self):
-        return self.count_virtual_machines(self.using)
-
     def add(self, platform_name, prefix="ondemand"):
         # TODO: remove all app_context usages, use direct link to app/database objects
         if prefix == "preloaded":
@@ -277,34 +271,7 @@ class VirtualMachinesPool(object):
 
     @property
     def info(self):
-        def print_view(lst):
-            return [{
-                "name": l.name,
-                "ip": l.ip,
-                "ready": l.ready,
-                "created": l.created_time,
-                "ports": l.ports
-            } for l in lst]
-
-        return {
-            "pool": {
-                'count': self.pooled_virtual_machines(),
-                'list': print_view(self.pool),
-            },
-            "using": {
-                'count': self.using_virtual_machines(),
-                'list': print_view(self.using),
-            },
-            "wait_for_service": {
-                'count': len(self.wait_for_service),
-                'list': print_view(self.wait_for_service),
-            },
-            "on_service": {
-                'count': len(self.on_service),
-                'list': print_view(self.on_service),
-            },
-            "total": self.count(),
-        }
+        return self.app.database.get_endpoints_dict(self.provider.id)
 
     def check_platform(self, platform):
         return self.platforms.check_platform(platform)

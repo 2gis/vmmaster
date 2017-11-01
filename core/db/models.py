@@ -445,6 +445,18 @@ class Endpoint(Base, FeaturesMixin):
         self.save()
 
     @property
+    def in_pool(self):
+        return self.in_use is False
+
+    @property
+    def in_service(self):
+        return self.mode == "service"
+
+    @property
+    def wait_for_service(self):
+        return self.mode == "wait for service"
+
+    @property
     def info(self):
         return {
             "id": str(self.id),

@@ -12,6 +12,10 @@ def get_platforms():
     return sorted(current_app.database.get_all_plaftorms_list())
 
 
+def get_endpoints():
+    return current_app.database.get_active_endpoints_dict()
+
+
 def get_session(session_id):
     try:
         session = current_app.sessions.get_session(session_id)

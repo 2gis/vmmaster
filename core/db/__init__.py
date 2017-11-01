@@ -151,6 +151,64 @@ class Database(object):
                 res.add(platform.name)
         return res
 
+    @transaction
+    def get_active_endpoints_dict(self, dbsession=None):
+        endpoints = {}
+        for provider in dbsession.query(Provider).filter_by(active=True).all():
+            endpoints.update(self.get_endpoints_dict(provider.id, dbsession=dbsession))
+
+        return endpoints
+
+    @transaction
+    def get_endpoints_dict(self, provider_id, dbsession=None):
+        def print_view(e):
+            return {
+                "name": e.name,
+                "ip": e.ip,
+                "ready": e.ready,
+                "created": e.created_time,
+                "ports": e.ports
+            }
+
+        endpoints = {
+            "pool": {
+                'count': 0,
+                'list': [],
+            },
+            "using": {
+                'count': 0,
+                'list': [],
+            },
+            "wait_for_service": {
+                'count': 0,
+                'list': [],
+            },
+            "on_service": {
+                'count': 0,
+                'list': [],
+            },
+            "total": 0,
+        }
+        provider = self.get_provider(provider_id, dbsession=dbsession)
+        for endpoint in provider.endpoints:
+            if endpoint.deleted:
+                continue
+            if endpoint.in_pool:
+                endpoints["pool"]["count"] += 1
+                endpoints["pool"]["list"].append(print_view(endpoint))
+            if endpoint.in_use:
+                endpoints["using"]["count"] += 1
+                endpoints["using"]["list"].append(print_view(endpoint))
+            if endpoint.in_service:
+                endpoints["on_service"]["count"] += 1
+                endpoints["on_service"]["list"].append(print_view(endpoint))
+            if endpoint.wait_for_service:
+                endpoints["wait_for_service"]["count"] += 1
+                endpoints["wait_for_service"]["list"].append(print_view(endpoint))
+            endpoints["total"] += 1
+
+        return endpoints
+
     def register_platforms(self, provider, platforms):
         for name in platforms:
             platform = Platform(name)

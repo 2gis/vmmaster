@@ -36,7 +36,8 @@ def status():
         'providers': helpers.get_active_providers(),
         'sessions': helpers.get_sessions(),
         'queue': helpers.get_queue(),
-        'platforms': helpers.get_platforms()
+        'platforms': helpers.get_platforms(),
+        'pool': helpers.get_endpoints()
     })
 
 
