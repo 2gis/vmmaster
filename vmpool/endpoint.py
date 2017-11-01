@@ -2,11 +2,10 @@
 
 import time
 import logging
-from threading import Thread, Lock
-
-from core.exceptions import CreationException, EndpointUnreachableError
+from threading import Thread
 
 from core import constants
+from core.exceptions import CreationException, EndpointUnreachableError, AddTaskException
 from core.utils import call_in_thread
 from core.profiler import profiler
 
@@ -22,31 +21,25 @@ class EndpointRemover(Thread):
         self.artifact_collector = artifact_collector
         self.database = database
         self.app_context = app_context
-        self.lock = Lock()
 
     @call_in_thread
     def remove_endpoint(self, endpoint, try_to_rebuild=False):
-        try:
-            with self.app_context():
-                self.endpoint_service_mode_on(endpoint)
+        with self.app_context():
+            try:
+                endpoint.service_mode_on()
                 session = self.database.get_session_by_endpoint_id(endpoint.id)
                 if session:
                     session.restore()
                     self.artifact_collector.save_selenium_log(session)
                     self.artifact_collector.wait_for_complete(session.id)
                 endpoint.delete(try_to_rebuild=try_to_rebuild)
-                self.endpoint_service_mode_off(endpoint)
-        except:
-            log.exception("Attempt to remove {} was failed".format(endpoint))
-            endpoint.send_to_service()
-
-    def endpoint_service_mode_on(self, endpoint):
-        with self.lock:
-            endpoint.service_mode_on()
-
-    def endpoint_service_mode_off(self, endpoint):
-        with self.lock:
-            endpoint.service_mode_off()
+                endpoint.service_mode_off()
+            except AddTaskException:
+                endpoint.delete(try_to_rebuild=False)
+                endpoint.service_mode_off()
+            except:
+                log.exception("Attempt to remove {} was failed".format(endpoint))
+                endpoint.send_to_service()
 
     def run(self):
         log.info("EndpointRemover was started...")
@@ -79,13 +72,11 @@ class EndpointPreparer(Thread):
         self.app_context = app_context
         self.sessions = sessions
         self.artifact_collector = artifact_collector
-        self.lock = Lock()
 
     @call_in_thread
     def prepare_endpoint(self, session, get_endpoint_attempts=constants.GET_ENDPOINT_ATTEMPTS):
         with self.app_context():
-            with self.lock:
-                session.set_status("preparing")
+            session.set_status("preparing")
 
             attempt, wait_time = 0, 2
             while self.running:
@@ -97,13 +88,13 @@ class EndpointPreparer(Thread):
                     log.warning("Attempt {} was aborted because session {} was closed".format(attempt, session.id))
                     break
 
-                if session.endpoint_id:
+                if session.endpoint:
                     log.warning("Attempt {} was aborted because session {} already have endpoint_id".format(
                         attempt, session.id, session.endpoint_id)
                     )
                     break
 
-                log.info("Try to find endpoint for {}. Attempt {}".format(session, attempt))
+                log.info("Try to find endpoint {} for {}. Attempt {}".format(session.platform, session, attempt))
                 try:
                     _endpoint = self.pool.get_vm(session.platform)
                     if not self.running:
@@ -113,11 +104,10 @@ class EndpointPreparer(Thread):
 
                     if self.running and _endpoint:
                         profiler.register_success_get_endpoint(attempt)
-                        with self.lock:
-                            session.set_endpoint_id(_endpoint.id)
-                            log.info("Attempt {} to find endpoint({}) for session {} was succeed".format(
-                                attempt, session.endpoint_id, session)
-                            )
+                        session.set_endpoint(_endpoint)
+                        log.info("Attempt {} to find endpoint {} for session {} was succeed".format(
+                            attempt, session.platform, session)
+                        )
                         break
 
                     if _endpoint and getattr(_endpoint, "ready", False):
@@ -144,8 +134,7 @@ class EndpointPreparer(Thread):
 
             session.refresh()
             if not session.endpoint_id and session.is_preparing:
-                with self.lock:
-                    session.set_status("waiting")
+                session.set_status("waiting")
 
     def start_screencast(self, session):
         session.set_screencast_started(True)

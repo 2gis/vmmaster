@@ -1,28 +1,15 @@
 # coding: utf-8
 
 import logging
+from threading import Lock
+
 from sqlalchemy import create_engine, asc, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
 
 from core.db.models import Session, SessionLogStep, User, Platform, Provider, Endpoint
-from core.utils import to_thread
 from core.config import config
 
 log = logging.getLogger(__name__)
-
-
-def threaded_transaction(func):
-    @to_thread
-    def wrapper(self, *args, **kwargs):
-        dbsession = sessionmaker(bind=self.engine)()
-        try:
-            return func(self, dbsession=dbsession, *args, **kwargs)
-        except:
-            dbsession.rollback()
-            raise
-        finally:
-            dbsession.close()
-    return wrapper
 
 
 def transaction(func):
@@ -38,11 +25,14 @@ def transaction(func):
             dbsession.rollback()
             raise
         finally:
+            dbsession.expunge_all()
             dbsession.close()
     return wrapper
 
 
 class Database(object):
+    lock = Lock()
+
     def __init__(self, connection_string=None, sqlite=False):
         if not connection_string:
             connection_string = config.DATABASE
@@ -179,9 +169,9 @@ class Database(object):
             provider.active = True
             provider.name = name
             provider.config = platforms
-            self.add(provider)
         else:
-            provider = self.add(Provider(name=name, url=url, config=platforms))
+            provider = Provider(name=name, url=url, config=platforms)
+        self.add(provider)
         return provider
 
     @transaction
@@ -191,35 +181,41 @@ class Database(object):
         self.update(provider)
 
     @transaction
-    def add(self, obj, dbsession=None):
-        dbsession.add(obj)
-        dbsession.commit()
-        return obj
+    def add(self, obj, dbsession):
+        """
+        Add new object to DB
+        """
+        with self.lock:
+            dbsession.add(obj)
+            dbsession.commit()
+            dbsession.expunge_all()
 
     @transaction
-    def update(self, obj, dbsession=None):
-        dbsession.merge(obj)
-        dbsession.commit()
-        return obj
-
-    def refresh(self, obj):
+    def update(self, obj, dbsession):
         """
-        Try to get existing session attached to obj and refresh object state from DB
+        Upload local object state to DB
         """
-        dbsession = self.session_maker.object_session(obj)
-        if dbsession:
-            dbsession.close()
-            dbsession = self.DBSession()
-        else:
-            dbsession = self.DBSession()
-        dbsession.add(obj)
-        res = dbsession.refresh(obj)
-        dbsession.close()  # TODO: make smart-transaction decorator
-        return res
+        with self.lock:
+            dbsession.merge(obj)
+            dbsession.commit()
+            dbsession.expunge_all()
 
     @transaction
-    def delete(self, obj, dbsession=None):
-        obj_to_delete = dbsession.query(type(obj)).get(obj.id)
-        dbsession.delete(obj_to_delete)
-        dbsession.commit()
-        return obj_to_delete
+    def refresh(self, obj, dbsession):
+        """
+        Refresh object state from DB
+        """
+        with self.lock:
+            dbsession.add(obj)
+            dbsession.refresh(obj)
+            dbsession.expunge_all()
+
+    @transaction
+    def delete(self, obj, dbsession):
+        """
+        Delete object from DB
+        """
+        with self.lock:
+            dbsession.delete(obj)
+            dbsession.commit()
+            dbsession.expunge_all()

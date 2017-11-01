@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import requests
-from mock import Mock, patch, PropertyMock
+from mock import Mock, patch
 
 from core.config import setup_config, config
 from tests.helpers import (vmmaster_server_mock, server_is_up, server_is_down,
@@ -21,9 +21,13 @@ class TestHttpProxy(BaseTestCase):
         self.ctx = self.vmmaster.app.app_context()
         self.ctx.push()
 
-        from core.db.models import Session
+        from core.db.models import Session, Provider, Endpoint
         self.session = Session('some_platform')
-        self.session.endpoint = PropertyMock(ip='localhost')
+
+        provider = Provider(name='noname', url='nourl')
+        endpoint = Endpoint(Mock(), '', provider)
+        endpoint.ip = 'localhost'
+        self.session.endpoint = endpoint
 
     def tearDown(self):
         self.session.close()

@@ -127,7 +127,6 @@ class Session(Base, FeaturesMixin):
 
     current_log_step = None
     is_active = True
-    endpoint = None
 
     # Relationships
     session_steps = relationship(
@@ -137,6 +136,15 @@ class Session(Base, FeaturesMixin):
             "session",
             enable_typechecks=False,
             single_parent=True
+        )
+    )
+    endpoint = relationship(
+        "Endpoint",
+        enable_typechecks=False, single_parent=True, cascade_backrefs=True, lazy='subquery',
+        backref=backref(
+            "sessions",
+            enable_typechecks=False,
+            cascade_backrefs=True
         )
     )
 
@@ -205,6 +213,7 @@ class Session(Base, FeaturesMixin):
         return self.status == 'preparing'
 
     def add_session_step(self, control_line, body=None, created=None):
+        # refresh_and_save_session
         self.current_log_step = SessionLogStep(
             control_line=control_line,
             body=body,
@@ -234,14 +243,16 @@ class Session(Base, FeaturesMixin):
         return stat
 
     def start_timer(self):
+        # refresh_and_save_session
         self.modified = datetime.now()
-        self.save()
         self.is_active = False
+        self.save()
 
     def stop_timer(self):
         self.is_active = True
 
     def close(self, reason=None):
+        # refresh_and_save_session
         self.closed = True
         if reason:
             self.reason = "%s" % reason
@@ -271,28 +282,28 @@ class Session(Base, FeaturesMixin):
         self.close(reason)
 
     def set_status(self, status):
+        # refresh_and_save_session
         self.status = status
         self.save()
 
-    def set_endpoint_id(self, endpoint_id):
-        self.endpoint_id = endpoint_id
+    def set_endpoint(self, endpoint):
+        # refresh_and_save_session
+        self.endpoint = endpoint
         self.save()
 
     def set_screencast_started(self, value):
+        # refresh_and_save_session
         self.screencast_started = value
         self.save()
-
-    def restore_endpoint(self):
-        self.endpoint = current_app.database.get_endpoint(self.endpoint_id)
 
     def restore_current_log_step(self):
         self.current_log_step = current_app.database.get_last_session_step(self.id)
 
     def restore(self):
-        self.restore_endpoint()
         self.restore_current_log_step()
 
     def run(self):
+        # refresh_and_save_session
         self.modified = datetime.now()
         self.status = "running"
         self.save()
@@ -367,6 +378,7 @@ class Endpoint(Base, FeaturesMixin):
         self.save()
 
     def delete(self, try_to_rebuild=False):
+        # refresh_and_save_endpoint
         self.set_in_use(False)
         self.deleted_time = datetime.now()
         self.deleted = True
@@ -393,15 +405,15 @@ class Endpoint(Base, FeaturesMixin):
 
     @property
     def vnc_port(self):
-        return config.VNC_PORT
+        return self.ports.get(str(config.VNC_PORT))
 
     @property
     def selenium_port(self):
-        return config.SELENIUM_PORT
+        return self.ports.get(str(config.SELENIUM_PORT))
 
     @property
     def agent_port(self):
-        return config.VMMASTER_AGENT_PORT
+        return self.ports.get(str(config.VMMASTER_AGENT_PORT))
 
     @property
     def agent_ws_url(self):
@@ -417,15 +429,17 @@ class Endpoint(Base, FeaturesMixin):
         self.set_mode("wait for service")
 
     def set_mode(self, mode):
+        # refresh_and_save_endpoint
         self.mode = mode
         self.save()
 
     def set_ready(self, value):
+        # refresh_and_save_endpoint
         self.ready = value
         self.save()
 
     def set_in_use(self, value):
-        # TODO: lazy save in db, remove direct calls for Clone and Session
+        # refresh_and_save_endpoint
         if not value:
             self.used_time = datetime.now()
         self.in_use = value
@@ -489,7 +503,7 @@ class Endpoint(Base, FeaturesMixin):
 def clone_refresher(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
-        self.refresh()
+        self.refresh_endpoint()
         return func(self, *args, **kwargs)
     return wrapper
 
@@ -517,6 +531,9 @@ class OpenstackClone(Endpoint):
     def network_id(self):
         return getattr(config, "OPENSTACK_NETWORK_ID")
 
+    def refresh_endpoint(self):
+        self.refresh()
+
     @staticmethod
     def set_userdata(file_path):
         if os.path.isfile(file_path):
@@ -530,6 +547,8 @@ class OpenstackClone(Endpoint):
         log.info(
             "Creating openstack clone of {} with image={}, "
             "flavor={}".format(self.name, self.image, self.flavor))
+
+        # refresh_and_save_endpoint
         self.ports = {"{}".format(port): port for port in config.PORTS}
         self.save()
         kwargs = {
@@ -584,7 +603,7 @@ class OpenstackClone(Endpoint):
         ping_retry = 1
 
         while not self.ready and not self.deleted:
-            self.refresh()
+            self.refresh_endpoint()
             server = self.get_vm(self.name)
             if not server:
                 log.error("VM %s has not been created." % self.name)
@@ -605,6 +624,7 @@ class OpenstackClone(Endpoint):
 
             elif self.is_created(server):
                 if not self.ip:
+                    # refresh_and_save_endpoint
                     self.ip = self.get_ip()
                     self.save()
                 if self.ping_vm():
@@ -733,8 +753,9 @@ class DockerClone(Endpoint):
     def agent_port(self):
         return self.ports.get(str(config.VMMASTER_AGENT_PORT))
 
-    def refresh(self):
-        super(DockerClone, self).refresh()
+    def refresh_endpoint(self):
+        # refresh_and_save_endpoint
+        self.refresh()
         __container = self.get_container()
         if __container:
             self.__container = __container
@@ -757,13 +778,13 @@ class DockerClone(Endpoint):
 
     @exception_handler()
     def disconnect_network(self):
-        self.refresh()
+        self.refresh_endpoint()
         if self.__container:
             self.pool.network.disconnect_container(self.__container.id)
 
     @property
     def status(self):
-        self.refresh()
+        self.refresh_endpoint()
         if self.__container:
             return self.__container.status.lower()
 
@@ -785,6 +806,7 @@ class DockerClone(Endpoint):
 
     @clone_refresher
     def create(self):
+        # refresh_and_save_endpoint
         self.__container = self.client.run_container(image=self.image, name=self.name)
         self.refresh()
         self.ports = self.__container.ports
@@ -811,7 +833,7 @@ class DockerClone(Endpoint):
         ping_retry = 1
 
         while not self.ready and not self.deleted:
-            self.refresh()
+            self.refresh_endpoint()
             if self.is_spawning:
                 log.info("Container {} is spawning...".format(self.name))
 

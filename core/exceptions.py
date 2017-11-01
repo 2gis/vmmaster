@@ -31,3 +31,7 @@ class ConnectionError(Exception):
 
 class EndpointUnreachableError(Exception):
     pass
+
+
+class AddTaskException(Exception):
+    pass

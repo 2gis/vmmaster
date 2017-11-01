@@ -47,19 +47,18 @@ class TestEndpointPreparer(BaseTestCase):
         - endpoint was set set_endpoint_id method
         """
         from vmpool.endpoint import EndpointPreparer
-        session = Mock(closed=False, endpoint_id=None)
+        session = Mock(closed=False, endpoint=None)
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
             pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
-
         endpoint_preparer.prepare_endpoint(session)
 
         self.assertTrue(session.refresh.called)
         self.assertTrue(session.set_status.called)
-        self.assertTrue(session.set_endpoint_id.called)
+        self.assertTrue(session.set_endpoint.called)
 
     def test_prepare_endpoint_if_session_closed(self):
         """
@@ -72,7 +71,7 @@ class TestEndpointPreparer(BaseTestCase):
         - session status wasn't changed
         """
         from vmpool.endpoint import EndpointPreparer
-        session = Mock(closed=True, endpoint_id=None)
+        session = Mock(closed=True, endpoint=None)
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
@@ -97,7 +96,7 @@ class TestEndpointPreparer(BaseTestCase):
         - endpoint wasn't set set_endpoint_id method
         """
         from vmpool.endpoint import EndpointPreparer
-        session = Mock(closed=False, endpoint_id=1, is_preparing=PropertyMock(return_value=True))
+        session = Mock(closed=False, is_preparing=PropertyMock(return_value=True))
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
@@ -109,7 +108,7 @@ class TestEndpointPreparer(BaseTestCase):
 
         self.assertTrue(session.refresh.called)
         self.assertTrue(session.set_status.called)
-        self.assertFalse(session.set_endpoint_id.called)
+        self.assertFalse(session.set_endpoint.called)
 
     def test_endpoint_was_prepared_but_app_was_stopped(self):
         """
@@ -122,7 +121,7 @@ class TestEndpointPreparer(BaseTestCase):
         - endpoint was deleted
         """
         from vmpool.endpoint import EndpointPreparer
-        session = Mock(closed=False, endpoint_id=None)
+        session = Mock(closed=False, endpoint=None)
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
@@ -190,7 +189,7 @@ class TestEndpointPreparer(BaseTestCase):
     def test_prepare_endpoint_with_exception(self):
         from vmpool.endpoint import EndpointPreparer
         session = Mock(set_status=Mock(side_effect=Exception("Error")), closed=False,
-                       endpoint_id=None, is_preparing=PropertyMock(return_value=True))
+                       endpoint=None, is_preparing=PropertyMock(return_value=True))
         endpoint_preparer = EndpointPreparer(
             pool=Mock(), sessions=Mock(), artifact_collector=Mock(), app_context=app_context
         )
@@ -198,7 +197,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint_preparer.prepare_endpoint(session, get_endpoint_attempts=2)
 
         self.assertTrue(session.set_status.called)
-        self.assertFalse(session.set_endpoint_id.called)
+        self.assertFalse(session.set_endpoint.called)
 
     def test_start_screencast(self):
         from vmpool.endpoint import EndpointPreparer

@@ -59,7 +59,6 @@ class BaseTestFlaskApp(BaseTestCase):
 )
 @patch.multiple(
     "core.db.models.Session",
-    restore_endpoint=Mock(),
     endpoint_id=Mock(return_value=1),
     endpoint=Mock(
         vnc_port=5900,
@@ -512,7 +511,7 @@ class TestSessionSteps(BaseTestFlaskApp):
             raise Exception('something ugly happened in get_vm')
 
         with patch(
-            'core.db.models.Session.restore_endpoint', Mock(side_effect=raise_exception)
+            'core.db.models.Session.restore', Mock(side_effect=raise_exception)
         ), patch(
             'core.db.models.Session.add_session_step', Mock()
         ) as add_step_mock:
@@ -538,8 +537,6 @@ class TestSessionSteps(BaseTestFlaskApp):
             raise Exception('something ugly happened in make_request')
 
         with patch(
-            'core.db.models.Session.restore_endpoint', Mock()
-        ), patch(
             'core.db.models.Session.endpoint_id', Mock(return_value=1)
         ), patch(
             'core.db.models.Session.make_request',

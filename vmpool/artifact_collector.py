@@ -11,6 +11,7 @@ from collections import defaultdict
 from multiprocessing.pool import ThreadPool as ProcessPool
 
 from core import utils
+from core.exceptions import AddTaskException
 from core.config import config
 from core.utils import wait_for
 from core.video import VNCVideoHelper
@@ -208,11 +209,18 @@ class ArtifactCollector(ProcessPool):
         return res
 
     def add_task(self, session_id, method, *args, **kwargs):
-        apply_result = self.apply_async(
-            method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
-        )
-        task = Task(method.__name__, apply_result)
-        self.in_queue[session_id].append(task)
+        try:
+            apply_result = self.apply_async(
+                method, args=args, kwds=kwargs, callback=lambda r: self.on_task_complete(r, method.__name__, session_id)
+            )
+            task = Task(method.__name__, apply_result)
+            self.in_queue[session_id].append(task)
+        except AssertionError:
+            raise AddTaskException('ArtifactCollector stopped')
+        except:
+            log.exception('Cannot add task')
+            return False
+
         log.info("session {}: task {} added to queue".format(session_id, task.name))
         return True
 

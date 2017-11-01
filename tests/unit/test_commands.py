@@ -68,16 +68,19 @@ class CommonCommandsTestCase(BaseTestCase):
         ), patch(
             'flask.current_app.sessions', Mock()
         ):
-            from core.db.models import Session
+            from core.db.models import Session, Provider, Endpoint
             self.session = Session('origin_1')
             self.session.name = "session1"
 
-            vm = PropertyMock()
+            provider = Provider(name='noname', url='nourl')
+            vm = Endpoint(Mock(), '', provider)
             vm.name = 'vm1'
             vm.ip = self.host
-            vm.vnc_port = self.vnc_server.port
-            vm.selenium_port = self.webdriver_server.port
-            vm.agent_port = self.vmmaster_agent.port
+            vm.ports = {
+                '4455': self.webdriver_server.port,
+                '9000': self.vmmaster_agent.port,
+                '5900': self.vnc_server.port
+            }
             self.session.endpoint = vm
 
             self.session.run()
@@ -279,9 +282,6 @@ class TestCheckVmOnline(CommonCommandsTestCase):
     def setUp(self):
         super(TestCheckVmOnline, self).setUp()
         config.PING_TIMEOUT = 0
-        config.SELENIUM_PORT = self.webdriver_server.port
-        config.VMMASTER_AGENT_PORT = self.vmmaster_agent.port
-        config.VNC_PORT = self.vnc_server.port
 
         self._handler_get = Handler.do_GET
         self.response_body = "{}"
@@ -305,8 +305,6 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         self.assertTrue(result)
 
     def test_check_vm_online_ping_failed_timeout(self):
-        config.SELENIUM_PORT = get_free_port()
-
         self.assertRaises(
             CreationException, self.commands.ping_vm, self.session
         )
