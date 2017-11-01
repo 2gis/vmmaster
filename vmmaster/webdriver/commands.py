@@ -71,8 +71,7 @@ def start_session(request, session):
 
     selenium_session = json.loads(body)["sessionId"]
 
-    # refresh_and_save_session
-    session.refresh()  # FIXED BUG
+    session.refresh()
     session.selenium_session = selenium_session
     session.save()
 

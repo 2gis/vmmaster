@@ -213,7 +213,6 @@ class Session(Base, FeaturesMixin):
         return self.status == 'preparing'
 
     def add_session_step(self, control_line, body=None, created=None):
-        # refresh_and_save_session
         self.current_log_step = SessionLogStep(
             control_line=control_line,
             body=body,
@@ -243,7 +242,6 @@ class Session(Base, FeaturesMixin):
         return stat
 
     def start_timer(self):
-        # refresh_and_save_session
         self.modified = datetime.now()
         self.is_active = False
         self.save()
@@ -252,7 +250,6 @@ class Session(Base, FeaturesMixin):
         self.is_active = True
 
     def close(self, reason=None):
-        # refresh_and_save_session
         self.closed = True
         if reason:
             self.reason = "%s" % reason
@@ -282,17 +279,14 @@ class Session(Base, FeaturesMixin):
         self.close(reason)
 
     def set_status(self, status):
-        # refresh_and_save_session
         self.status = status
         self.save()
 
     def set_endpoint(self, endpoint):
-        # refresh_and_save_session
         self.endpoint = endpoint
         self.save()
 
     def set_screencast_started(self, value):
-        # refresh_and_save_session
         self.screencast_started = value
         self.save()
 
@@ -303,7 +297,6 @@ class Session(Base, FeaturesMixin):
         self.restore_current_log_step()
 
     def run(self):
-        # refresh_and_save_session
         self.modified = datetime.now()
         self.status = "running"
         self.save()
@@ -378,7 +371,6 @@ class Endpoint(Base, FeaturesMixin):
         self.save()
 
     def delete(self, try_to_rebuild=False):
-        # refresh_and_save_endpoint
         self.set_in_use(False)
         self.deleted_time = datetime.now()
         self.deleted = True
@@ -429,17 +421,14 @@ class Endpoint(Base, FeaturesMixin):
         self.set_mode("wait for service")
 
     def set_mode(self, mode):
-        # refresh_and_save_endpoint
         self.mode = mode
         self.save()
 
     def set_ready(self, value):
-        # refresh_and_save_endpoint
         self.ready = value
         self.save()
 
     def set_in_use(self, value):
-        # refresh_and_save_endpoint
         if not value:
             self.used_time = datetime.now()
         self.in_use = value
@@ -548,7 +537,6 @@ class OpenstackClone(Endpoint):
             "Creating openstack clone of {} with image={}, "
             "flavor={}".format(self.name, self.image, self.flavor))
 
-        # refresh_and_save_endpoint
         self.ports = {"{}".format(port): port for port in config.PORTS}
         self.save()
         kwargs = {
@@ -624,7 +612,6 @@ class OpenstackClone(Endpoint):
 
             elif self.is_created(server):
                 if not self.ip:
-                    # refresh_and_save_endpoint
                     self.ip = self.get_ip()
                     self.save()
                 if self.ping_vm():
@@ -754,7 +741,6 @@ class DockerClone(Endpoint):
         return self.ports.get(str(config.VMMASTER_AGENT_PORT))
 
     def refresh_endpoint(self):
-        # refresh_and_save_endpoint
         self.refresh()
         __container = self.get_container()
         if __container:
@@ -806,7 +792,6 @@ class DockerClone(Endpoint):
 
     @clone_refresher
     def create(self):
-        # refresh_and_save_endpoint
         self.__container = self.client.run_container(image=self.image, name=self.name)
         self.refresh()
         self.ports = self.__container.ports
