@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import ArgumentError
 
 from core.config import config, setup_config
-from core.db.models import Session, User
+from core.db.models import Session, User, Endpoint
 from core.utils import change_user_vmmaster
 from core.utils.init import home_dir
 
@@ -105,9 +105,7 @@ def sessions_overflow(user, dbsession=None):
     return res
 
 
-def run():
-    log.info('Running cleanup...')
-    change_user_vmmaster()
+def sessions_to_delete():
     sessions = []
     for user in get_users():
         to_delete = sessions_overflow(user)
@@ -115,5 +113,27 @@ def run():
             log.debug(
                 "%s sessions found for %s" % (len(to_delete), user.username))
             sessions += to_delete
+    return sessions
 
-    delete_session_data(sessions)
+
+@transaction
+def endpoints_to_delete(dbsession=None):
+    return dbsession.query(Endpoint).filter_by(deleted=True, sessions=None).order_by(Endpoint.id).all()
+
+
+@transaction
+def delete_endpoints(dbsession=None):
+    endpoints = endpoints_to_delete()
+    log.info('Got {} endpoints to delete'.format(len(endpoints)))
+    for endpoint in endpoints:
+        log.info('Deleting endpoint {}'.format(endpoint.id))
+        dbsession.delete(endpoint)
+        dbsession.commit()
+
+
+def run():
+    log.info('Running cleanup...')
+    change_user_vmmaster()
+
+    delete_session_data(sessions_to_delete())
+    delete_endpoints()

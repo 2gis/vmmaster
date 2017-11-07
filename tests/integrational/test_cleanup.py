@@ -91,3 +91,29 @@ class TestCleanup(unittest.TestCase):
         self.assertIn(session2.id, session_ids_to_delete)
 
         self.cleanup.delete_session_data([session1, session2])
+
+    def test_endpoints_cleanup(self):
+        """
+        - endpoint1 linked with session
+        - endpoint2 not linked with session
+        - both endpoints mark as 'deleted'
+        expected: endpoint1 deleted, endpoint2 not deleted
+        """
+        class FakeOrigin(str):
+            short_name = 'fake_short_name'
+
+        from core.db.models import Session, Endpoint, Provider
+        provider = Provider('name', 'url')
+        endpoint1 = Endpoint(origin=FakeOrigin('fake'), prefix='prefix', provider=provider)
+        endpoint2 = Endpoint(origin=FakeOrigin('fake'), prefix='prefix', provider=provider)
+        endpoint1.deleted, endpoint2.deleted = True, True
+        endpoint1.save(), endpoint2.save()
+
+        session = Session(platform='some_platform', name='__test_keep_forever_sessions_1')
+        session.refresh()
+        session.endpoint = endpoint1
+        session.save()
+
+        endpoints_to_delete = [e.id for e in self.cleanup.endpoints_to_delete()]
+        self.assertNotIn(endpoint1.id, endpoints_to_delete)
+        self.assertIn(endpoint2.id, endpoints_to_delete)
