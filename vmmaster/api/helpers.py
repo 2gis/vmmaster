@@ -13,7 +13,7 @@ def get_platforms():
 
 
 def get_endpoints():
-    return current_app.database.get_active_endpoints_dict()
+    return current_app.database.get_endpoints_dict()
 
 
 def get_session(session_id):

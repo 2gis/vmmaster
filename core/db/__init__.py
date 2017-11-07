@@ -99,8 +99,11 @@ class Database(object):
             return None
 
     @transaction
-    def get_endpoints(self, provider_id, efilter="all", dbsession=None):
-        base_query = dbsession.query(Endpoint).filter_by(provider_id=provider_id)
+    def get_endpoints(self, provider_id=None, efilter="all", dbsession=None):
+        base_query = dbsession.query(Endpoint)
+        if provider_id:
+            base_query = base_query.filter_by(provider_id=provider_id)
+
         if efilter == "all":
             return base_query.all()
 
@@ -152,15 +155,15 @@ class Database(object):
         return res
 
     @transaction
-    def get_active_endpoints_dict(self, dbsession=None):
-        endpoints = {}
-        for provider in dbsession.query(Provider).filter_by(active=True).all():
-            endpoints.update(self.get_endpoints_dict(provider.id, dbsession=dbsession))
+    def get_endpoints_dict(self, provider_id=None, dbsession=None):
+        if provider_id:
+            endpoints_list = self.get_endpoints(provider_id=provider_id, efilter="active", dbsession=dbsession)
+        else:
+            endpoints_list = self.get_endpoints(efilter="active", dbsession=dbsession)
+        return self._format_endpoints_dict(endpoints_list)
 
-        return endpoints
-
-    @transaction
-    def get_endpoints_dict(self, provider_id, dbsession=None):
+    @staticmethod
+    def _format_endpoints_dict(endpoints_list):
         def print_view(e):
             return {
                 "name": e.name,
@@ -189,8 +192,8 @@ class Database(object):
             },
             "total": 0,
         }
-        provider = self.get_provider(provider_id, dbsession=dbsession)
-        for endpoint in provider.endpoints:
+
+        for endpoint in endpoints_list:
             if endpoint.deleted:
                 continue
             if endpoint.in_pool:

@@ -271,7 +271,7 @@ class VirtualMachinesPool(object):
 
     @property
     def info(self):
-        return self.app.database.get_endpoints_dict(self.provider.id)
+        return self.app.database.get_endpoints_dict(provider_id=self.provider.id)
 
     def check_platform(self, platform):
         return self.platforms.check_platform(platform)

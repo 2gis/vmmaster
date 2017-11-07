@@ -114,12 +114,6 @@ class DockerPlatforms(PlatformsInterface):
         # FIXME: make classmethod
         return DockerPlatforms.max_count()
 
-    def get_endpoint(self, endpoint_id):
-        return self.database.get_endpoint(self.clone_class, endpoint_id)
-
-    def get_endpoints(self, provider_id, efilter="all"):
-        return self.database.get_endpoints(self.clone_class, provider_id, efilter=efilter)
-
 
 class OpenstackPlatforms(PlatformsInterface):
     def __init__(self, database):
@@ -159,12 +153,6 @@ class OpenstackPlatforms(PlatformsInterface):
     @staticmethod
     def get_limit(platform):
         return OpenstackPlatforms.max_count()
-
-    def get_endpoint(self, endpoint_id):
-        return self.database.get_endpoint(self.clone_class, endpoint_id)
-
-    def get_endpoints(self, provider_id, efilter="all"):
-        return self.database.get_endpoints(self.clone_class, provider_id, efilter=efilter)
 
 
 class Platforms(object):
@@ -228,7 +216,7 @@ class Platforms(object):
         return self.db.get_endpoint(endpoint_id)
 
     def get_endpoints(self, efilter="all"):
-        return self.db.get_endpoints(self.provider_id, efilter)
+        return self.db.get_endpoints(provider_id=self.provider_id, efilter=efilter)
 
     def get_all_endpoints(self):
         return self.get_endpoints(efilter="all")
