@@ -141,13 +141,17 @@ def swap_session(req, desired_session):
 def transparent():
     status, headers, body = None, None, None
     swap_session(request, request.session.selenium_session)
-    for status, headers, body in request.session.make_request(
-        request.session.endpoint.selenium_port,
-        RequestHelper(
-            request.method, request.path, request.headers, request.data
-        )
-    ):
-        yield status, headers, body
+    try:
+        for status, headers, body in request.session.make_request(
+            request.session.endpoint.selenium_port,
+            RequestHelper(
+                request.method, request.path, request.headers, request.data
+            )
+        ):
+            yield status, headers, body
+    except:
+        utils.to_thread(take_screenshot_from_session(request.session))
+        raise
 
     swap_session(request, str(request.session.id))
     yield status, headers, body
