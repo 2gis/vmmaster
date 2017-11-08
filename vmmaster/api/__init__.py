@@ -37,7 +37,14 @@ def status():
         'sessions': helpers.get_sessions(),
         'queue': helpers.get_queue(),
         'platforms': helpers.get_platforms(),
-        'pool': helpers.get_endpoints()
+        'endpoints': helpers.get_endpoints()
+    })
+
+
+@api.route('/endpoints')
+def get_endpoints_from_active_providers():
+    return render_json({
+        'endpoints': helpers.get_endpoints()
     })
 
 
