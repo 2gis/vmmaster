@@ -218,12 +218,11 @@ def take_screenshot(session):
         session.endpoint.agent_port,
         network_utils.RequestHelper(method="GET", url="/takeScreenshot")
     ):
-        yield None
+        pass
+
     if status == httplib.OK and body:
         json_response = json.loads(body)
-        yield json_response["screenshot"]
-    else:
-        yield None
+        return json_response.get("screenshot", None)
 
 
 @connection_watcher

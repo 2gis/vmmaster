@@ -86,12 +86,7 @@ def take_screenshot_from_response(session, body):
 
 
 def take_screenshot_from_session(session):
-    if session.take_screenshot:
-        for screenshot in commands.take_screenshot(session):
-            pass
-    else:
-        screenshot = None
-
+    screenshot = commands.take_screenshot(session) if session.take_screenshot else None
     save_screenshot(session, screenshot)
 
 
@@ -150,7 +145,7 @@ def transparent():
         ):
             yield status, headers, body
     except:
-        utils.to_thread(take_screenshot_from_session(request.session))
+        take_screenshot_from_session(request.session)
         raise
 
     swap_session(request, str(request.session.id))
