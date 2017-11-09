@@ -26,6 +26,7 @@ class EndpointRemover(Thread):
     def remove_endpoint(self, endpoint, try_to_rebuild=False):
         with self.app_context():
             try:
+                log.info("{} service was started".format(endpoint))
                 endpoint.service_mode_on()
                 session = self.database.get_session_by_endpoint_id(endpoint.id)
                 if session:
@@ -34,9 +35,11 @@ class EndpointRemover(Thread):
                     self.artifact_collector.wait_for_complete(session.id)
                 endpoint.delete(try_to_rebuild=try_to_rebuild)
                 endpoint.service_mode_off()
+                log.info("{} service was completed".format(endpoint))
             except AddTaskException:
                 endpoint.delete(try_to_rebuild=False)
                 endpoint.service_mode_off()
+                log.info("{} service was aborted".format(endpoint))
             except:
                 log.exception("Attempt to remove {} was failed".format(endpoint))
                 endpoint.send_to_service()
