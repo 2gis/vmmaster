@@ -31,6 +31,7 @@ COPY vmmaster /app/vmmaster
 COPY vmpool /app/vmpool
 COPY ./tox.ini /app/tox.ini
 COPY ./config_template.py /app/config.py
+COPY ./config_template.py /app/tests/integrational/data/config.py
 COPY ./manage.py /app/manage.py
 COPY ./versioneer.py /app/versioneer.py
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
