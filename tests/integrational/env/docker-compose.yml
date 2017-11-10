@@ -1,0 +1,35 @@
+version: "2"
+
+services:
+  db:
+    image: postgres:10.0-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    volumes:
+     - ./db-init.sql:/tmp/db-init.sql
+     - ./db-init.sh:/docker-entrypoint-initdb.d/init.sh
+
+  db-migrate:
+    image: ${IMAGE}:${CI_TAG}
+    environment:
+      - DATABASE=postgresql+psycopg2://vmmaster:vmmaster@db/vmmaster_db
+      - LOG_TYPE=plain
+      - LOG_LEVEL=INFO
+    command: python manage.py migrations
+    depends_on:
+      - "db"
+
+  test-integrational:
+    image: ${IMAGE}:${CI_TAG}
+    command: "tox -e int"
+    volumes:
+     - ./docker-entrypoint.sh:/docker-entrypoint.sh
+    environment:
+      - DATABASE=postgresql+psycopg2://vmmaster:vmmaster@db/vmmaster_db
+      - USE_OPENSTACK=true
+      - OPENSTACK_MAX_VM_COUNT=2
+      - OPENSTACK_PLATFORM_NAME_PREFIX=test_
+    depends_on:
+      - "db"
+      - "db-migrate"
