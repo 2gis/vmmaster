@@ -76,7 +76,15 @@ class SeleniumMatcher(IMatcher):
         :param version: str
         :return: boolean
         """
-        return desired_version == constants.ANY or desired_version in version
+        if desired_version == constants.ANY:
+            return True
+        elif version == desired_version:
+            log.debug('Requested browserVersion={}. Full match found'.format(desired_version))
+            return True
+        elif version.split('.')[0] == desired_version:
+            log.debug('Requested browserVersion={}. Matches to {}'.format(desired_version, version))
+            return True
+        return False
 
     def _filter_platforms_by_browser_match(self, platforms, desired_browser, desired_version):
         """
@@ -118,8 +126,12 @@ class SeleniumMatcher(IMatcher):
         log.debug("Matched platforms found for dc={}: {}".format(dc, matched_platforms))
 
         if matched_platforms:
-            desired_browser = dc.get('browserName', constants.ANY)
-            desired_version = dc.get('version', constants.ANY)
+            desired_browser = dc.get('browserName')
+            if not desired_browser:
+                log.warning('Empty browser in DesiredCapabilities={}. Cannot match'.format(dc))
+                return []
+
+            desired_version = dc.get('version') or constants.ANY  # escape empty version
             return self._filter_platforms_by_browser_match(matched_platforms, desired_browser, desired_version)
 
         if self.fallback:

@@ -49,6 +49,14 @@ class TestSeleniumMatcherPositive(BaseTestCase):
                         'browsers': {'chrome': '58.222', 'firefox': '10'}
                     },
                     'ubuntu_3': {},
+                },
+                'WINDOWS': {
+                    'win_1': {
+                        'browsers': {'internet explorer': '11.0.9600.16384'}
+                    },
+                    'win_2': {
+                        'browsers': {'internet explorer': '9.0.8112.16421'}
+                    },
                 }
             }
         )
@@ -86,10 +94,28 @@ class TestSeleniumMatcherPositive(BaseTestCase):
         self.assertTrue(self.matcher.match(dc))
         self.assertListEqual(['ubuntu_1'], self.matcher.get_matched_platforms(dc))
 
+    def test_browser_with_partial_ver(self):
+        dc = {
+            'platform': 'ANY',
+            'browserName': 'internet explorer',
+            'version': '9'
+        }
+        self.assertTrue(self.matcher.match(dc))
+        self.assertListEqual(['win_2'], self.matcher.get_matched_platforms(dc))
+
     def test_linux_chrome_without_version(self):
         dc = {
             'platform': 'linux',
             'browserName': 'chrome',
+        }
+        self.assertTrue(self.matcher.match(dc))
+        self.assertListEqual(['ubuntu_1', 'ubuntu_2'], sorted(self.matcher.get_matched_platforms(dc)))
+
+    def test_linux_chrome_empty_version(self):
+        dc = {
+            'platform': 'linux',
+            'browserName': 'chrome',
+            'version': '',
         }
         self.assertTrue(self.matcher.match(dc))
         self.assertListEqual(['ubuntu_1', 'ubuntu_2'], sorted(self.matcher.get_matched_platforms(dc)))
@@ -120,6 +146,14 @@ class TestSeleniumMatcherPositive(BaseTestCase):
         }
         self.assertTrue(self.matcher.match(dc))
         self.assertListEqual(['ubuntu_1', 'ubuntu_2'], sorted(self.matcher.get_matched_platforms(dc)))
+
+    def test_any_platform_with_empty_browser(self):
+        dc = {
+            'platform': 'ANY',
+            'browserName': '',
+        }
+        self.assertFalse(self.matcher.match(dc))
+        self.assertListEqual([], self.matcher.get_matched_platforms(dc))
 
 
 class TestMatcherFallback(BaseTestCase):
