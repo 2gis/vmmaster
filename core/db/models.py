@@ -363,7 +363,7 @@ class Endpoint(Base, FeaturesMixin):
     }
 
     def __str__(self):
-        return "{name}({ip})".format(name=self.name, ip=self.ip)
+        return "Endpoint {name}({ip})".format(name=self.name, ip=self.ip)
 
     def __init__(self, origin, prefix, provider):
         self.origin = origin
@@ -428,7 +428,10 @@ class Endpoint(Base, FeaturesMixin):
         self.set_mode("default")
 
     def send_to_service(self):
-        self.set_mode("wait for service")
+        log.debug("Try to send to service {}".format(self))
+        if not self.deleted:
+            log.info("Setting 'wait for service' status for endpoint {}".format(self))
+            self.set_mode("wait for service")
 
     def set_mode(self, mode):
         self.mode = mode
