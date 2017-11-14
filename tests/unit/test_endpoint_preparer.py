@@ -186,6 +186,22 @@ class TestEndpointPreparer(BaseTestCase):
         self.assertTrue(session.set_status.called)
         self.assertEqual(session.set_status.call_count, 2)
 
+    def test_preparing_while_cannot_produce(self):
+        from vmpool.endpoint import EndpointPreparer
+
+        session = MagicMock(closed=False, endpoint_id=None, is_preparing=PropertyMock(return_value=False))
+        pool = Mock(can_produce=Mock(return_value=False))
+        preparer = EndpointPreparer(
+            pool=pool, sessions=Mock(active=Mock(return_value=[session])),
+            artifact_collector=Mock(), app_context=app_context
+        )
+        preparer.prepare_endpoint = Mock()
+        type(preparer).running = PropertyMock(return_value=True)
+
+        preparer._run_tasks()
+
+        self.assertFalse(preparer.prepare_endpoint.called)
+
     def test_prepare_endpoint_with_exception(self):
         from vmpool.endpoint import EndpointPreparer
         session = Mock(set_status=Mock(side_effect=Exception("Error")), closed=False,

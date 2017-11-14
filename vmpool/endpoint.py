@@ -147,7 +147,13 @@ class EndpointPreparer(Thread):
                 session.refresh()
                 if session.is_running and not session.screencast_started and session.take_screencast:
                     self.start_screencast(session)
-                elif session.is_waiting and self.pool.check_platform(session.platform):
+                elif session.is_waiting:
+                    if not self.pool.check_platform(session.platform):
+                        continue
+
+                    if not self.pool.can_produce(session.platform):
+                        continue
+
                     self.prepare_endpoint(session)
 
     def run(self):
