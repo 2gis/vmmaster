@@ -61,8 +61,8 @@ class Sessions(object):
     def stop_workers(self):
         self.worker.stop()
 
-    def active(self):
-        return self.app.database.get_active_sessions()
+    def active(self, provider_id=None):
+        return self.app.database.get_active_sessions(provider_id=provider_id)
 
     def running(self):
         return [s for s in self.active() if s.status == "running"]

@@ -104,6 +104,7 @@ class Session(Base, FeaturesMixin):
     id = Column(Integer, Sequence('session_id_seq'), primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='SET NULL'), default=1)
     endpoint_id = Column(ForeignKey('endpoints.id', ondelete='SET NULL'))
+    provider_id = Column(ForeignKey('providers.id', ondelete='SET NULL'))
     name = Column(String)
     platform = Column(String)
     dc = Column(String)
@@ -151,8 +152,9 @@ class Session(Base, FeaturesMixin):
         )
     )
 
-    def __init__(self, platform, name=None, dc=None):
+    def __init__(self, platform, name=None, dc=None, provider_id=None):
         self.platform = platform
+        self.provider_id = provider_id
 
         if name:
             self.name = name

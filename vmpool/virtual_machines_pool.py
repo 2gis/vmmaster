@@ -72,6 +72,8 @@ class VirtualMachinesPool(object):
 
         self.app = app
         self.platforms = platforms_class(self.app.database)
+        self.register()
+
         self.preloader = preloader_class(self)
         self.artifact_collector = artifact_collector_class(self.app.database)
         self.endpoint_remover = endpoint_remover_class(
@@ -125,7 +127,6 @@ class VirtualMachinesPool(object):
         return self.platforms.on_service
 
     def start_workers(self):
-        self.register()
         self.preloader.start()
         self.endpoint_preparer.start()
         self.endpoint_remover.start()

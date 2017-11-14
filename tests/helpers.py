@@ -219,7 +219,7 @@ class DatabaseMock(Mock):
         super(DatabaseMock, self).__init__(*args, **kwargs)
         self.add = Mock(side_effect=set_primary_key)
 
-    def get_active_sessions(self):
+    def get_active_sessions(self, provider_id=None):
         return self.active_sessions.values()
 
     def get_session(self, session_id):

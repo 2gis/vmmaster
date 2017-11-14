@@ -185,11 +185,11 @@ def get_session():
     profiler.register_get_session_call()
 
     dc = commands.get_desired_capabilities(request)
-    matched_platforms = current_app.get_matched_platforms(dc)
-    if not matched_platforms:
+    matched_platform, provider_id = current_app.get_matched_platforms(dc)
+    if not matched_platform:
         raise SessionException("Cannot match platform for DesiredCapabilities: {}".format(dc))
 
-    session = Session(platform=matched_platforms[0], dc=dc)
+    session = Session(platform=matched_platform, dc=dc, provider_id=provider_id)
     request.session = session
     log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
     yield session

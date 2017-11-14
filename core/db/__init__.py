@@ -62,8 +62,11 @@ class Database(object):
             return None
 
     @transaction
-    def get_active_sessions(self, dbsession=None):
-        return dbsession.query(Session).filter(Session.closed.is_(False)).all()
+    def get_active_sessions(self, provider_id=None, dbsession=None):
+        query = dbsession.query(Session)
+        if provider_id:
+            query = query.filter_by(provider_id=provider_id)
+        return query.filter(Session.closed.is_(False)).all()
 
     @transaction
     def get_last_session_step(self, session_id, dbsession=None):

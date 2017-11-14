@@ -72,6 +72,7 @@ class EndpointPreparer(Thread):
         self.app_context = app_context
         self.sessions = sessions
         self.artifact_collector = artifact_collector
+        self.provider_id = pool.provider.id
 
     @call_in_thread
     def prepare_endpoint(self, session, get_endpoint_attempts=constants.GET_ENDPOINT_ATTEMPTS):
@@ -143,7 +144,7 @@ class EndpointPreparer(Thread):
 
     def _run_tasks(self):
         with self.app_context():
-            for session in self.sessions.active():
+            for session in self.sessions.active(provider_id=self.provider_id):
                 session.refresh()
                 if session.is_running and not session.screencast_started and session.take_screencast:
                     self.start_screencast(session)

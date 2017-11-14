@@ -46,8 +46,9 @@ class Vmmaster(Flask):
             )
             matched_platforms = matcher.get_matched_platforms(dc)
             if matched_platforms:
-                return matched_platforms
-        return []
+                return matched_platforms[0], provider.id
+
+        return None, None
 
 
 def register_blueprints(app):
