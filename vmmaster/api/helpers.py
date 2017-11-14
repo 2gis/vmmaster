@@ -25,17 +25,11 @@ def get_session(session_id):
 
 
 def get_sessions():
-    sessions = list()
-    for session in current_app.sessions.active():
-        sessions.append(session.info)
-    return sessions
+    return [session.info for session in current_app.sessions.active()]
 
 
 def get_queue():
-    queue = list()
-    for session in current_app.sessions.waiting():
-        queue.append(session.info)
-    return queue
+    return [session.info for session in current_app.sessions.waiting()]
 
 
 def get_user(user_id):

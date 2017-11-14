@@ -235,8 +235,6 @@ class Session(Base, FeaturesMixin):
             "duration": self.duration,
             "inactivity": self.inactivity,
         }
-
-        self.refresh()
         if self.endpoint:
             stat["endpoint"] = {
                 "ip": self.endpoint.ip,
