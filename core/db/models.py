@@ -364,19 +364,12 @@ class Endpoint(Base, FeaturesMixin):
         return "Endpoint {name}({ip})".format(name=self.name, ip=self.ip)
 
     def __init__(self, origin, prefix, provider):
+        self.name = "{}-p{}-{}".format(prefix, provider.id, str(uuid4())[:8])
         self.origin = origin
         self.provider = provider
         self.created_time = datetime.now()
         self.platform_name = origin.short_name
         self.add()
-
-        name_prefix = "{}-p{}".format(prefix, provider.id)
-        if name_prefix:
-            self.name = "{}-{}".format(name_prefix, self.id)
-        else:
-            self.name = "Unnamed endpoint(id={}, platform={})".format(str(self.id), self.platform_name)
-
-        self.save()
 
     def delete(self, try_to_rebuild=False):
         self.set_in_use(False)
