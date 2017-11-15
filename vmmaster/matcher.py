@@ -135,7 +135,7 @@ class SeleniumMatcher(IMatcher):
             return self._filter_platforms_by_browser_match(matched_platforms, desired_browser, desired_version)
 
         if self.fallback:
-            log.info('Using fallback matcher {} for platform {}'.format(
+            log.debug('Using fallback matcher {} for platform {}'.format(
                 self.fallback.__class__.__name__, desired_platform_type)
             )
             return self.fallback.get_matched_platforms(desired_platform_type)

@@ -964,11 +964,13 @@ class Provider(Base, FeaturesMixin):
     url = Column(String, nullable=True)
     active = Column(Boolean, default=False)
     config = Column(JSON, default={})
+    max_limit = Column(Integer, default=0)
 
-    def __init__(self, name, url, config=None, active=True):
+    def __init__(self, name, url, config=None, active=True, max_limit=0):
         self.name = name
         self.url = url
         self.active = active
+        self.max_limit = max_limit
 
         if config:
             self.config = config

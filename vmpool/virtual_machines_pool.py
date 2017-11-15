@@ -91,7 +91,8 @@ class VirtualMachinesPool(object):
         self.provider = self.app.database.register_provider(
             name=self.name,
             url=self.url,
-            platforms=config.PLATFORMS
+            platforms=config.PLATFORMS,
+            max_limit=self.platforms.max_count()
         )
         self.platforms.provider_id = self.provider.id
         self.register_platforms()

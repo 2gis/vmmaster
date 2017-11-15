@@ -227,14 +227,15 @@ class Database(object):
         dbsession.commit()
 
     @transaction
-    def register_provider(self, name, url, platforms, dbsession=None):
+    def register_provider(self, name, url, platforms, max_limit, dbsession=None):
         provider = dbsession.query(Provider).filter_by(url=url).first()
         if provider:
             provider.active = True
             provider.name = name
             provider.config = platforms
+            provider.max_limit = max_limit
         else:
-            provider = Provider(name=name, url=url, config=platforms)
+            provider = Provider(name=name, url=url, config=platforms, max_limit=max_limit)
         self.add(provider)
         return provider
 

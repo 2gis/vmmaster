@@ -38,6 +38,8 @@ class Vmmaster(Flask):
 
     def get_matched_platforms(self, dc):
         from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
+        providers_platforms, limits = {}, {}
+
         for provider in self.providers:
             platforms = self.database.get_platforms(provider.id)
             matcher = SeleniumMatcher(
@@ -45,10 +47,29 @@ class Vmmaster(Flask):
                 fallback_matcher=PlatformsBasedMatcher(platforms)
             )
             matched_platforms = matcher.get_matched_platforms(dc)
-            if matched_platforms:
-                return matched_platforms[0], provider.id
+            if matched_platforms and provider.max_limit:
+                providers_platforms[provider.id] = matched_platforms
+                limits[provider.id] = provider.max_limit
+
+        if not providers_platforms:
+            return None, None
+
+        provider_id = self.get_provider_id(limits)
+        if provider_id:
+            return providers_platforms[provider_id][0], provider_id
 
         return None, None
+
+    def get_provider_id(self, limits):
+        availables = {}
+
+        for provider_id, limit in limits.items():
+            sessions = self.sessions.active(provider_id=provider_id)
+            availables[provider_id] = limit - len(sessions)
+
+        if availables:
+            max_value = max(availables.values())
+            return availables.keys()[availables.values().index(max_value)]
 
 
 def register_blueprints(app):

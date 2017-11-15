@@ -191,7 +191,7 @@ def get_session():
 
     session = Session(platform=matched_platform, dc=dc, provider_id=provider_id)
     request.session = session
-    log.info("New session %s (%s) for %s" % (str(session.id), session.name, str(dc)))
+    log.info("New session {}({}) on provider {} with dc: {}".format(session.id, session.name, provider_id, dc))
     yield session
 
     start_time = time.time()
