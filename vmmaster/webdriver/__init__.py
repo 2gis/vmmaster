@@ -171,7 +171,8 @@ def vmmaster_command(session_id):
 def proxy_request(session_id, url=None):
     request.session = current_app.sessions.get_session(session_id)
 
-    status, headers, body = helpers.transparent()
+    with profiler.requests_duration(helpers.get_webdriver_command(request.path)):
+        status, headers, body = helpers.transparent()
 
     take_screenshot(status, body)
     return helpers.form_response(status, headers, body)

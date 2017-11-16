@@ -62,6 +62,13 @@ def connection_watcher(func):
     return wrapper
 
 
+def get_webdriver_command(proxy_request_path):
+    """
+    Parse <command> from strings like: '/wd/hub/session/x/<command>/bla/bla'
+    """
+    return proxy_request_path.lstrip('/wd/hub/session/').split('/', 2)[1]
+
+
 def save_screenshot(session, screenshot):
     if screenshot:
         log_step = session.current_log_step
