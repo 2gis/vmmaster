@@ -65,7 +65,7 @@ class TestHttpProxy(BaseTestCase):
             "Connection was refused by other side: 111: Connection refused.",
             response.content)
 
-    def test_proxy_to_session_that_doesnt_exist(self):
+    def test_proxy_to_session_that_was_closed(self):
         self.session.succeed()
         with patch(
             'flask.current_app.database.get_session',
@@ -76,7 +76,7 @@ class TestHttpProxy(BaseTestCase):
                 (self.host, self.port, self.session.id, self.free_port)
             )
         self.assertIn(
-            "There is no active session %s" % self.session.id,
+            "Session {}(None) already closed earlier".format(self.session.id),
             response.content
         )
 

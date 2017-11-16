@@ -83,7 +83,7 @@ class Sessions(object):
             log.debug("Recovering {} from db".format(session))
             session.restore()
         elif getattr(session, "closed", False):
-            raise SessionException("There is no active session {} ({})".format(session_id, session.reason))
+            raise SessionException("Session {}({}) already closed earlier".format(session_id, session.reason))
         else:
             raise SessionException("There is no active session {} (Unknown session)".format(session_id))
 

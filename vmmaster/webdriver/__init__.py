@@ -43,7 +43,7 @@ def get_vmmaster_session(request):
         session_id = commands.get_session_id(request.path)
 
         try:
-            session = current_app.sessions.get_session(session_id)
+            session = current_app.sessions.get_session(session_id, maybe_closed=True)
         except SessionException:
             session = None
 

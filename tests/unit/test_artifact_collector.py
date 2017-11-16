@@ -142,7 +142,7 @@ class TestArtifactCollector(BaseTestCase):
 
         with open(session.selenium_log, 'r') as f:
             text = f.read()
-            self.assertEqual(text, '[Errno 111] Connection refused')
+            self.assertIn('Connection refused', text)
 
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))

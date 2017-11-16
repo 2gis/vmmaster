@@ -145,6 +145,7 @@ class TestServer(BaseTestFlaskApp):
         session = Session('some_platform')
         session.selenium_session = '1'
         session.succeed()
+        self.app.database.get_session = Mock(return_value=session)
 
         with patch(
             'flask.current_app.database.get_session',
@@ -152,10 +153,8 @@ class TestServer(BaseTestFlaskApp):
         ):
             response = get_session_request(self.vmmaster_client, session.id)
         self.assertIn(
-            "SessionException: There is no active session %s"
-            % session.id, response.data
+            "SessionException: Session {}(None) already closed earlier".format(session.id), response.data
         )
-        session.close()
 
     def test_get_timeouted_session(self):
         """
@@ -166,6 +165,7 @@ class TestServer(BaseTestFlaskApp):
         from core.db.models import Session
         session = Session('some_platform')
         session.selenium_session = '1'
+        session.add_session_step = Mock()
         session.timeout()
 
         with patch(
@@ -174,13 +174,11 @@ class TestServer(BaseTestFlaskApp):
         ):
             response = get_session_request(self.vmmaster_client, session.id)
         self.assertIn(
-            "SessionException: There is no active session %s"
-            % session.id, response.data
+            "SessionException: Session {}(Session timeout. No activity since None) already closed earlier".format(
+                session.id), response.data
         )
-        self.assertIn(
-            "Session timeout. No activity since", response.data
-        )
-        session.close()
+        self.assertEqual(session.add_session_step.call_count, 2)
+        self.assertTrue(session.closed)
 
     @patch(
         'core.db.models.Session.make_request',
@@ -193,20 +191,20 @@ class TestServer(BaseTestFlaskApp):
     def test_delete_session(self):
         """
         - create new session
-        - try to get id from response
         - delete session by id
-        Expected: session deleted
+        Expected: session deleted, log step saved
         """
         from core.db.models import Session
         session = Session('some_platform')
         session.succeed = Mock()
         session.add_session_step = Mock()
+        self.app.database.get_session = Mock(return_value=session)
 
-        with patch('flask.current_app.sessions.get_session',
-                   Mock(return_value=session)):
-            response = delete_session_request(self.vmmaster_client, session.id)
-            session.succeed.assert_called_once_with()
+        response = delete_session_request(self.vmmaster_client, session.id)
+
         self.assertEqual(200, response.status_code)
+        self.assertTrue(session.succeed.called)
+        self.assertEqual(session.add_session_step.call_count, 2)
         session.close()
 
     @patch(
@@ -217,29 +215,26 @@ class TestServer(BaseTestFlaskApp):
         'vmmaster.webdriver.helpers.transparent',
         Mock(side_effect=transparent_mock)
     )
-    def test_delete_session_if_got_session_but_session_not_exist(self):
+    def test_delete_session_if_got_session_but_session_was_closed(self):
         """
         - create new session
-        - try to get id from response
+        - close session
         - delete session by id
-        - mocking get_session
-        - repeat deleting session
-        Expected: session deleted
+        Expected: session deleted, log step saved
         """
         from core.db.models import Session
         session = Session('some_platform')
-        session.succeed = Mock()
         session.add_session_step = Mock()
+        session.close(reason="it's testing")
+        self.app.database.get_session = Mock(return_value=session)
 
-        with patch(
-            'core.sessions.Sessions.get_session',
-            Mock(return_value=session)
-        ):
-            response = delete_session_request(self.vmmaster_client, session.id)
-            self.assertEqual(200, response.status_code)
-            response2 = delete_session_request(self.vmmaster_client, session.id)
-            self.assertEqual(200, response2.status_code)
-        session.close()
+        response = delete_session_request(self.vmmaster_client, session.id)
+
+        self.assertEqual(500, response.status_code)
+        self.assertTrue(
+            "SessionException: Session {}(it's testing) already closed".format(session.id) in response.data
+        )
+        self.assertEqual(session.add_session_step.call_count, 2)
 
     @patch(
         'vmmaster.webdriver.helpers.is_request_closed',
@@ -247,22 +242,22 @@ class TestServer(BaseTestFlaskApp):
     )
     def test_server_deleting_session_on_client_connection_drop(self):
         """
-        - create vmmaster session
+        - create session
         - close the connection
-        - try to get vmmaster session
-        Expected: vmmaster session deleted
+        - try to get session
+        Expected: session closed, log step saved
         """
         from core.db.models import Session
         session = Session('some_platform')
-        with patch(
-            'core.sessions.Sessions.get_session', Mock(return_value=session)
-        ), patch.object(
-            Session, 'close'
-        ) as mock:
-            get_session_request(self.vmmaster_client, session.id)
+        session.add_session_step = Mock()
+        self.app.database.get_session = Mock(return_value=session)
 
-            self.assertTrue(mock.called)
-            session.close()
+        response = get_session_request(self.vmmaster_client, session.id)
+
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(session.add_session_step.call_count, 2)
+        self.assertTrue(session.closed)
+        self.assertTrue("Client has disconnected" in response.data)
 
     @patch('flask.current_app.database.get_session', Mock(return_value=None))
     def test_delete_non_existing_session(self):
