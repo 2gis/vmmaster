@@ -37,9 +37,13 @@ def is_session_timeouted():
 
 
 def is_session_closed():
-    if hasattr(request, 'session') and request.session.closed:
-        return "Session %s closed (%s)" % \
-               (request.session.id, request.session.reason)
+    if hasattr(request, 'session'):
+        request.session.refresh()
+        if request.session.closed:
+            log.warning('CLOSED: {}'.format(request.session.closed))
+            log.warning(request.session.status)
+            return "Session %s closed (%s)" % \
+                   (request.session.id, request.session.reason)
     return None
 
 
@@ -47,17 +51,22 @@ def connection_watcher(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         for value in func(*args, **kwargs):
-            session_timeouted = is_session_timeouted()
-            session_closed = is_session_closed()
+            try:
+                session_timeouted = is_session_timeouted()
+                session_closed = is_session_closed()
 
-            if is_request_closed():
-                raise ConnectionError("Client has disconnected")
-            elif session_timeouted:
-                raise TimeoutException(session_timeouted)
-            elif session_closed:
-                raise SessionException(session_closed)
+                if is_request_closed():
+                    raise ConnectionError("Client has disconnected")
+                elif session_timeouted:
+                    raise TimeoutException(session_timeouted)
+                elif session_closed:
+                    log.warning('WE HERE, RAISING SESSION EXCEPTION')
+                    raise SessionException(session_closed)
 
-            time.sleep(0.01)
+                time.sleep(0.01)
+            except:
+                log.warning('AAAAAND WE DONE.')
+                raise
         return value
     return wrapper
 
@@ -200,6 +209,7 @@ def get_session():
         if time.time() - start_time >= config.GET_VM_TIMEOUT:
             raise CreationException("Timeout getting endpoint for {}".format(session))
         session.refresh()
+        yield session
 
     session.restore()
     session.run()

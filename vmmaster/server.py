@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from time import sleep
 import time
 import logging
 
@@ -23,12 +24,13 @@ class VMMasterServer(object):
         self.reactor = reactor
         self.reactor.addSystemEventTrigger('before', 'shutdown', self.before_shutdown)
         self.reactor.addSystemEventTrigger('during', 'shutdown', self.during_shutdown)
+        self.reactor.addSystemEventTrigger('after', 'shutdown', lambda: log.info('after shutdown'))
         self.reactor.suggestThreadPoolSize(config.REACTOR_THREAD_POOL_MAX)
 
         self.app = create_app()
-        self.thread_pool = ThreadPool(maxthreads=config.FLASK_THREAD_POOL_MAX)
-        self.thread_pool.start()
-        wsgi_resource = WSGIResource(self.reactor, self.thread_pool, self.app)
+        self.wsgi_thread_pool = ThreadPool(maxthreads=config.FLASK_THREAD_POOL_MAX)
+        self.wsgi_thread_pool.start()
+        wsgi_resource = WSGIResource(self.reactor, self.wsgi_thread_pool, self.app)
 
         root_resource = RootResource(wsgi_resource)
         root_resource.putChild("proxy", ProxyResource(self.app))
@@ -45,9 +47,12 @@ class VMMasterServer(object):
 
     def stop_services(self):
         log.info("Shutting down server...")
+        sleep(5)
         self.app.cleanup()
-        self.thread_pool.stop()
-        log.info("Server gracefully shut down")
+        sleep(5)
+        self.wsgi_thread_pool.stop()
+        log.info("hey, client, you ok?")
+        sleep(5)
         return maybeDeferred(self.bind.stopListening).addCallbacks(
             callback=lambda _: log.info("Port listening was stopped"),
             errback=lambda failure: log.error("Error while stopping port listening: {}".format(failure))
@@ -77,7 +82,7 @@ class VMMasterServer(object):
         def interrupt():
             with self.app.app_context():
                 for session in self.app.sessions.active():
-                    session.close('Interrupted by server shut down')
+                    session.failed('Interrupted by server shut down')
 
         return deferToThread(interrupt).addCallbacks(
             callback=lambda _: log.info("Sessions terminated"),
@@ -86,12 +91,19 @@ class VMMasterServer(object):
 
     @inlineCallbacks
     def before_shutdown(self):
+        log.info('before shutdown start')
         self.app.stop()
+        log.info('TERMINATE')
         if self._wait_for_end_active_sessions:
             yield self.wait_for_end_active_sessions()
         else:
             yield self.terminate_sessions()
+        log.info('before shutdown done')
+        sleep(10)
 
     @inlineCallbacks
     def during_shutdown(self):
+        log.info('during shutdown start')
         yield self.stop_services()
+        log.info("Server gracefully shut down")
+        log.info('during shutdown done')

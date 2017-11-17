@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify, g
+from flask import Blueprint, current_app, request, jsonify, g, Response
 
 from vmmaster.webdriver import commands, helpers
 
@@ -22,14 +22,16 @@ def selenium_error_response(message, selenium_code=13, status_code=500):
             "message": "%s" % message
         }
     }
-    return jsonify(error_context), status_code
+    res = jsonify(error_context), status_code
+    log.warning(res)
+    return res
 
 
 @webdriver.errorhandler(Exception)
 def handle_errors(error):
-    log.exception(error)
+    log.exception('ERROR HANDLER: {}'.format(error))
     tb = format_exc()
-    if hasattr(request, 'session'):
+    if hasattr(request, 'session') and not request.session.closed:
         request.session.failed(tb=tb, reason=error)
 
     return selenium_error_response("%s %s" % (error, tb))
@@ -114,7 +116,18 @@ def create_session():
         return selenium_error_response(message, status_code=502)
 
     with profiler.requests_duration(create_session.__name__):
-        session = helpers.get_session()
+        try:
+            session = helpers.get_session()
+        except:
+            log.warning('HERE? WTF FLASK?!!')
+            code = 500
+            body = "Something ugly happened. No real reply formed."
+            headers = {
+                'Content-Length': len(body)
+            }
+            return Response(response=body, status=code, headers=headers.items())
+            # return selenium_error_response('WTF FLASK', status_code=500)
+            raise
         log_request(session, request, created=g.started)  # because session id required for step
         commands.replace_platform_with_any(request)
         status, headers, body = commands.start_session(request, session)
