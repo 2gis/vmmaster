@@ -603,7 +603,7 @@ class TestHelpers(BaseTestCase):
         setup_config('data/config_openstack.py')
         super(TestHelpers, self).setUp()
         self.app = Flask('my_app')
-        self.app.get_matched_platforms = Mock(return_value=['origin_1'])
+        self.app.get_matched_platforms = Mock(return_value=('origin_1', 1))
         self.app.database = Mock()
         self.request_context = self.app.test_request_context()
         self.request_context.push()
