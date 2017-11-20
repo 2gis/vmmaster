@@ -33,11 +33,13 @@ COPY ./tox.ini /app/tox.ini
 COPY ./config_template.py /app/config.py
 COPY ./config_template.py /app/tests/integrational/data/config.py
 COPY ./manage.py /app/manage.py
-COPY ./versioneer.py /app/versioneer.py
 COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 
 ENV PYTHONPATH /app
 ENV PORT 9000
+
+ARG APP_VERSION=dirty
+ENV APP_VERSION ${APP_VERSION}
 
 EXPOSE $PORT
 CMD ["/bin/bash"]
