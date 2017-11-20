@@ -2,17 +2,18 @@
 
 import json
 import time
-from multiprocessing.pool import ThreadPool
-
-from mock import Mock, patch
 from uuid import uuid4
+from flask import Flask
+from mock import Mock, patch
+from multiprocessing.pool import ThreadPool
+from nose.twistedtools import reactor
+
 from core.config import setup_config, config
+from core.exceptions import SessionException
 from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, BaseTestCase, \
     DatabaseMock, custom_wait, request_mock, wait_for
-
-from nose.twistedtools import reactor
 
 
 def ping_vm_true_mock(arg=None, ports=None):
@@ -595,3 +596,24 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
             "SessionException: There is no active session 1 (Unknown session)",
             response.data
         )
+
+
+class TestHelpers(BaseTestCase):
+    def setUp(self):
+        setup_config('data/config_openstack.py')
+        super(TestHelpers, self).setUp()
+        self.app = Flask('my_app')
+        self.app.get_matched_platforms = Mock(return_value=['origin_1'])
+        self.app.database = Mock()
+        self.request_context = self.app.test_request_context()
+        self.request_context.push()
+
+    def tearDown(self):
+        self.request_context.pop()
+
+    def test_get_session_closed_before_endpoint_id(self):
+        with patch('vmmaster.webdriver.helpers.is_session_closed', Mock(side_effect=[False, True])),\
+             patch('vmmaster.webdriver.commands.get_desired_capabilities',
+                   Mock(return_value={'desiredCapabilities': {'platform': 'origin_1'}})):
+            from vmmaster.webdriver.helpers import get_session
+            self.assertRaises(SessionException, get_session)

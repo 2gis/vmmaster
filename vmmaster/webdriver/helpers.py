@@ -207,6 +207,7 @@ def get_session():
         if time.time() - start_time >= config.GET_VM_TIMEOUT:
             raise CreationException("Timeout getting endpoint for {}".format(session))
         session.refresh()
+        yield session
 
     session.restore()
     session.run()
