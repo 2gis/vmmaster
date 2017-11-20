@@ -3,6 +3,7 @@ import json
 
 import helpers
 import logging
+import os
 
 from flask import Blueprint, jsonify, request
 from core.config import config
@@ -16,6 +17,11 @@ def render_json(result, code=200):
     response['metacode'] = code
     response['result'] = result
     return jsonify(response)
+
+
+@api.route('/version')
+def version():
+    return render_json({'version': os.environ.get('APP_VERSION', 'unknown')})
 
 
 @api.route('/status')

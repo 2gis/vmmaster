@@ -68,21 +68,5 @@ def migrations():
     migrations.run(config.DATABASE)
 
 
-@manager.command
-def version():
-    """
-    Show application version
-    """
-    import versioneer
-
-    versioneer.VCS = 'git'
-    versioneer.versionfile_source = 'vmmaster/_version.py'
-    versioneer.versionfile_build = 'vmmaster/_version.py'
-    versioneer.tag_prefix = ''  # tags are like 0.1.0
-    versioneer.parentdir_prefix = 'vmmaster-'  # dirname like 'myproject-0.1.0'
-
-    return versioneer.get_version()
-
-
 if __name__ == '__main__':
     manager.run()
