@@ -47,12 +47,12 @@ class VMMasterServer(object):
 
     def stop_services(self):
         log.info("Shutting down server...")
-        sleep(5)
+        # sleep(5)
         self.app.cleanup()
-        sleep(5)
+        # sleep(5)
         self.wsgi_thread_pool.stop()
         log.info("hey, client, you ok?")
-        sleep(5)
+        # sleep(5)
         return maybeDeferred(self.bind.stopListening).addCallbacks(
             callback=lambda _: log.info("Port listening was stopped"),
             errback=lambda failure: log.error("Error while stopping port listening: {}".format(failure))
@@ -82,7 +82,7 @@ class VMMasterServer(object):
         def interrupt():
             with self.app.app_context():
                 for session in self.app.sessions.active():
-                    session.failed('Interrupted by server shut down')
+                    session.failed(reason='Interrupted by server shut down')
 
         return deferToThread(interrupt).addCallbacks(
             callback=lambda _: log.info("Sessions terminated"),
