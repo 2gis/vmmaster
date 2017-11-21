@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import logging
+from collections import defaultdict
 from threading import Lock
 
 from sqlalchemy import create_engine, asc, desc
@@ -31,7 +32,7 @@ def transaction(func):
 
 
 class Database(object):
-    lock = Lock()
+    locks = defaultdict(Lock)
 
     def __init__(self, connection_string=None, sqlite=False):
         if not connection_string:
@@ -245,12 +246,15 @@ class Database(object):
         provider.active = False
         self.update(provider)
 
+    def _get_lock_hash(self, obj):
+        return hash(obj)
+
     @transaction
     def add(self, obj, dbsession):
         """
         Add new object to DB
         """
-        with self.lock:
+        with self.locks[self._get_lock_hash(obj)]:
             dbsession.add(obj)
             dbsession.commit()
             dbsession.expunge_all()
@@ -260,7 +264,7 @@ class Database(object):
         """
         Upload local object state to DB
         """
-        with self.lock:
+        with self.locks[self._get_lock_hash(obj)]:
             dbsession.merge(obj)
             dbsession.commit()
             dbsession.expunge_all()
@@ -270,7 +274,7 @@ class Database(object):
         """
         Refresh object state from DB
         """
-        with self.lock:
+        with self.locks[self._get_lock_hash(obj)]:
             dbsession.add(obj)
             dbsession.refresh(obj)
             dbsession.expunge_all()
@@ -280,7 +284,7 @@ class Database(object):
         """
         Delete object from DB
         """
-        with self.lock:
+        with self.locks[self._get_lock_hash(obj)]:
             dbsession.delete(obj)
             dbsession.commit()
             dbsession.expunge_all()
