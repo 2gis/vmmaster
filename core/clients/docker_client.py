@@ -157,6 +157,7 @@ class DockerManageClient:
             "cpu_quota": config.DOCKER_CONTAINER_CPU_QUOTA,
             "detach": True,
             "publish_all_ports": True,
+            "volumes": config.DOCKER_CONTAINER_VOLUMES,
         })
         return DockerContainer(self.client.containers.run(*args, **kwargs))
 

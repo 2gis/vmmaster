@@ -120,6 +120,9 @@ class Config(object):
     DOCKER_CONTAINER_MEMORY_LIMIT = env.str("DOCKER_CONTAINER_MEMORY_LIMIT", default="1g")
     DOCKER_CONTAINER_CPU_PERIOD = env.int("DOCKER_CONTAINER_CPU_PERIOD", default=100000)
     DOCKER_CONTAINER_CPU_QUOTA = env.int("DOCKER_CONTAINER_CPU_QUOTA", default=50000)
+    DOCKER_CONTAINER_VOLUMES = env.dict("DOCKER_CONTAINER_VOLUMES", default={
+        "/dev/shm": {"bind": "/dev/shm", "mode": "rw"},
+    })
     DNS_LIST = env.list("DNS_LIST", default=[])
     DNS_SEARCH_LIST = env.list("DNS_SEARCH_LIST", default=[])
 
