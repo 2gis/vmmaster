@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import logging
+import threading
 
 from flask import Flask
 from core.config import config
@@ -10,6 +11,8 @@ log = logging.getLogger(__name__)
 
 
 class Vmmaster(Flask):
+    balance_lock = threading.Lock()
+
     def __init__(self, *args, **kwargs):
         from core.db import Database
         from core.sessions import Sessions
@@ -40,23 +43,24 @@ class Vmmaster(Flask):
         from vmmaster.matcher import SeleniumMatcher, PlatformsBasedMatcher
         providers_platforms, limits = {}, {}
 
-        for provider in self.providers:
-            platforms = self.database.get_platforms(provider.id)
-            matcher = SeleniumMatcher(
-                platforms=provider.config,
-                fallback_matcher=PlatformsBasedMatcher(platforms)
-            )
-            matched_platforms = matcher.get_matched_platforms(dc)
-            if matched_platforms and provider.max_limit:
-                providers_platforms[provider.id] = matched_platforms
-                limits[provider.id] = provider.max_limit
+        with self.balance_lock:
+            for provider in self.providers:
+                platforms = self.database.get_platforms(provider.id)
+                matcher = SeleniumMatcher(
+                    platforms=provider.config,
+                    fallback_matcher=PlatformsBasedMatcher(platforms)
+                )
+                matched_platforms = matcher.get_matched_platforms(dc)
+                if matched_platforms and provider.max_limit:
+                    providers_platforms[provider.id] = matched_platforms
+                    limits[provider.id] = provider.max_limit
 
-        if not providers_platforms:
-            return None, None
+            if not providers_platforms:
+                return None, None
 
-        provider_id = self.get_provider_id(limits)
-        if provider_id:
-            return providers_platforms[provider_id][0], provider_id
+            provider_id = self.get_provider_id(limits)
+            if provider_id:
+                return providers_platforms[provider_id][0], provider_id
 
         return None, None
 
