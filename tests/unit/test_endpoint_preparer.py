@@ -190,7 +190,7 @@ class TestEndpointPreparer(BaseTestCase):
         from vmpool.endpoint import EndpointPreparer
 
         session = MagicMock(closed=False, endpoint_id=None, is_preparing=PropertyMock(return_value=False))
-        pool = Mock(can_produce=Mock(return_value=False))
+        pool = Mock(can_produce=Mock(return_value=False), has=Mock(return_value=False))
         preparer = EndpointPreparer(
             pool=pool, sessions=Mock(active=Mock(return_value=[session])),
             artifact_collector=Mock(), app_context=app_context
@@ -201,6 +201,22 @@ class TestEndpointPreparer(BaseTestCase):
         preparer._run_tasks()
 
         self.assertFalse(preparer.prepare_endpoint.called)
+
+    def test_preparing_while_cannot_produce_but_got_in_pool(self):
+        from vmpool.endpoint import EndpointPreparer
+
+        session = MagicMock(closed=False, endpoint_id=None, is_preparing=PropertyMock(return_value=False))
+        pool = Mock(can_produce=Mock(return_value=False), has=Mock(return_value=True))
+        preparer = EndpointPreparer(
+            pool=pool, sessions=Mock(active=Mock(return_value=[session])),
+            artifact_collector=Mock(), app_context=app_context
+        )
+        preparer.prepare_endpoint = Mock()
+        type(preparer).running = PropertyMock(return_value=True)
+
+        preparer._run_tasks()
+
+        self.assertTrue(preparer.prepare_endpoint.called)
 
     def test_prepare_endpoint_with_exception(self):
         from vmpool.endpoint import EndpointPreparer

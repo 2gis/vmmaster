@@ -152,7 +152,7 @@ class EndpointPreparer(Thread):
                     if not self.pool.check_platform(session.platform):
                         continue
 
-                    if not self.pool.can_produce(session.platform):
+                    if not self.pool.has(session.platform) and not self.pool.can_produce(session.platform):
                         continue
 
                     self.prepare_endpoint(session)
