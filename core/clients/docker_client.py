@@ -132,12 +132,13 @@ class DockerManageClient:
             self.client.containers.create(image=image, command=command)
         )
 
-    def run_container(self, image, ports=None, name=None, *args, **kwargs):
+    def run_container(self, image, ports=None, name=None, env_vars=None, *args, **kwargs):
         """
 
         :type image: str
         :type ports: list
         :type name: str
+        :type env_vars: dict
         :rtype: DockerContainer
         """
         ports = ports if ports else config.PORTS
@@ -146,6 +147,8 @@ class DockerManageClient:
             kwargs["ports"] = {"%s/tcp" % port: None for port in ports}
         if name:
             kwargs["name"] = name
+        if env_vars:
+            kwargs["environment"] = env_vars
 
         kwargs.update({
             "dns": config.DNS_LIST,

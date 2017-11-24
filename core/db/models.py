@@ -343,6 +343,7 @@ class Endpoint(Base, FeaturesMixin):
     ports = Column(JSON, default={})
     platform_name = Column(String, nullable=False)
     endpoint_type = Column(String(20))
+    environment_variables = Column(JSON, default={})
 
     mode = Column(String, default="default")
     ready = Column(Boolean, default=False)
@@ -371,6 +372,7 @@ class Endpoint(Base, FeaturesMixin):
         self.provider = provider
         self.created_time = datetime.now()
         self.platform_name = origin.short_name
+        self.environment_variables = config.DOCKER_CONTAINER_ENVIRONMENT
         self.add()
 
     def delete(self, try_to_rebuild=False):
@@ -440,6 +442,12 @@ class Endpoint(Base, FeaturesMixin):
         self.in_use = value
         self.save()
 
+    def set_env_vars(self, env_vars):
+        if not isinstance(env_vars, dict):
+            return
+        self.environment_variables.update(env_vars)
+        self.save()
+
     @property
     def in_pool(self):
         return self.in_use is False
@@ -478,6 +486,9 @@ class Endpoint(Base, FeaturesMixin):
 
     def is_preloaded(self):
         return 'preloaded' in self.name
+
+    def is_ondemand(self):
+        return 'ondemand' in self.name
 
     def ping_vm(self):
         ports = self.bind_ports
@@ -810,7 +821,9 @@ class DockerClone(Endpoint):
 
     @clone_refresher
     def create(self):
-        self.__container = self.client.run_container(image=self.image, name=self.name)
+        self.__container = self.client.run_container(
+            image=self.image, name=self.name, env_vars=self.environment_variables
+        )
         self.refresh()
         self.ports = self.__container.ports
         self.uuid = self.__container.id

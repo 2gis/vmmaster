@@ -7,6 +7,7 @@ from collections import defaultdict
 
 from core.config import config
 from core.profiler import profiler
+from core.utils import get_environment_variables_from_dc
 from vmpool.platforms import Platforms, UnlimitedCount
 from vmpool.artifact_collector import ArtifactCollector
 from vmpool.endpoint import EndpointRemover, EndpointPreparer
@@ -226,7 +227,7 @@ class VirtualMachinesPool(object):
 
         return result
 
-    def add(self, platform_name, prefix="ondemand"):
+    def add(self, platform_name, prefix="ondemand", environment_variables=None):
         # TODO: remove all app_context usages, use direct link to app/database objects
         if prefix == "preloaded":
             log.info("Preloading {}".format(platform_name))
@@ -238,6 +239,8 @@ class VirtualMachinesPool(object):
             origin = self.platforms.get(platform_name)
             try:
                 clone = origin.make_clone(origin, prefix, self)
+                if environment_variables:
+                    clone.set_env_vars(environment_variables)
                 if not clone.is_preloaded():
                     clone.set_in_use(True)
             except Exception as e:
@@ -254,22 +257,24 @@ class VirtualMachinesPool(object):
 
         return clone
 
-    def get_vm(self, platform_name):
+    def get_vm(self, platform_name, dc):
         timer = profiler.functions_duration_manual(self.get_vm.__name__)
-        endpoint = self.get_by_platform(platform_name)
+        env_vars = get_environment_variables_from_dc(dc)
 
-        if endpoint:
-            timer.end()
-            return endpoint
+        if not env_vars:
+            endpoint = self.get_by_platform(platform_name)
+            if endpoint:
+                timer.end()
+                return endpoint
 
-        endpoint = self.add(platform_name)
+        endpoint = self.add(platform_name, environment_variables=env_vars)
 
         if endpoint and getattr(endpoint, "ready", False):
             timer.end()
             return endpoint
 
     def preload(self, origin_name, prefix="preloaded"):
-        return self.add(origin_name, prefix)
+        return self.add(origin_name, prefix=prefix)
 
     @property
     def info(self):

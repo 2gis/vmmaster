@@ -123,6 +123,7 @@ class Config(object):
     DOCKER_CONTAINER_VOLUMES = env.dict("DOCKER_CONTAINER_VOLUMES", default={
         "/dev/shm": {"bind": "/dev/shm", "mode": "rw"},
     })
+    DOCKER_CONTAINER_ENVIRONMENT = env.dict("DOCKER_CONTAINER_ENVIRONMENT", default={})
     DNS_LIST = env.list("DNS_LIST", default=[])
     DNS_SEARCH_LIST = env.list("DNS_SEARCH_LIST", default=[])
 

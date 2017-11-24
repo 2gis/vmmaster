@@ -1,4 +1,5 @@
 # coding: utf-8
+import json
 
 from mock import Mock, patch, PropertyMock
 from core.config import setup_config, config
@@ -130,3 +131,34 @@ class TestVirtualMachinePool(BaseTestCase):
         self.pool.add(self.platform_name)
 
         self.assertIsNone(self.pool.add(self.platform_name))
+
+    def test_got_ondemand_vm_if_got_env_vars(self):
+        dc = {
+            "environmentVars": {
+                "TEST_ENV2": 0
+            }
+        }
+
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        self.pool.preload(self.platform_name)
+
+        self.assertEqual(1, len(self.pool.active_endpoints))
+        vm = self.pool.get_vm(self.platform_name, dc=json.dumps(dc))
+
+        self.assertTrue(vm.is_ondemand())
+        self.assertDictEqual(vm.environment_variables, {u"TEST_ENV2": 0})
+        self.assertEqual(2, len(self.pool.active_endpoints))
+
+    def test_got_preloaded_vm_if_env_vars_is_None(self):
+        dc = {
+            "desiredCapabilities": {}
+        }
+
+        self.assertEqual(0, len(self.pool.active_endpoints))
+        self.pool.preload(self.platform_name)
+
+        self.assertEqual(1, len(self.pool.active_endpoints))
+        vm = self.pool.get_vm(self.platform_name, dc=json.dumps(dc))
+
+        self.assertTrue(vm.is_preloaded())
+        self.assertEqual(1, len(self.pool.active_endpoints))

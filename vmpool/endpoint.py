@@ -97,7 +97,7 @@ class EndpointPreparer(Thread):
 
                 log.info("Try to find endpoint {} for {}. Attempt {}".format(session.platform, session, attempt))
                 try:
-                    _endpoint = self.pool.get_vm(session.platform)
+                    _endpoint = self.pool.get_vm(session.platform, session.dc)
                     if not self.running:
                         if _endpoint:
                             _endpoint.delete()

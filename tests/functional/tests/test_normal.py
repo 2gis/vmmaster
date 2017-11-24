@@ -21,6 +21,16 @@ class TestPositiveCase(TestCase):
         raise Exception('some client exception')
 
 
+class TestEnvironmentVariables(TestCase):
+    desired_capabilities = {"environmentVars": {
+        "TEST_ENV": "TEST_VALUE",
+    }}
+
+    def test_environment_variables(self):
+        output = self.vmmaster.run_script("echo $TEST_ENV").get("output")
+        self.assertIn(u"TEST_VALUE", output, msg="Not set environment variables in endpoint")
+
+
 class TestRunScriptOnSessionCreation(TestCase):
     @classmethod
     def setUpClass(cls):

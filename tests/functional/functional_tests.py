@@ -102,6 +102,18 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
 
+    def test_environment_variables(self, platform):
+        if ":" not in platform:
+            # only docker endpoints
+            return
+        from tests.test_normal import TestEnvironmentVariables
+        TestEnvironmentVariables.platform = platform
+        suite = self.loader.loadTestsFromTestCase(TestEnvironmentVariables)
+        result = self.runner.run(suite)
+        self.assertEqual(1, result.testsRun, result.errors)
+        self.assertEqual(0, len(result.errors), result.errors)
+        self.assertEqual(0, len(result.failures), result.failures)
+
     @unittest.skip("Error \"Connection reset by peer\" in apt-get-scripts on random openstack endpoints")
     def test_run_script_with_install_package_on_session_creation(self, platform):
         from tests.test_normal import TestRunScriptWithInstallPackageOnSessionCreation

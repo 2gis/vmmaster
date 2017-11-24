@@ -246,3 +246,14 @@ def kill_process(pid):
         return True
     except:
         log.exception("Can't kill process {}".format(pid))
+
+
+def get_desired_capabilities(json_string):
+    body = json.loads(json_string)
+    return body.get('desiredCapabilities', {})
+
+
+def get_environment_variables_from_dc(dc):
+    if not isinstance(dc, dict):
+        dc = to_json(dc)
+    return dc.get("environmentVars", None)

@@ -178,9 +178,7 @@ def replace_platform_with_any(request):
 
 
 def get_desired_capabilities(request):
-    body = json.loads(request.data)
-    dc = body['desiredCapabilities']
-    return dc
+    return utils.get_desired_capabilities(request.data)
 
 
 def get_session_id(path):
