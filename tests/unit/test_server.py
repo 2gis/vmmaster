@@ -13,7 +13,7 @@ from core.exceptions import SessionException
 from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, BaseTestCase, \
-    DatabaseMock, custom_wait, request_mock, wait_for
+    DatabaseMock, custom_wait, request_mock, wait_for, open_url_request
 
 
 def ping_vm_true_mock(arg=None, ports=None):
@@ -28,8 +28,10 @@ def ping_vm_false_mock(arg=None, ports=None):
     yield False
 
 
-def transparent_mock():
-    return 200, {}, None
+def transparent_mock(code=200, headers=None, body=None):
+    if not headers:
+        headers = {}
+    return code, headers, body
 
 
 class BaseTestFlaskApp(BaseTestCase):
@@ -50,6 +52,122 @@ class BaseTestFlaskApp(BaseTestCase):
                 'platform': 'origin_1'
             }
         }
+
+
+@patch("vmmaster.webdriver.take_screenshot", Mock())
+class TestProxyRequests(BaseTestFlaskApp):
+    def setUp(self):
+        setup_config('data/config_openstack.py')
+        super(TestProxyRequests, self).setUp()
+
+        self.desired_caps = {
+            'desiredCapabilities': {
+                'platform': 'origin_1'
+            }
+        }
+        self.vmmaster_client = self.app.test_client()
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+
+    def tearDown(self):
+        self.app.sessions.kill_all()
+        self.app.cleanup()
+        self.ctx.pop()
+
+    @patch(
+        "vmmaster.webdriver.helpers.transparent",
+        Mock(return_value=transparent_mock(200, {}, json.dumps({'status': 0})))
+    )
+    def test_successful_open_url_request(self):
+        with patch(
+            "core.db.models.Session", Mock()
+        ):
+            from core.db.models import Session
+            session = Session("origin_1")
+            session.id = 1
+            self.app.sessions.get_session = Mock(return_value=session)
+
+        data = {
+            "sessionId": session.id,
+            "url": "http://host.domain"
+        }
+        response = open_url_request(self.vmmaster_client, session.id, data)
+        self.assertEqual(200, response.status_code)
+
+    @patch(
+        "vmmaster.webdriver.helpers.transparent",
+        Mock(side_effect=Exception("request error"))
+    )
+    def test_exception_on_open_url_request(self):
+        with patch(
+            "core.db.models.Session", Mock()
+        ):
+            from core.db.models import Session
+            session = Session("origin_1")
+            session.id = 1
+            self.app.sessions.get_session = Mock(return_value=session)
+
+        data = {
+            "sessionId": session.id,
+            "url": "http://host.domain"
+        }
+        response = open_url_request(self.vmmaster_client, session.id, data)
+        response_data = json.loads(response.data)
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(13, response_data.get("status", 0))
+        self.assertIn("request error", response_data.get("value", {}).get("message", None))
+
+    @patch(
+        "vmmaster.webdriver.helpers.transparent",
+        Mock(return_value=transparent_mock(500, None, None))
+    )
+    def test_open_url_request_with_empty_response_from_endpoint(self):
+        with patch(
+            "core.db.models.Session", Mock()
+        ):
+            from core.db.models import Session
+            session = Session("origin_1")
+            session.id = 1
+            self.app.sessions.get_session = Mock(return_value=session)
+
+        data = {
+            "sessionId": session.id,
+            "url": "http://host.domain"
+        }
+        response = open_url_request(self.vmmaster_client, session.id, data)
+        response_data = json.loads(response.data)
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(13, response_data.get("status", 0))
+        self.assertIn(
+            "Something ugly happened. No real reply formed",
+            response_data.get("value", {}).get("message", None)
+        )
+
+    @patch(
+        "vmmaster.webdriver.helpers.transparent",
+        Mock(return_value=transparent_mock(500, None, "No response"))
+    )
+    def test_open_url_request_if_no_response_from_endpoint(self):
+        with patch(
+            "core.db.models.Session", Mock()
+        ):
+            from core.db.models import Session
+            session = Session("origin_1")
+            session.id = 1
+            self.app.sessions.get_session = Mock(return_value=session)
+
+        data = {
+            "sessionId": session.id,
+            "url": "http://host.domain"
+        }
+        response = open_url_request(self.vmmaster_client, session.id, data)
+        response_data = json.loads(response.data)
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(13, response_data.get("status", 0))
+        self.assertIn(
+            "No response",
+            response_data.get("value", {}).get("message", None)
+        )
 
 
 @patch.multiple(

@@ -13,10 +13,6 @@ class CreationException(Exception):
     pass
 
 
-class RequestTimeoutException(Exception):
-    pass
-
-
 class RequestException(Exception):
     pass
 

@@ -10,7 +10,8 @@ from PIL import Image
 from functools import wraps
 from flask import Response, request, current_app
 
-from core.exceptions import CreationException, ConnectionError, TimeoutException, SessionException
+from core.exceptions import CreationException, ConnectionError, TimeoutException, SessionException, \
+    EndpointUnreachableError
 from core.config import config
 
 from core import constants, utils
@@ -123,14 +124,24 @@ def screenshot_resize(screenshot_path, width, height=None, postfix=None):
         log.debug("Can\'t resize image '%s'" % screenshot_path)
 
 
-def form_response(code, headers, body):
+def form_response(code=500, headers=None, body=None, selenium_code=13):
     """ Send reply to client. """
-    if not code:
-        code = 500
+    if not body:
         body = "Something ugly happened. No real reply formed."
+
+    if not headers:
         headers = {
+            'Content-Type': "application/json;charset=UTF-8",
             'Content-Length': len(body)
         }
+
+    if not utils.to_json(body):
+        body = utils.json_to_str({
+            'status': selenium_code,
+            'value': {
+                "message": body
+            }
+        })
     return Response(response=body, status=code, headers=headers.iteritems())
 
 
@@ -152,10 +163,12 @@ def transparent():
         ):
             yield status, headers, body
     except:
-        take_screenshot_from_session(request.session)
         raise
+    finally:
+        swap_session(request, str(request.session.id))
+        if status in (500, None) and not request.session.endpoint.ping_vm():
+            raise EndpointUnreachableError("Endpoint {} unreachable".format(request.session.endpoint))
 
-    swap_session(request, str(request.session.id))
     yield status, headers, body
 
 

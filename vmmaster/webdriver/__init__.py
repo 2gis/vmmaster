@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime
 from traceback import format_exc
-from flask import Blueprint, current_app, request, jsonify, g
+from flask import Blueprint, current_app, request, g
 
 from vmmaster.webdriver import commands, helpers
 
@@ -15,16 +15,6 @@ webdriver = Blueprint('webdriver', __name__)
 log = logging.getLogger(__name__)
 
 
-def selenium_error_response(message, selenium_code=13, status_code=500):
-    error_context = {
-        'status': selenium_code,
-        'value': {
-            "message": "%s" % message
-        }
-    }
-    return jsonify(error_context), status_code
-
-
 @webdriver.errorhandler(Exception)
 def handle_errors(error):
     log.exception(error)
@@ -32,7 +22,7 @@ def handle_errors(error):
     if hasattr(request, 'session'):
         request.session.failed(tb=tb, reason=error)
 
-    return selenium_error_response("%s %s" % (error, tb))
+    return helpers.form_response(body="%s %s" % (error, tb))
 
 
 def get_vmmaster_session(request):
@@ -109,9 +99,10 @@ def delete_session(session_id):
 def create_session():
     if not current_app.running:
         log.info("This request is aborted %s" % request)
-        message = "A new session could not be created " \
-                  "because shutdown server in progress"
-        return selenium_error_response(message, status_code=502)
+        return helpers.form_response(
+            code=502,
+            body="A new session could not be created because shutdown server in progress",
+        )
 
     with profiler.requests_duration(create_session.__name__):
         session = helpers.get_session()
@@ -166,8 +157,7 @@ def vmmaster_command(session_id):
     return helpers.form_response(status, headers, body)
 
 
-@webdriver.route("/session/<string:session_id>/<path:url>",
-                 methods=['GET', 'POST', 'DELETE'])
+@webdriver.route("/session/<string:session_id>/<path:url>", methods=['GET', 'POST', 'DELETE'])
 def proxy_request(session_id, url=None):
     request.session = current_app.sessions.get_session(session_id)
 

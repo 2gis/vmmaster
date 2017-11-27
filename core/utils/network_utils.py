@@ -5,7 +5,7 @@ import requests
 from Queue import Queue
 from threading import Thread
 from core import constants, config
-from core.exceptions import RequestException, RequestTimeoutException
+from core.exceptions import RequestException
 from . import system_utils
 import socket
 
@@ -148,9 +148,8 @@ def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
         response = queue.get()
         if attempt >= attempts:
             if isinstance(response, requests.Timeout):
-                raise RequestTimeoutException(
-                    "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
-                )
+                yield 500, None, "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
+                break
             elif isinstance(response, Exception):
                 raise RequestException("Error for '%s'. Original: %s" % (url, response))
         elif isinstance(response, requests.Response):

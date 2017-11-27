@@ -189,8 +189,16 @@ def to_json(result):
     try:
         return json.loads(result)
     except ValueError:
-        log.info("Couldn't parse response content <%s>" % repr(result))
+        log.debug("Couldn't parse response content <%s>" % repr(result))
         return {}
+
+
+def json_to_str(data):
+    try:
+        return json.dumps(data)
+    except:
+        log.exception("Can't convert json to str {}".format(data))
+        return ""
 
 
 def remove_base64_screenshot(response_data):

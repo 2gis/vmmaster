@@ -16,9 +16,8 @@ from flask import current_app
 
 from core.config import config
 from core import constants
-from core.exceptions import RequestTimeoutException, EndpointUnreachableError, CreationException
+from core.exceptions import CreationException
 from core.utils import network_utils, exception_handler, kill_process
-
 
 log = logging.getLogger(__name__)
 Base = declarative_base()
@@ -324,12 +323,7 @@ class Session(Base, FeaturesMixin):
             return self.current_log_step.add_sub_step(control_line, body)
 
     def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
-        try:
-            return network_utils.make_request(self.endpoint.ip, port, request, timeout)
-        except RequestTimeoutException as e:
-            if not self.endpoint.ping_vm(ports=self.endpoint.bind_ports):
-                raise EndpointUnreachableError("Endpoint {} unreachable".format(self.endpoint))
-            raise e
+        return network_utils.make_request(self.endpoint.ip, port, request, timeout)
 
 
 class Endpoint(Base, FeaturesMixin):

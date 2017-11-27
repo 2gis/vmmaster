@@ -77,6 +77,10 @@ def new_session_request(client, desired_caps):
     return client.post("/wd/hub/session", data=json.dumps(desired_caps))
 
 
+def open_url_request(client, session, data):
+    return client.post("/wd/hub/session/{}/url".format(session), data=json.dumps(data))
+
+
 def delete_session_request(client, session):
     return client.delete("/wd/hub/session/%s" % str(session))
 
