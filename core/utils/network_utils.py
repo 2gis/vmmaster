@@ -5,7 +5,7 @@ import requests
 from Queue import Queue
 from threading import Thread
 from core import constants, config
-from core.exceptions import RequestException
+from core.exceptions import RequestException, RequestTimeoutException
 from . import system_utils
 import socket
 
@@ -112,7 +112,10 @@ def ping(ip, port):
     return False
 
 
-def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
+def make_request(
+        endpoint_ip, port, request,
+        timeout=getattr(config, "REQUEST_TIMEOUT", constants.REQUEST_TIMEOUT),
+):
     """ Make http request to some port in session
                 and return the response. """
     url = "http://%s:%s%s" % (endpoint_ip, port, request.url)
@@ -134,10 +137,10 @@ def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
         except Exception as e:
             queue.put(e)
 
-    attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", 3)
+    attempts = getattr(config, "MAKE_REQUEST_ATTEMPTS_AMOUNT", constants.MAKE_REQUEST_ATTEMPTS_AMOUNT)
     for attempt in range(1, attempts + 1):
         queue = Queue()
-        log.info("Attempt {}. Making request {}".format(attempt, url))
+        log.info("Attempt {}. Making request {} with timeout {} sec.".format(attempt, url, timeout))
         t = Thread(target=get_response)
         t.daemon = True
         t.start()
@@ -148,8 +151,9 @@ def make_request(endpoint_ip, port, request, timeout=constants.REQUEST_TIMEOUT):
         response = queue.get()
         if attempt >= attempts:
             if isinstance(response, requests.Timeout):
-                yield 500, None, "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
-                break
+                raise RequestTimeoutException(
+                    "No response for '%s' in %s sec. Original: %s" % (url, timeout, response)
+                )
             elif isinstance(response, Exception):
                 raise RequestException("Error for '%s'. Original: %s" % (url, response))
         elif isinstance(response, requests.Response):

@@ -8,14 +8,19 @@ path = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestPositiveCase(TestCase):
-    def test_micro_app(self):
+    def setUp(self):
         self.config = RawConfigParser()
         with open("%s/config" % path, "r") as configfile:
             self.config.readfp(configfile)
-        micro_app_addr = self.config.get("Network", "addr")
-        self.driver.get(micro_app_addr)
+        self.micro_app_addr = self.config.get("Network", "addr")
+
+    def test_micro_app(self):
+        self.driver.get(self.micro_app_addr)
         go_button = self.driver.find_element_by_xpath("//input[2]")
         go_button.click()
+
+    def test_long_request_to_micro_app(self):
+        self.driver.get("{}/long".format(self.micro_app_addr))
 
     def test_error(self):
         raise Exception('some client exception')

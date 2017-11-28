@@ -54,10 +54,19 @@ class TestCaseWithMicroApp(unittest.TestCase):
         TestPositiveCase.platform = platform
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
-        self.assertEqual(2, result.testsRun, result.errors)
-        self.assertEqual(1, len(result.errors), result.errors)
+
+        self.assertEqual(3, result.testsRun, result.errors)
+        self.assertEqual(2, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
-        self.assertEqual("test_error", result.errors[0][0]._testMethodName)
+        errors = {error[0]._testMethodName: error[1] for error in result.errors}
+
+        self.assertListEqual(
+            sorted(["test_error", "test_long_request_to_micro_app"]),
+            sorted(errors.keys())
+        )
+
+        self.assertIn("No response", errors["test_long_request_to_micro_app"])
+        self.assertIn("some client exception", errors["test_error"])
 
     def test_two_same_tests_parallel_run(self, platform):
         from tests.test_normal import TestParallelSessions1, TestParallelSessions2

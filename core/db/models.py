@@ -322,7 +322,8 @@ class Session(Base, FeaturesMixin):
         if self.current_log_step:
             return self.current_log_step.add_sub_step(control_line, body)
 
-    def make_request(self, port, request, timeout=constants.REQUEST_TIMEOUT):
+    def make_request(self, port, request,
+                     timeout=getattr(config, "REQUEST_TIMEOUT", constants.REQUEST_TIMEOUT)):
         return network_utils.make_request(self.endpoint.ip, port, request, timeout)
 
 

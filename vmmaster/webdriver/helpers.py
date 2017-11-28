@@ -1,6 +1,8 @@
 # coding: utf-8
 
 import base64
+from traceback import format_exc
+
 import commands
 import json
 import time
@@ -11,7 +13,7 @@ from functools import wraps
 from flask import Response, request, current_app
 
 from core.exceptions import CreationException, ConnectionError, TimeoutException, SessionException, \
-    EndpointUnreachableError
+    EndpointUnreachableError, RequestTimeoutException
 from core.config import config
 
 from core import constants, utils
@@ -162,12 +164,12 @@ def transparent():
             )
         ):
             yield status, headers, body
-    except:
-        raise
+    except RequestTimeoutException:
+        if not request.session.endpoint.ping_vm():
+            raise EndpointUnreachableError("Endpoint {} unreachable".format(request.session.endpoint))
+        status, headers, body = 500, None, format_exc()
     finally:
         swap_session(request, str(request.session.id))
-        if status in (500, None) and not request.session.endpoint.ping_vm():
-            raise EndpointUnreachableError("Endpoint {} unreachable".format(request.session.endpoint))
 
     yield status, headers, body
 
