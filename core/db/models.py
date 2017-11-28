@@ -256,7 +256,7 @@ class Session(Base, FeaturesMixin):
         if self.vnc_proxy_pid:
             return kill_process(self.vnc_proxy_pid)
 
-    def close(self, reason=None):
+    def _close(self, reason=None):
         self.closed = True
         if reason:
             self.reason = "%s" % reason
@@ -275,7 +275,7 @@ class Session(Base, FeaturesMixin):
 
     def succeed(self):
         self.status = "succeed"
-        self.close()
+        self._close()
 
     def failed(self, tb=None, reason=None):
         if self.closed:
@@ -286,7 +286,7 @@ class Session(Base, FeaturesMixin):
 
         self.status = "failed"
         self.error = tb
-        self.close(reason)
+        self._close(reason)
 
     def set_status(self, status):
         self.status = status

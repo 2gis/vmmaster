@@ -94,7 +94,7 @@ class CommonCommandsTestCase(BaseTestCase):
         ), patch(
             'flask.current_app.database', Mock()
         ):
-            self.session.close()
+            self.session._close()
         self.ctx.pop()
 
     @classmethod

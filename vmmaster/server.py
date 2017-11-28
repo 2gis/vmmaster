@@ -77,7 +77,7 @@ class VMMasterServer(object):
         def interrupt():
             with self.app.app_context():
                 for session in self.app.sessions.active():
-                    session.close('Interrupted by server shut down')
+                    session.failed('Interrupted by server shut down')
 
         return deferToThread(interrupt).addCallbacks(
             callback=lambda _: log.info("Sessions terminated"),

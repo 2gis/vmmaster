@@ -91,7 +91,7 @@ class TestVmmasterApi(BaseTestCase):
             'flask.current_app.sessions.get_session', Mock(return_value=session)
         ):
             response = self.vmmaster_client.get('/api/session/{}/vnc_info'.format(session.id))
-            session.close()
+            session._close()
 
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
@@ -120,7 +120,7 @@ class TestVmmasterApi(BaseTestCase):
             'flask.current_app.sessions.get_session', Mock(return_value=session)
         ):
             response = self.vmmaster_client.get('/api/session/{}/vnc_info'.format(session.id))
-            session.close()
+            session._close()
 
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)
@@ -179,7 +179,7 @@ class TestVmmasterApi(BaseTestCase):
             'core.utils.kill_process', Mock(return_value=True)
         ):
             response = self.vmmaster_client.get('/api/session/%s/vnc_info' % session.id)
-            session.close()
+            session._close()
 
         body = json.loads(response.data)
         self.assertEqual(200, response.status_code)

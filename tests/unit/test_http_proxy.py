@@ -30,7 +30,7 @@ class TestHttpProxy(BaseTestCase):
         self.session.endpoint = endpoint
 
     def tearDown(self):
-        self.session.close()
+        self.session._close()
         self.ctx.pop()
         self.vmmaster.app.sessions.kill_all()
         self.vmmaster.app.cleanup()

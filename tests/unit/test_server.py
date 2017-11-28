@@ -206,7 +206,7 @@ class TestServer(BaseTestFlaskApp):
         self.assertEqual(200, response.status_code)
         self.assertTrue(session.succeed.called)
         self.assertEqual(session.add_session_step.call_count, 2)
-        session.close()
+        session._close()
 
     @patch(
         'core.db.models.Session.make_request',
@@ -226,7 +226,7 @@ class TestServer(BaseTestFlaskApp):
         from core.db.models import Session
         session = Session('some_platform')
         session.add_session_step = Mock()
-        session.close(reason="it's testing")
+        session.failed(reason="it's testing")
         self.app.database.get_session = Mock(return_value=session)
 
         response = delete_session_request(self.vmmaster_client, session.id)
@@ -297,7 +297,7 @@ class TestServer(BaseTestFlaskApp):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(output, response.data)
-        session.close()
+        session._close()
 
     @patch(
         'vmmaster.webdriver.commands.InternalCommands',
@@ -313,7 +313,7 @@ class TestServer(BaseTestFlaskApp):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(json.dumps({"value": "step-label"}), response.data)
-        session.close()
+        session._close()
 
     @patch('vmmaster.webdriver.helpers.swap_session', Mock())
     def test_vmmaster_no_such_platform(self):
@@ -360,7 +360,7 @@ class TestSessionWorker(BaseTestCase):
         self.worker.start()
         time.sleep(1)
         session.timeout.assert_any_call()
-        session.close()
+        session._close()
 
 
 class TestConnectionClose(BaseTestFlaskApp):
@@ -459,7 +459,7 @@ class TestServerShutdown(BaseTestCase):
 
         with patch('core.sessions.Sessions.active', Mock(return_value=sessions)):
             self.vmmaster.reactor.sigTerm()
-            self.assertTrue(wait_for(lambda: all([session.close.called for session in sessions])))
+            self.assertTrue(wait_for(lambda: all([session.failed.called for session in sessions])))
 
         self.assertTrue(server_is_down(self.address))
         self.assertTrue(self.vmmaster.reactor._stopped)

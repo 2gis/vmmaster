@@ -72,7 +72,7 @@ class Sessions(object):
 
     def kill_all(self):
         for session in self.active():
-            session.close()
+            session.failed()
 
     @staticmethod
     def get_session(session_id, maybe_closed=False):
