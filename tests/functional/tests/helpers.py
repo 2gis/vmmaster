@@ -34,6 +34,7 @@ def get_microapp_address():
 class TestCase(unittest.TestCase):
     platform = None
     desired_capabilities = None
+    micro_app_address = None
 
     def __new__(cls, *args, **kwargs):
         if cls.desired_capabilities is None:

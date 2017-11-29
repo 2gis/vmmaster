@@ -835,7 +835,8 @@ class DockerClone(Endpoint):
         for status, headers, body in network_utils.make_request(
             self.ip,
             self.selenium_port,
-            network_utils.RequestHelper("GET", "/wd/hub/status")
+            network_utils.RequestHelper("GET", "/wd/hub/status"),
+            timeout=constants.REQUEST_TIMEOUT_ON_CREATE_ENDPOINT
         ):
             pass
         return status == 200

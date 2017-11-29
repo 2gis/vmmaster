@@ -1,5 +1,4 @@
 # coding: utf-8
-import os
 import unittest
 import subprocess
 
@@ -7,7 +6,6 @@ from StringIO import StringIO
 from multiprocessing.pool import ThreadPool
 from os import setsid, killpg
 from signal import SIGTERM
-from ConfigParser import RawConfigParser
 from lode_runner import dataprovider
 
 from core.utils.network_utils import get_free_port
@@ -21,13 +19,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
     def setUpClass(cls):
         cls.app_port = get_free_port()
         cls.p = cls.start_app(cls.app_port)
-
-        path = os.path.dirname(os.path.realpath(__file__))
-        config_parser = RawConfigParser()
-        config_parser.read("%s/tests/config" % path)
-        config_parser.set("Network", "addr", "http://{}:{}".format(get_microapp_address(), cls.app_port))
-        with open('%s/tests/config' % path, 'wb') as configfile:
-            config_parser.write(configfile)
+        cls.micro_app_address = "http://{}:{}".format(get_microapp_address(), cls.app_port)
 
     @classmethod
     def tearDownClass(cls):
@@ -37,9 +29,11 @@ class TestCaseWithMicroApp(unittest.TestCase):
     def start_app(app_port):
         return subprocess.Popen([
             "gunicorn",
-            "--log-level=warning",
-            "-w 2",
-            "-b 0.0.0.0:{}".format(app_port),
+            "--log-level=debug",
+            "-w=2",
+            "--keep-alive=1",
+            "-t=600",
+            "-b=0.0.0.0:{}".format(app_port),
             "tests.functional.app.views:app"
             ], preexec_fn=setsid
         )
@@ -52,26 +46,40 @@ class TestCaseWithMicroApp(unittest.TestCase):
     def test_positive_case(self, platform):
         from tests.test_normal import TestPositiveCase
         TestPositiveCase.platform = platform
+        TestPositiveCase.micro_app_address = self.micro_app_address
         suite = self.loader.loadTestsFromTestCase(TestPositiveCase)
         result = self.runner.run(suite)
 
+        self.assertEqual(2, result.testsRun, result.errors)
+        self.assertEqual(1, len(result.errors), result.errors)
+        self.assertEqual(0, len(result.failures), result.failures)
+        self.assertEqual("test_error", result.errors[0][0]._testMethodName)
+
+    def test_long_request(self, platform):
+        from tests.test_normal import TestLongRequest
+        TestLongRequest.platform = platform
+        TestLongRequest.micro_app_address = self.micro_app_address
+        suite = self.loader.loadTestsFromTestCase(TestLongRequest)
+        result = self.runner.run(suite)
+
         self.assertEqual(3, result.testsRun, result.errors)
-        self.assertEqual(2, len(result.errors), result.errors)
+        self.assertEqual(1, len(result.errors), result.errors)
         self.assertEqual(0, len(result.failures), result.failures)
         errors = {error[0]._testMethodName: error[1] for error in result.errors}
 
         self.assertListEqual(
-            sorted(["test_error", "test_long_request_to_micro_app"]),
+            sorted(["test_2_long_micro_app_request"]),
             sorted(errors.keys())
         )
 
-        self.assertIn("No response", errors["test_long_request_to_micro_app"])
-        self.assertIn("some client exception", errors["test_error"])
+        self.assertIn("No response", errors["test_2_long_micro_app_request"])
 
     def test_two_same_tests_parallel_run(self, platform):
         from tests.test_normal import TestParallelSessions1, TestParallelSessions2
         TestParallelSessions1.platform = platform
+        TestParallelSessions1.micro_app_address = self.micro_app_address
         TestParallelSessions2.platform = platform
+        TestParallelSessions2.micro_app_address = self.micro_app_address
         # TODO: Добавить проверку параллельности запусков тестов
         suite1 = unittest.TestSuite()
         suite1.addTest(TestParallelSessions1("test"))
