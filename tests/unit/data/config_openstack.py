@@ -25,6 +25,13 @@ class Config(object):
     OPENSTACK_MAX_VM_COUNT = 2
     OPENSTACK_PRELOADED = {}
 
+    # selenium
+    DEFAULT_PORTS = {
+        "selenium": "4455",
+        "agent": "9000",
+        "vnc": "5900"
+    }
+
     PLATFORMS = {}
 
     OPENSTACK_AUTH_URL = "localhost"
@@ -77,12 +84,6 @@ class Config(object):
     GET_VM_TIMEOUT = 5
     SCREENCAST_RESOLUTION = (1600, 1200)
     MAKE_REQUEST_ATTEMPTS_AMOUNT = 5
-
-    # selenium
-    SELENIUM_PORT = 4455
-    VMMASTER_AGENT_PORT = 9000
-    VNC_PORT = 5900
-    PORTS = [SELENIUM_PORT, VMMASTER_AGENT_PORT, VNC_PORT]
 
     FLASK_THREAD_POOL_MAX = 10
     REACTOR_THREAD_POOL_MAX = 10

@@ -392,20 +392,25 @@ class Endpoint(Base, FeaturesMixin):
         return self.ports.values()
 
     @property
-    def original_ports(self):
-        return self.ports.keys()
+    def defined_ports_from_config(self):
+        for platform_type in config.PLATFORMS.values():
+            for platform_name, platform_settings in platform_type.items():
+                if platform_name == self.platform_name:
+                    return platform_settings.get("ports", config.DEFAULT_PORTS)
+
+        return config.DEFAULT_PORTS
 
     @property
     def vnc_port(self):
-        return self.ports.get(str(config.VNC_PORT))
+        return self.ports.get("vnc")
 
     @property
     def selenium_port(self):
-        return self.ports.get(str(config.SELENIUM_PORT))
+        return self.ports.get("selenium")
 
     @property
     def agent_port(self):
-        return self.ports.get(str(config.VMMASTER_AGENT_PORT))
+        return self.ports.get("agent")
 
     @property
     def agent_ws_url(self):
@@ -561,7 +566,7 @@ class OpenstackClone(Endpoint):
             "Creating openstack clone of {} with image={}, "
             "flavor={}".format(self.name, self.image, self.flavor))
 
-        self.ports = {"{}".format(port): port for port in config.PORTS}
+        self.ports = self.defined_ports_from_config
         self.save()
         kwargs = {
             'name': self.name,
@@ -752,24 +757,12 @@ class DockerClone(Endpoint):
     def __str__(self):
         return self.name
 
-    @property
-    def vnc_port(self):
-        return self.ports.get(str(config.VNC_PORT))
-
-    @property
-    def selenium_port(self):
-        return self.ports.get(str(config.SELENIUM_PORT))
-
-    @property
-    def agent_port(self):
-        return self.ports.get(str(config.VMMASTER_AGENT_PORT))
-
     def refresh_endpoint(self):
         self.refresh()
         __container = self.get_container()
         if __container:
             self.__container = __container
-            self.ports = self.__container.ports
+            self.ports = self.__make_binded_ports()
             self.save()
 
     @exception_handler(return_on_exc=None)
@@ -814,17 +807,38 @@ class DockerClone(Endpoint):
     def image(self):
         return "{}{}".format(config.DOCKER_IMAGE_NAME_PREFIX, self.platform_name)
 
+    def __make_binded_ports(self):
+        if not self.__container or not self.__container.ports:
+            return {}
+
+        _ports = {}
+        for defined_port_name, defined_port in self.defined_ports_from_config.items():
+            if defined_port in self.__container.ports:
+                _ports[defined_port_name] = self.__container.ports.get(defined_port)
+
+        return _ports
+
     @clone_refresher
     def create(self):
-        self.__container = self.client.run_container(
-            image=self.image, name=self.name, env_vars=self.environment_variables
-        )
-        self.refresh()
-        self.ports = self.__container.ports
+        kwargs = {
+            "image": self.image,
+            "name": self.name,
+            "env_vars": self.environment_variables
+        }
+
+        if config.BIND_LOCALHOST_PORTS:
+            kwargs["ports"] = self.defined_ports_from_config.values()
+
+        self.__container = self.client.run_container(**kwargs)
+
+        if config.BIND_LOCALHOST_PORTS:
+            self.ports = self.__make_binded_ports()
+        else:
+            self.ports = self.defined_ports_from_config
+            self.connect_network()
+
         self.uuid = self.__container.id
         self.save()
-        if not config.BIND_LOCALHOST_PORTS:
-            self.connect_network()
 
         log.info("Preparing {}...".format(self.name))
         self._wait_for_activated_service()

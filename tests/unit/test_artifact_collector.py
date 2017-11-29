@@ -52,7 +52,7 @@ class TestArtifactCollector(BaseTestCase):
             endpoint = Endpoint(Mock(), '', provider)
             endpoint.ip = '127.0.0.1'
             endpoint.name = 'test_endpoint'
-            endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+            endpoint.ports = {'selenium': '4455', 'agent': '9000', 'vnc': '5900'}
 
             session.endpoint = endpoint
             self.app.sessions.get_session = Mock(return_value=session)
@@ -94,7 +94,7 @@ class TestArtifactCollector(BaseTestCase):
             endpoint = Endpoint(Mock(), '', provider)
             endpoint.ip = '127.0.0.1'
             endpoint.name = 'test_endpoint'
-            endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+            endpoint.ports = {'selenium': '4455', 'agent': '9000', 'vnc': '5900'}
 
             session.endpoint = endpoint
             art_collector = ArtifactCollector(database=Mock())
@@ -127,7 +127,7 @@ class TestArtifactCollector(BaseTestCase):
             endpoint = Endpoint(Mock(), '', provider)
             endpoint.ip = '127.0.0.1'
             endpoint.name = 'test_endpoint'
-            endpoint.ports = {'4455': 4455, '9000': 9000, '5900': 5900}
+            endpoint.ports = {'selenium': '4455', 'agent': '9000', 'vnc': '5900'}
 
             session.endpoint = endpoint
             self.app.sessions.get_session = Mock(return_value=session)

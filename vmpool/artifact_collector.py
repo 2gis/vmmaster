@@ -191,11 +191,17 @@ class ArtifactCollector(ProcessPool):
 
     def record_screencast(self, session):
         # FIXME: ApplyAsync Video Recorder may start too late. Start VideoRecording synchronously
+        if not session.endpoint.vnc_port:
+            log.debug("Record screencastwas skipped because endpoint have not VNC PORT")
+            return
         return self.add_task(
             session.id, self._screencast_recording, session
         )
 
     def save_selenium_log(self, session):
+        if not session.endpoint.agent_port:
+            log.debug("Saving selenium log was skipped because endpoint have not AGENT PORT")
+            return
         return self.add_task(
             session.id, self._save_selenium_log, *(
                 session, "selenium_server", "/var/log/selenium_server.log"

@@ -34,7 +34,7 @@ class TestDockerClient(BaseTestCase):
     def test_run_container(self):
         from core.clients.docker_client import DockerContainer
 
-        container = self._docker_client.run_container("image")
+        container = self._docker_client.run_container("image", [])
 
         self.assertTrue(self._docker_client.client.containers.run.called)
         self.assertTrue(isinstance(container, DockerContainer))

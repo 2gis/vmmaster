@@ -24,6 +24,13 @@ class Config(object):
     FLASK_THREAD_POOL_MAX = env.int("FLASK_THREAD_POOL_MAX", default=100)
     REACTOR_THREAD_POOL_MAX = env.int("REACTOR_THREAD_POOL_MAX", default=FLASK_THREAD_POOL_MAX)
 
+    # selenium
+    DEFAULT_PORTS = {
+        "selenium": "4455",
+        "agent": "9000",
+        "vnc": "5900"
+    }
+
     """
         Platforms settings
 
@@ -38,13 +45,17 @@ class Config(object):
                     "browsers": {
                         "chrome": "48",
                         "firefox": "25"
+                    },
+                    "ports": {
+                        "selenium": "4444"
                     }
                 },
                 "ubuntu-16.04": {
                     "browsers": {
                         "chrome": "48",
                         "firefox": "25"
-                    }
+                    },
+                    # if ports was undefined then will uses DEFAULT_PORTS
                 }
             },
             "WINDOWS": {
@@ -133,9 +144,3 @@ class Config(object):
     PRELOADER_FREQUENCY = env.int("PRELOADER_FREQUENCY", default=3)
     SESSION_TIMEOUT = env.int("SESSION_TIMEOUT", default=360)
     PING_TIMEOUT = env.int("PING_TIMEOUT", default=180)
-
-    # selenium
-    SELENIUM_PORT = env.int("SELENIUM_PORT", default=4455)
-    VMMASTER_AGENT_PORT = env.int("VMMASTER_AGENT_PORT", default=9000)
-    VNC_PORT = env.int("VNC_PORT", default=5900)
-    PORTS = [SELENIUM_PORT, VMMASTER_AGENT_PORT, VNC_PORT]

@@ -77,9 +77,9 @@ class CommonCommandsTestCase(BaseTestCase):
             vm.name = 'vm1'
             vm.ip = self.host
             vm.ports = {
-                '4455': self.webdriver_server.port,
-                '9000': self.vmmaster_agent.port,
-                '5900': self.vnc_server.port
+                'selenium': self.webdriver_server.port,
+                'agent': self.vmmaster_agent.port,
+                'vnc': self.vnc_server.port
             }
             self.session.endpoint = vm
 
@@ -120,8 +120,8 @@ def selenium_status_mock(arg1, arg2, arg3):
     )
 )
 @patch(
-    'vmmaster.webdriver.commands.ping_vm',
-    new=Mock(__name__="ping_vm", side_effect=ping_vm_mock)
+    'vmmaster.webdriver.commands.ping_endpoint_before_start_session',
+    new=Mock(__name__="ping_endpoint_before_start_session", side_effect=ping_vm_mock)
 )
 @patch(
     'vmmaster.webdriver.helpers.is_request_closed',
@@ -185,6 +185,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
         'vmmaster.webdriver.helpers.is_request_closed',
         Mock(return_value=False)
     )
+    @patch("vmmaster.webdriver.commands.ping_endpoint_before_start_session", Mock())
     def test_session_response_success(self):
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "200"})
@@ -207,6 +208,7 @@ class TestStartSeleniumSessionCommands(CommonCommandsTestCase):
         'vmmaster.webdriver.helpers.is_request_closed',
         Mock(return_value=False)
     )
+    @patch("vmmaster.webdriver.commands.ping_endpoint_before_start_session", Mock())
     def test_session_response_fail(self):
         request = copy.deepcopy(self.request)
         request.headers.update({"reply": "500"})
@@ -299,14 +301,14 @@ class TestCheckVmOnline(CommonCommandsTestCase):
             handler.send_reply(200, self.response_headers,
                                body=self.response_body)
         Handler.do_GET = do_GET
-        result = self.commands.ping_vm(self.session, ports=[
+        result = self.commands.ping_endpoint_before_start_session(self.session, ports=[
             self.webdriver_server.port, self.vmmaster_agent.port, self.vnc_server.port
         ])
         self.assertTrue(result)
 
     def test_check_vm_online_ping_failed_timeout(self):
         self.assertRaises(
-            CreationException, self.commands.ping_vm, self.session
+            CreationException, self.commands.ping_endpoint_before_start_session, self.session, config.DEFAULT_PORTS
         )
 
     def test_check_vm_online_ping_failed_when_session_closed(self):
@@ -314,7 +316,7 @@ class TestCheckVmOnline(CommonCommandsTestCase):
         self.session.closed = True
 
         self.assertRaises(
-            CreationException, self.commands.ping_vm, self.session
+            CreationException, self.commands.ping_endpoint_before_start_session, self.session, config.DEFAULT_PORTS
         )
 
     def test_check_vm_online_status_failed(self):
@@ -451,7 +453,7 @@ class TestGetDesiredCapabilities(BaseTestCase):
 class TestRunScript(CommonCommandsTestCase):
     def setUp(self):
         super(TestRunScript, self).setUp()
-        config.VMMASTER_AGENT_PORT = self.vmmaster_agent.port
+        config.DEFAULT_AGENT_PORT = self.vmmaster_agent.port
         self.response_body = "some_body"
 
     def tearDown(self):

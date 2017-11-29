@@ -172,7 +172,7 @@ class TestProxyRequests(BaseTestFlaskApp):
 
 @patch.multiple(
     'vmmaster.webdriver.commands',
-    ping_vm=Mock(side_effect=ping_vm_true_mock),
+    ping_endpoint_before_start_session=Mock(side_effect=ping_vm_true_mock),
     selenium_status=Mock(return_value=(200, {}, json.dumps({'status': 0}))),
     start_selenium_session=Mock(return_value=(200, {}, json.dumps({'sessionId': "1"})))
 )
@@ -185,7 +185,7 @@ class TestProxyRequests(BaseTestFlaskApp):
         selenium_port=4455,
         _get_nova_client=Mock(return_value=Mock()),
         _wait_for_activated_service=custom_wait,
-        ping_vm=Mock(return_value=True),
+        ping_endpoint_before_start_session=Mock(return_value=True),
         is_broken=Mock(return_value=False)
     )
 )
@@ -592,7 +592,7 @@ class TestServerShutdown(BaseTestCase):
         selenium_port=4455,
         _get_nova_client=Mock(return_value=Mock()),
         _wait_for_activated_service=custom_wait,
-        ping_vm=Mock(return_value=True),
+        ping_endpoint_before_start_session=Mock(return_value=True),
         is_broken=Mock(return_value=False)
     )
 )
@@ -612,7 +612,7 @@ class TestSessionSteps(BaseTestFlaskApp):
 
     @patch.multiple(
         'vmmaster.webdriver.commands',
-        ping_vm=Mock(side_effect=ping_vm_true_mock),
+        ping_endpoint_before_start_session=Mock(side_effect=ping_vm_true_mock),
         selenium_status=Mock(return_value=(200, {}, json.dumps({'status': 0})))
     )
     def test_add_first_two_steps(self):
@@ -638,7 +638,7 @@ class TestSessionSteps(BaseTestFlaskApp):
 
     @patch.multiple(
         'vmmaster.webdriver.commands',
-        ping_vm=Mock(side_effect=ping_vm_true_mock),
+        ping_endpoint_before_start_session=Mock(side_effect=ping_vm_true_mock),
         selenium_status=Mock(return_value=(200, {}, json.dumps({'status': 0})))
     )
     def test_always_create_response_for_sub_step(self):
@@ -675,7 +675,7 @@ class TestSessionSteps(BaseTestFlaskApp):
         selenium_port=4455,
         _get_nova_client=Mock(return_value=Mock()),
         _wait_for_activated_service=custom_wait,
-        ping_vm=Mock(return_value=True),
+        ping_endpoint_before_start_session=Mock(return_value=True),
         is_broken=Mock(return_value=False)
     )
 )
@@ -694,7 +694,7 @@ class TestRunScriptTimeGreaterThenSessionTimeout(BaseTestFlaskApp):
 
     @patch.multiple(
         'vmmaster.webdriver.commands',
-        ping_vm=Mock(side_effect=ping_vm_true_mock),
+        ping_endpoint_before_start_session=Mock(side_effect=ping_vm_true_mock),
         selenium_status=Mock(side_effect=selenium_status_true_mock),
         start_selenium_session=Mock(return_value=(200, {}, json.dumps({'sessionId': 1}))),
     )

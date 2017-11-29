@@ -47,12 +47,9 @@ class DockerContainer:
     def ports(self):
         _ports = {}
         try:
-            if config.BIND_LOCALHOST_PORTS:
-                for original_port, bind_port in self.origin.attrs["NetworkSettings"]["Ports"].items():
-                    original_port = str(original_port.replace("/tcp", ""))
-                    _ports[original_port] = int(bind_port[0]["HostPort"])
-            else:
-                _ports = {port: port for port in config.PORTS}
+            for original_port, bind_port in self.origin.attrs["NetworkSettings"]["Ports"].items():
+                original_port = str(original_port.replace("/tcp", ""))
+                _ports[original_port] = str(bind_port[0]["HostPort"])
         except:
             log.debug("Network settings isn't available")
         return _ports
@@ -132,7 +129,7 @@ class DockerManageClient:
             self.client.containers.create(image=image, command=command)
         )
 
-    def run_container(self, image, ports=None, name=None, env_vars=None, *args, **kwargs):
+    def run_container(self, image, ports, name=None, env_vars=None, *args, **kwargs):
         """
 
         :type image: str
@@ -141,8 +138,6 @@ class DockerManageClient:
         :type env_vars: dict
         :rtype: DockerContainer
         """
-        ports = ports if ports else config.PORTS
-
         if config.BIND_LOCALHOST_PORTS:
             kwargs["ports"] = {"%s/tcp" % port: None for port in ports}
         if name:

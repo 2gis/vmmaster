@@ -56,7 +56,7 @@ def start_session(request, session):
     log.info("Start preparing selenium session for {}".format(session))
     status, headers, body = None, None, None
 
-    ping_vm(session, ports=session.endpoint.bind_ports)
+    ping_endpoint_before_start_session(session, session.endpoint.bind_ports)
     yield status, headers, body
 
     selenium_status(request, session)
@@ -82,6 +82,9 @@ def start_session(request, session):
 
 
 def startup_script(session):
+    if not session.endpoint.agent_port:
+        log.debug("Run user script was skipped because endpoint have not AGENT PORT")
+        return
     r = network_utils.RequestHelper(method="POST", data=session.run_script)
     status, headers, body = run_script(r, session)
     if status != httplib.OK:
@@ -93,7 +96,7 @@ def startup_script(session):
 
 
 @connection_watcher
-def ping_vm(session, ports=config.PORTS):
+def ping_endpoint_before_start_session(session, ports):
     ip = check_to_exist_ip(session)
 
     log.info("Starting ping: {ip}:{ports}".format(ip=ip, ports=str(ports)))
@@ -212,6 +215,9 @@ def set_path_session_id(path, session_id):
 
 
 def take_screenshot(session):
+    if not session.endpoint.agent_port:
+        log.debug("Take screenshot was skipped because endpoint have not AGENT PORT")
+        return
     for status, headers, body in session.make_request(
         session.endpoint.agent_port,
         network_utils.RequestHelper(method="GET", url="/takeScreenshot")

@@ -102,7 +102,7 @@ def get_free_port():
 
 def ping(ip, port):
     try:
-        s = get_socket(ip, port)
+        s = get_socket(ip, int(port))
     except Exception:
         return False
     if s:
