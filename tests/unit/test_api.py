@@ -225,8 +225,7 @@ class TestVmmasterApi(BaseTestCase):
             'flask.current_app.sessions.get_session',
             Mock(return_value=session)
         ):
-            response = self.vmmaster_client.post("/api/session/%s/stop"
-                                                 % session.id)
+            response = self.vmmaster_client.get("/api/session/{}/stop".format(session.id))
         body = json.loads(response.data)
         self.assertEqual(200, body['metacode'])
 
