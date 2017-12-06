@@ -272,7 +272,7 @@ class TestServer(BaseTestFlaskApp):
         ):
             response = get_session_request(self.vmmaster_client, session.id)
         self.assertIn(
-            "SessionException: Session {}(None) already closed earlier".format(session.id), response.data
+            "SessionException: Session {}(Success) already closed earlier".format(session.id), response.data
         )
 
     def test_get_timeouted_session(self):

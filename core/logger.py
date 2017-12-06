@@ -177,11 +177,11 @@ def setup_logging(log_type=None, log_level=None):
         logging.config.fileConfig(
             "logging.ini", disable_existing_loggers=False
         )
-        log.warning("logger from logging.ini initialised.")
+        log.debug("logger from logging.ini initialised.")
     elif log_type:
         config = set_loggers(log_type, log_level)
         logging.config.dictConfig(config)
-        log.info("%s logger initialised." % log_type)
+        log.debug("%s logger initialised." % log_type)
 
 # @TODO fix me. log does stop writing after uncommenting this.
 # sys.stderr = StreamToLogger(logging.getLogger('STDERR'))

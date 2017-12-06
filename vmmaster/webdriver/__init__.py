@@ -29,15 +29,16 @@ def get_vmmaster_session(request):
     if hasattr(request, 'session'):
         session = request.session
         session.refresh()
-    else:
-        session_id = commands.get_session_id(request.path)
+        return session
 
-        try:
-            session = current_app.sessions.get_session(session_id, maybe_closed=True)
-        except SessionException:
-            session = None
+    session_id = commands.get_session_id(request.path)
+    if not session_id:
+        return None
 
-    return session
+    try:
+        return current_app.sessions.get_session(session_id, maybe_closed=True)
+    except SessionException:
+        return None
 
 
 def log_request(session, request, created=None):
@@ -73,16 +74,19 @@ def log_response(session, response, created=None):
 def after_request(response):
     log.debug('Response %s %s' % (response.data, response.status_code))
     session = get_vmmaster_session(request)
-    parts = request.path.split("/")
+    if not session:
+        return response
 
-    if session:
-        log_response(session, response, created=datetime.now())
-        if not session.closed:
-            if request.method == 'DELETE' and parts[-2] == "session" \
-                    and parts[-1] == str(session.id):
-                session.succeed()
-            else:
-                session.start_timer()
+    log_response(session, response, created=datetime.now())
+    if session.closed:
+        return response
+
+    parts = request.path.split("/")
+    if request.method == 'DELETE' and parts[-2] == "session" \
+            and parts[-1] == str(session.id):
+        session.succeed()
+    else:
+        session.start_timer()
 
     return response
 

@@ -274,7 +274,7 @@ class Session(Base, FeaturesMixin):
 
     def succeed(self):
         self.status = "succeed"
-        self._close()
+        self._close(reason="Success")
 
     def failed(self, tb=None, reason=None):
         if self.closed:

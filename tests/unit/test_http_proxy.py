@@ -76,7 +76,7 @@ class TestHttpProxy(BaseTestCase):
                 (self.host, self.port, self.session.id, self.free_port)
             )
         self.assertIn(
-            "Session {}(None) already closed earlier".format(self.session.id),
+            "Session {}(Success) already closed earlier".format(self.session.id),
             response.content
         )
 
