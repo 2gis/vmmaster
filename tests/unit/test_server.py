@@ -13,7 +13,7 @@ from core.exceptions import SessionException
 from tests.helpers import server_is_up, server_is_down, \
     new_session_request, get_session_request, delete_session_request, \
     vmmaster_label, run_script, BaseTestCase, \
-    DatabaseMock, custom_wait, request_mock, wait_for, open_url_request
+    DatabaseMock, custom_wait, request_mock, wait_for, open_url_request, app_context_mock
 
 
 def ping_vm_true_mock(arg=None, ports=None):
@@ -457,7 +457,7 @@ class TestSessionWorker(BaseTestCase):
         self.app.sessions.app = self.app
 
         from core.sessions import SessionWorker
-        self.worker = SessionWorker(self.app.sessions)
+        self.worker = SessionWorker(self.app.sessions, app_context_mock)
 
     def tearDown(self):
         self.worker.stop()

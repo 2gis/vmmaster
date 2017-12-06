@@ -18,7 +18,7 @@ class Provider(Flask):
         self.running = True
         self.json_encoder = JSONEncoder
         self.database = Database()
-        self.sessions = Sessions(self)
+        self.sessions = Sessions(self.database, self.app_context)
         self.pool = VirtualMachinesPool(app=self, name=config.PROVIDER_NAME)
         self.pool.start_workers()
 

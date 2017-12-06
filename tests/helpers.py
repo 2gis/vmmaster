@@ -22,6 +22,9 @@ class TimeoutException(Exception):
     pass
 
 
+app_context_mock = Mock(return_value=Mock(__enter__=Mock(), __exit__=Mock()))
+
+
 def call_in_thread_mock(f):
     def wrapper(*args, **kwargs):
         return f(*args, **kwargs)

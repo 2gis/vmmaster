@@ -24,6 +24,10 @@ def get_session(session_id):
     return session
 
 
+def get_cached_sessions():
+    return current_app.sessions._cache.to_json()
+
+
 def get_sessions():
     return [session.info for session in current_app.sessions.active()]
 

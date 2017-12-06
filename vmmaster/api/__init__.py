@@ -57,6 +57,15 @@ def platforms():
     )
 
 
+@api.route('/sessions/cache')
+def sessions_cache():
+    return render_json(
+        result={
+            'cached_sessions': len(helpers.get_cached_sessions())
+        }
+    )
+
+
 @api.route('/config', methods=['GET', 'POST'])
 def _config():
     if request.method == 'GET':

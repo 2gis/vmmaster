@@ -2,11 +2,10 @@
 
 from lode_runner import dataprovider
 from mock import Mock, patch, PropertyMock, MagicMock
-from tests.helpers import BaseTestCase
+from tests.helpers import BaseTestCase, app_context_mock
 from core.exceptions import CreationException
 
 patch('core.utils.call_in_thread', lambda x: x).start()
-app_context = Mock(return_value=Mock(__enter__=Mock(), __exit__=Mock()))
 
 
 class TestEndpointPreparer(BaseTestCase):
@@ -27,7 +26,7 @@ class TestEndpointPreparer(BaseTestCase):
             )
         ]))
         endpoint_preparer = EndpointPreparer(
-            pool=Mock(), sessions=sessions, artifact_collector=Mock(), app_context=app_context
+            pool=Mock(), sessions=sessions, artifact_collector=Mock(), app_context=app_context_mock
         )
         endpoint_preparer.start_screencast = Mock()
         endpoint_preparer.prepare_endpoint = Mock()
@@ -51,7 +50,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
         endpoint_preparer.prepare_endpoint(session)
@@ -75,7 +74,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
 
@@ -100,7 +99,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
 
@@ -125,7 +124,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(side_effect=[True, False, False])
 
@@ -151,7 +150,7 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint = Mock()
         pool = Mock(get_vm=Mock(return_value=endpoint))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
 
@@ -176,7 +175,7 @@ class TestEndpointPreparer(BaseTestCase):
         session = MagicMock(closed=False, endpoint_id=None, is_preparing=PropertyMock(return_value=True))
         pool = Mock(get_vm=Mock(side_effect=CreationException))
         endpoint_preparer = EndpointPreparer(
-            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=pool, sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
         type(endpoint_preparer).running = PropertyMock(return_value=True)
 
@@ -193,7 +192,7 @@ class TestEndpointPreparer(BaseTestCase):
         pool = Mock(can_produce=Mock(return_value=False), has=Mock(return_value=False))
         preparer = EndpointPreparer(
             pool=pool, sessions=Mock(active=Mock(return_value=[session])),
-            artifact_collector=Mock(), app_context=app_context
+            artifact_collector=Mock(), app_context=app_context_mock
         )
         preparer.prepare_endpoint = Mock()
         type(preparer).running = PropertyMock(return_value=True)
@@ -209,7 +208,7 @@ class TestEndpointPreparer(BaseTestCase):
         pool = Mock(can_produce=Mock(return_value=False), has=Mock(return_value=True))
         preparer = EndpointPreparer(
             pool=pool, sessions=Mock(active=Mock(return_value=[session])),
-            artifact_collector=Mock(), app_context=app_context
+            artifact_collector=Mock(), app_context=app_context_mock
         )
         preparer.prepare_endpoint = Mock()
         type(preparer).running = PropertyMock(return_value=True)
@@ -223,7 +222,7 @@ class TestEndpointPreparer(BaseTestCase):
         session = Mock(set_status=Mock(side_effect=Exception("Error")), closed=False,
                        endpoint=None, is_preparing=PropertyMock(return_value=True))
         endpoint_preparer = EndpointPreparer(
-            pool=Mock(), sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=Mock(), sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
 
         endpoint_preparer.prepare_endpoint(session, get_endpoint_attempts=2)
@@ -235,7 +234,7 @@ class TestEndpointPreparer(BaseTestCase):
         from vmpool.endpoint import EndpointPreparer
         session = Mock()
         endpoint_preparer = EndpointPreparer(
-            pool=Mock(), sessions=Mock(), artifact_collector=Mock(), app_context=app_context
+            pool=Mock(), sessions=Mock(), artifact_collector=Mock(), app_context=app_context_mock
         )
 
         endpoint_preparer.start_screencast(session)

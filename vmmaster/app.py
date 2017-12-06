@@ -21,7 +21,7 @@ class Vmmaster(Flask):
         self.running = True
         self.json_encoder = JSONEncoder
         self.database = Database()
-        self.sessions = Sessions(self)
+        self.sessions = Sessions(self.database, self.app_context)
         self.sessions.start_workers()
 
     def cleanup(self):
