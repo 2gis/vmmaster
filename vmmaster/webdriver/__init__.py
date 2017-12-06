@@ -80,11 +80,6 @@ def after_request(response):
     log_response(session, response, created=datetime.now())
     if session.closed:
         return response
-
-    parts = request.path.split("/")
-    if request.method == 'DELETE' and parts[-2] == "session" \
-            and parts[-1] == str(session.id):
-        session.succeed()
     else:
         session.start_timer()
 
@@ -95,6 +90,7 @@ def after_request(response):
 def delete_session(session_id):
     request.session = current_app.sessions.get_session(session_id)
     status, headers, body = helpers.transparent()
+    request.session.succeed()
     return helpers.form_response(status, headers, body)
 
 
