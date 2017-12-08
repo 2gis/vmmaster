@@ -1,12 +1,48 @@
 # coding: utf-8
 
 import os
-from tests.functional.tests.helpers import TestCase
+from tests.functional.tests.helpers import DesktopTestCase, AndroidTestCase
 
 path = os.path.dirname(os.path.realpath(__file__))
 
 
-class TestPositiveCase(TestCase):
+class TestAndroidWebTestCase(AndroidTestCase):
+    desired_capabilities = {
+        "platformName": "ANDROID",
+        "deviceName": "ANY",
+        "browserName": "chrome",
+        "environmentVars": {
+            "STF_CONNECT_SPEC": "{\"serial\":\"3300088557752451\"}",
+        },
+    }
+
+    def test_open_url_in_browser(self):
+        self.driver.get(self.micro_app_address)
+        go_button = self.driver.find_element_by_xpath("//input[2]")
+        go_button.click()
+
+
+class TestAndroidNativeTestCase(AndroidTestCase):
+    desired_capabilities = {
+        "platformName": "ANDROID",
+        "deviceName": "ANY",
+        "browserName": "ANY",
+        "unicodeKeyboard": True,
+        "resetKeyboard": True,
+        "noSign": True,
+        "disableAndroidWatchers": True,
+        "appPackage": "com.android.calculator2",
+        "appActivity": ".Calculator",
+        "environmentVars": {
+            "STF_CONNECT_SPEC": "{\"model\":\" SDK built for x86\"}",
+        },
+    }
+
+    def test_open_mobile_application(self):
+        raise Exception('application was opened')
+
+
+class TestPositiveCase(DesktopTestCase):
 
     def test_micro_app(self):
         self.driver.get(self.micro_app_address)
@@ -17,7 +53,7 @@ class TestPositiveCase(TestCase):
         raise Exception('some client exception')
 
 
-class TestLongRequest(TestCase):
+class TestLongRequest(DesktopTestCase):
     def test_1_long_micro_app_request(self):
         self.driver.get(self.micro_app_address)
 
@@ -28,7 +64,7 @@ class TestLongRequest(TestCase):
         self.driver.get(self.micro_app_address)
 
 
-class TestEnvironmentVariables(TestCase):
+class TestEnvironmentVariables(DesktopTestCase):
     desired_capabilities = {"environmentVars": {
         "TEST_ENV": "TEST_VALUE",
     }}
@@ -38,7 +74,7 @@ class TestEnvironmentVariables(TestCase):
         self.assertIn(u"TEST_VALUE", output, msg="Not set environment variables in endpoint")
 
 
-class TestRunScriptOnSessionCreation(TestCase):
+class TestRunScriptOnSessionCreation(DesktopTestCase):
     @classmethod
     def setUpClass(cls):
         cls.desired_capabilities["runScript"] = \
@@ -60,12 +96,12 @@ def parallel_tests_body(self):
     go_button.click()
 
 
-class TestParallelSessions1(TestCase):
+class TestParallelSessions1(DesktopTestCase):
     def test(self):
         parallel_tests_body(self)
 
 
-class TestParallelSessions2(TestCase):
+class TestParallelSessions2(DesktopTestCase):
     def test(self):
         parallel_tests_body(self)
 
@@ -81,17 +117,17 @@ def run_scripts_parallel_body(self):
                   msg="%s not found in %s" % (u"pip 1.5.4", output))
 
 
-class TestParallelSlowRunScriptOnSession1(TestCase):
+class TestParallelSlowRunScriptOnSession1(DesktopTestCase):
     def test(self):
         run_scripts_parallel_body(self)
 
 
-class TestParallelSlowRunScriptOnSession2(TestCase):
+class TestParallelSlowRunScriptOnSession2(DesktopTestCase):
     def test(self):
         run_scripts_parallel_body(self)
 
 
-class TestRunScriptWithInstallPackageOnSessionCreation(TestCase):
+class TestRunScriptWithInstallPackageOnSessionCreation(DesktopTestCase):
     @classmethod
     def setUpClass(cls):
         cls.desired_capabilities["runScript"] = {

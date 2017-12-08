@@ -132,7 +132,7 @@ def start_selenium_session(request, session):
     for status, headers, body in wrapped_make_request(
         session.endpoint.selenium_port, network_utils.RequestHelper(
             request.method, request.path, request.headers, request.data
-        )
+        ), timeout=constants.CREATE_SESSION_REQUEST_TIMEOUT
     ):
         yield status, headers, body
 

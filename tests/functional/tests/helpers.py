@@ -31,37 +31,23 @@ def get_microapp_address():
             return address_dict[0].get("addr", None)
 
 
-class TestCase(unittest.TestCase):
+class BaseTestCase(unittest.TestCase):
     platform = None
     desired_capabilities = None
     micro_app_address = None
 
     def __new__(cls, *args, **kwargs):
-        if cls.desired_capabilities is None:
-            cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
-        cls.desired_capabilities["name"] = cls.__name__
-        cls.desired_capabilities["platform"] = cls.platform
+        if not cls.desired_capabilities:
+            cls.desired_capabilities = {}
 
-        if hasattr(Config, 'browser'):
+        if not cls.desired_capabilities.get("browserName") and hasattr(Config, 'browser'):
             cls.desired_capabilities["browserName"] = getattr(Config, 'browser', 'ANY')
-            if Config.browser == 'chrome':
-                cls.desired_capabilities["chromeOptions"] = {
-                    "args": [
-                        "--use-gl",
-                        "--ignore-gpu-blacklist"
-                    ],
-                    "extensions": []
-                }
 
-        if hasattr(Config, 'version'):
-            cls.desired_capabilities["version"] = getattr(Config, 'version', 'ANY')
+        cls.desired_capabilities["name"] = "{}({})".format(cls.__name__, cls.platform)
+        cls.desired_capabilities["platform"] = cls.platform
+        cls.desired_capabilities["token"] = getattr(Config, "token", None)
 
-        cls.desired_capabilities["takeScreenshot"] = getattr(Config, "take_screenshot", True)
-        cls.desired_capabilities["takeScreencast"] = getattr(Config, "take_screencast", False)
-
-        token = getattr(Config, "token", None)
-        cls.desired_capabilities["token"] = token
-        return super(TestCase, cls).__new__(cls, *args, **kwargs)
+        return super(BaseTestCase, cls).__new__(cls)
 
     @classmethod
     def setUpClass(cls):
@@ -77,3 +63,34 @@ class TestCase(unittest.TestCase):
 
     def setUp(self):
         self.vmmaster.label(self.__dict__['_testMethodName'])
+
+
+class DesktopTestCase(BaseTestCase):
+    def __new__(cls, *args, **kwargs):
+        if not cls.desired_capabilities:
+            cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
+
+        if hasattr(Config, 'browser') and Config.browser == 'chrome':
+            cls.desired_capabilities["chromeOptions"] = {
+                "args": [
+                    "--use-gl",
+                    "--ignore-gpu-blacklist"
+                ],
+                "extensions": []
+            }
+
+        if hasattr(Config, 'version'):
+            cls.desired_capabilities["version"] = getattr(Config, 'version', 'ANY')
+
+        cls.desired_capabilities["takeScreenshot"] = getattr(Config, "take_screenshot", True)
+        cls.desired_capabilities["takeScreencast"] = getattr(Config, "take_screencast", False)
+
+        return super(DesktopTestCase, cls).__new__(cls)
+
+
+class AndroidTestCase(BaseTestCase):
+    def __new__(cls, *args, **kwargs):
+        if not cls.desired_capabilities:
+            cls.desired_capabilities = DesiredCapabilities.ANDROID.copy()
+
+        return super(AndroidTestCase, cls).__new__(cls)

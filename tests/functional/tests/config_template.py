@@ -3,6 +3,7 @@
 
 class Config:
     platforms = ["ubuntu-14.04-x64"]
+    android_platforms = ["ubuntu14.04-android:f249c09b"]
     host = "localhost"
     port = 9001
     username = None

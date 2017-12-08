@@ -13,8 +13,7 @@ from tests.helpers import get_microapp_address
 from tests.config import Config
 
 
-@dataprovider(Config.platforms)
-class TestCaseWithMicroApp(unittest.TestCase):
+class TestCaseApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app_port = get_free_port()
@@ -35,7 +34,7 @@ class TestCaseWithMicroApp(unittest.TestCase):
             "-t=600",
             "-b=0.0.0.0:{}".format(app_port),
             "tests.functional.app.views:app"
-            ], preexec_fn=setsid
+        ], preexec_fn=setsid
         )
 
     def setUp(self):
@@ -43,6 +42,9 @@ class TestCaseWithMicroApp(unittest.TestCase):
         self.runner = unittest.TextTestRunner(stream=StringIO())
         self.stream = StringIO()
 
+
+@dataprovider(Config.platforms)
+class TestCaseWithMicroApp(TestCaseApp):
     def test_positive_case(self, platform):
         from tests.test_normal import TestPositiveCase
         TestPositiveCase.platform = platform
@@ -166,3 +168,36 @@ class TestCase(unittest.TestCase):
         self.assertEqual(0, len(result2.errors), result2.errors)
         self.assertEqual(0, len(result1.failures), result1.failures)
         self.assertEqual(0, len(result2.failures), result2.failures)
+
+
+@dataprovider(Config.android_platforms)
+class TestAndroidWeb(TestCaseApp):
+    def test_mobile_web(self, platform):
+        from tests.test_normal import TestAndroidWebTestCase
+        TestAndroidWebTestCase.platform = platform
+        TestAndroidWebTestCase.micro_app_address = self.micro_app_address
+        suite = self.loader.loadTestsFromTestCase(TestAndroidWebTestCase)
+        result = self.runner.run(suite)
+
+        self.assertEqual(1, result.testsRun, result.errors)
+        self.assertEqual(0, len(result.errors), result.errors)
+        self.assertEqual(0, len(result.failures), result.failures)
+
+
+@dataprovider(Config.android_platforms)
+class TestAndroidNative(unittest.TestCase):
+    def setUp(self):
+        self.loader = unittest.TestLoader()
+        self.runner = unittest.TextTestRunner(stream=StringIO())
+        self.stream = StringIO()
+
+    def test_mobile_native(self, platform):
+        from tests.test_normal import TestAndroidNativeTestCase
+        TestAndroidNativeTestCase.platform = platform
+        suite = self.loader.loadTestsFromTestCase(TestAndroidNativeTestCase)
+        result = self.runner.run(suite)
+
+        self.assertEqual(1, result.testsRun, result.errors)
+        self.assertEqual(1, len(result.errors), result.errors)
+        self.assertEqual(0, len(result.failures), result.failures)
+        self.assertIn("application was opened", result.errors[0][1])
