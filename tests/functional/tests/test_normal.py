@@ -12,7 +12,7 @@ class TestAndroidWebTestCase(AndroidTestCase):
         "deviceName": "ANY",
         "browserName": "chrome",
         "environmentVars": {
-            "STF_CONNECT_SPEC": "{\"serial\":\"3300088557752451\"}",
+            "STF_CONNECT_SPEC": "{\"serial\":\"YT9118JM3A\"}",
         },
     }
 

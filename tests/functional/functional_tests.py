@@ -29,7 +29,7 @@ class TestCaseApp(unittest.TestCase):
         return subprocess.Popen([
             "gunicorn",
             "--log-level=debug",
-            "-w=2",
+            "-w=4",
             "--keep-alive=1",
             "-t=600",
             "-b=0.0.0.0:{}".format(app_port),

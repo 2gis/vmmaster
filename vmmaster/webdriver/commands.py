@@ -69,9 +69,15 @@ def start_session(request, session):
         request, session
     )
 
-    selenium_session = json.loads(body)["sessionId"]
-    log.debug('Selenium real session_id {} for session {}'.format(selenium_session, session.id))
+    json_body = utils.to_json(body)
+    if json_body.get("sessionId"):
+        selenium_session = json_body.get("sessionId")
+    elif json_body.get("value", {}).get("sessionId"):
+        selenium_session = json_body.get("value").get("sessionId")
+    else:
+        raise CreationException("SessionId not found in selenium response {}".format(json_body))
 
+    log.debug('Selenium real session_id {} for session {}'.format(selenium_session, session.id))
     session.refresh()
     session.selenium_session = selenium_session
     session.save()

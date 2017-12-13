@@ -67,10 +67,13 @@ class BaseTestCase(unittest.TestCase):
 
 class DesktopTestCase(BaseTestCase):
     def __new__(cls, *args, **kwargs):
-        if not cls.desired_capabilities:
+        if not cls.desired_capabilities or getattr(Config, 'browser', '') == 'chrome':
             cls.desired_capabilities = DesiredCapabilities.CHROME.copy()
 
-        if hasattr(Config, 'browser') and Config.browser == 'chrome':
+        if getattr(Config, 'browser', '') == 'firefox':
+            cls.desired_capabilities.update(DesiredCapabilities.FIREFOX.copy())
+
+        if getattr(Config, 'browser', '') == 'chrome':
             cls.desired_capabilities["chromeOptions"] = {
                 "args": [
                     "--use-gl",
