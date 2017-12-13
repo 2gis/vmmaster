@@ -115,7 +115,6 @@ class Session(Base, FeaturesMixin):
     created = Column(DateTime, default=datetime.now)
     modified = Column(DateTime, default=datetime.now)
     deleted = Column(DateTime)
-    selenium_log = Column(String)
     vnc_proxy_port = Column(Integer, default=None)
     vnc_proxy_pid = Column(Integer, default=None)
 
@@ -396,14 +395,21 @@ class Endpoint(Base, FeaturesMixin):
     def bind_ports(self):
         return self.ports.values()
 
-    @property
-    def defined_ports_from_config(self):
+    def __get_prop_from_config(self, prop, default_prop):
         for platform_type in config.PLATFORMS.values():
             for platform_name, platform_settings in platform_type.items():
                 if platform_name == self.platform_name:
-                    return platform_settings.get("ports", config.DEFAULT_PORTS)
+                    return platform_settings.get(prop, default_prop)
 
-        return config.DEFAULT_PORTS
+        return default_prop
+
+    @property
+    def artifacts(self):
+        return self.__get_prop_from_config("artifacts", config.DEFAULT_ARTIFACTS)
+
+    @property
+    def defined_ports_from_config(self):
+        return self.__get_prop_from_config("ports", config.DEFAULT_PORTS)
 
     @property
     def vnc_port(self):
@@ -481,13 +487,6 @@ class Endpoint(Base, FeaturesMixin):
             "in_use": str(self.in_use),
             "deleted": str(self.deleted)
         }
-
-    def start_recorder(self, session):
-        # FIXME: replace current_pool by direct self.pool usage (blocked by db.models state restore issues)
-        return current_app.pool.start_recorder(session)
-
-    def save_artifacts(self, session):
-        return current_app.pool.save_artifacts(session)
 
     def is_preloaded(self):
         return 'preloaded' in self.name

@@ -29,8 +29,7 @@ class EndpointRemover(Thread):
                 endpoint.service_mode_on()
                 session = self.database.get_session_by_endpoint_id(endpoint.id)
                 if session:
-                    self.artifact_collector.save_selenium_log(session)
-                    self.artifact_collector.wait_for_complete(session.id)
+                    self.save_endpoint_artifacts(session)
                 endpoint.delete(try_to_rebuild=try_to_rebuild)
                 endpoint.service_mode_off()
             except AddTaskException:
@@ -39,6 +38,14 @@ class EndpointRemover(Thread):
             except:
                 log.exception("Attempt to remove {} was failed".format(endpoint))
                 endpoint.send_to_service()
+
+    def save_endpoint_artifacts(self, session):
+        if not session.endpoint.agent_port:
+            log.debug("Saving artifacts was skipped because endpoint have not AGENT PORT")
+            return
+        for artifact_name, original_path in session.endpoint.artifacts.items():
+            self.artifact_collector.save_artifact(session, artifact_name, original_path)
+        self.artifact_collector.wait_for_complete(session.id)
 
     def run(self):
         log.info("EndpointRemover was started...")

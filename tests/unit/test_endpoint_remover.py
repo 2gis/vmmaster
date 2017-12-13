@@ -19,13 +19,13 @@ class TestEndpointRemover(BaseTestCase):
             platforms=Mock(), artifact_collector=Mock(),
             database=Mock(), app_context=app_context
         )
+        endpoint_remover.save_endpoint_artifacts = Mock()
         endpoint_remover.remove_endpoint(endpoint)
 
         self.assertTrue(endpoint.service_mode_on.called)
         self.assertTrue(endpoint_remover.database.get_session_by_endpoint_id.called)
 
-        self.assertTrue(endpoint_remover.artifact_collector.save_selenium_log.called)
-        self.assertTrue(endpoint_remover.artifact_collector.wait_for_complete.called)
+        self.assertTrue(endpoint_remover.save_endpoint_artifacts.called)
 
         self.assertTrue(endpoint.delete.called)
         self.assertTrue(endpoint.service_mode_off.called)

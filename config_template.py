@@ -24,6 +24,10 @@ class Config(object):
     FLASK_THREAD_POOL_MAX = env.int("FLASK_THREAD_POOL_MAX", default=100)
     REACTOR_THREAD_POOL_MAX = env.int("REACTOR_THREAD_POOL_MAX", default=FLASK_THREAD_POOL_MAX)
 
+    DEFAULT_ARTIFACTS = {
+        "selenium_server.log": "/var/log/selenium_server.log",
+    }
+
     # selenium
     DEFAULT_PORTS = {
         "selenium": "4455",
@@ -48,7 +52,11 @@ class Config(object):
                     },
                     "ports": {
                         "selenium": "4444"
-                    }
+                    },
+                    "artifacts": {
+                        "selenium_server.log": "/var/log/selenium_server.log",
+                        "stf_connect.log": "/var/log/stf_connect.log",
+                    },
                 },
                 "ubuntu-16.04": {
                     "browsers": {

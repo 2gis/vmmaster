@@ -24,6 +24,10 @@ class TestArtifactCollector(BaseTestCase):
         cls.app = Flask(__name__)
         cls.app.database = DatabaseMock()
         cls.app.sessions = Mock()
+        cls.session_id = 1
+        cls.artifact_dir = os.sep.join([config.SCREENSHOTS_DIR, str(cls.session_id)])
+        if not os.path.exists(cls.artifact_dir):
+            os.mkdir(cls.artifact_dir)
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
@@ -45,8 +49,8 @@ class TestArtifactCollector(BaseTestCase):
         ):
             from core.db.models import Session, Endpoint, Provider
             session = Session('origin_1')
-            session.id = 1
-            log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
+            session.id = self.session_id
+            log_path = os.sep.join([self.artifact_dir, 'selenium_server.log'])
 
             provider = Provider(name='noname', url='nourl')
             endpoint = Endpoint(Mock(), '', provider)
@@ -62,16 +66,14 @@ class TestArtifactCollector(BaseTestCase):
             self.app.pool = vmpool
 
             art_collector = ArtifactCollector(database=Mock())
-            in_queue = art_collector.save_selenium_log(session)
+            in_queue = art_collector.save_artifact(session, 'selenium_server.log', '/var/log/selenium_server.log')
 
         self.assertTrue(in_queue)
         self.assertTrue(wait_for(
-            lambda: session.selenium_log == log_path))
-        with open(session.selenium_log, 'r') as f:
+            lambda: len(art_collector.get_queue()) == 0))
+        with open(log_path, 'r') as f:
             text = f.read()
             self.assertEqual(text, 'test text')
-        self.assertTrue(wait_for(
-            lambda: len(art_collector.get_queue()) == 0))
 
         art_collector.stop()
 
@@ -88,7 +90,7 @@ class TestArtifactCollector(BaseTestCase):
         ):
             from core.db.models import Session, Endpoint, Provider
             session = Session("origin_1")
-            session.id = 1
+            session.id = self.session_id
 
             provider = Provider(name='noname', url='nourl')
             endpoint = Endpoint(Mock(), '', provider)
@@ -98,11 +100,9 @@ class TestArtifactCollector(BaseTestCase):
 
             session.endpoint = endpoint
             art_collector = ArtifactCollector(database=Mock())
-            in_queue = art_collector.save_selenium_log(session)
+            in_queue = art_collector.save_artifact(session, 'selenium_server.log', '/var/log/selenium_server.log')
 
         self.assertTrue(in_queue)
-        self.assertTrue(wait_for(
-            lambda: not session.selenium_log))
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))
 
@@ -120,8 +120,8 @@ class TestArtifactCollector(BaseTestCase):
         ):
             from core.db.models import Session, Endpoint, Provider
             session = Session("origin_1")
-            session.id = 1
-            log_path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), 'selenium_server.log'])
+            session.id = self.session_id
+            log_path = os.sep.join([self.artifact_dir, 'selenium_server.log'])
 
             provider = Provider(name='noname', url='nourl')
             endpoint = Endpoint(Mock(), '', provider)
@@ -133,19 +133,14 @@ class TestArtifactCollector(BaseTestCase):
             self.app.sessions.get_session = Mock(return_value=session)
 
             art_collector = ArtifactCollector(database=Mock())
-            in_queue = art_collector.save_selenium_log(session)
+            in_queue = art_collector.save_artifact(session, 'selenium_server.log', '/var/log/selenium_server.log')
 
         self.assertTrue(in_queue)
-        self.assertTrue(
-            wait_for(lambda: session.selenium_log == log_path)
-        )
-
-        with open(session.selenium_log, 'r') as f:
-            text = f.read()
-            self.assertIn('Connection refused', text)
-
         self.assertTrue(wait_for(
             lambda: len(art_collector.get_queue()) == 0))
+        with open(log_path, 'r') as f:
+            text = f.read()
+            self.assertIn('Connection refused', text)
 
         art_collector.stop()
 

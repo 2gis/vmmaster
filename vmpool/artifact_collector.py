@@ -75,31 +75,23 @@ def save_artifact(session, filename, original_path):
     :param session: Session
     :param filename: str
     :param original_path: str
-    :return: str
     """
-    new_path = ""
-
     for code, headers, body in get_artifact_from_endpoint(session.endpoint, original_path):
         pass
 
     if code == 200:
-        path = os.sep.join(
-            [config.SCREENSHOTS_DIR, str(session.id), "{}.log".format(filename)]
-        )
+        path = os.sep.join([config.SCREENSHOTS_DIR, str(session.id), filename])
         try:
             body = json.loads(body)
             utils.write_file(path, body.get("output", "no data"))
             new_path = path
             log.info("session {}: file {} was saved to {} ".format(session.id, filename, new_path))
         except:
-            log.exception("session {}: selenium log file {} doesn't created".format(session.id, filename))
-
+            log.exception("session {}: file {} doesn't saved".format(session.id, filename))
     else:
-        log.error('session {}: cannot get artifact {} from endpoint'.format(
+        log.error('session {}: cannot get file {} from endpoint'.format(
             session.id, original_path, session.endpoint)
         )
-
-    return new_path
 
 
 def get_artifact_from_endpoint(endpoint, path):
@@ -135,18 +127,6 @@ class ArtifactCollector(ProcessPool):
 
     def __reduce__(self):
         super(ArtifactCollector, self).__reduce__()
-
-    def _save_selenium_log(self, session, filename, original_path):
-        try:
-            log_path = save_artifact(session, filename, original_path)
-            if log_path:
-                session.selenium_log = log_path
-                self.db.update(session)
-                log.info("session {}: selenium log saved to {}".format(session.id, log_path))
-            else:
-                log.warning("session {}: selenium log doesn't saved".format(session.id))
-        except:
-            log.exception("session {}: error saving selenium log".format(session.id))
 
     def _screencast_recording(self, session):
         def is_recording_over():
@@ -198,15 +178,8 @@ class ArtifactCollector(ProcessPool):
             session.id, self._screencast_recording, session
         )
 
-    def save_selenium_log(self, session):
-        if not session.endpoint.agent_port:
-            log.debug("Saving selenium log was skipped because endpoint have not AGENT PORT")
-            return
-        return self.add_task(
-            session.id, self._save_selenium_log, *(
-                session, "selenium_server", "/var/log/selenium_server.log"
-            )
-        )
+    def save_artifact(self, session, filename, original_path):
+        return self.add_task(session.id, save_artifact, *(session, filename, original_path))
 
     def get_queue(self):
         res = {}
