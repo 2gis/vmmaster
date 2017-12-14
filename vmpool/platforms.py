@@ -101,6 +101,22 @@ class DockerPlatforms(PlatformsInterface):
     def get(cls, platform):
         return cls.client.get_image(name=platform)
 
+    def prepare_platforms(self):
+        for platform_type in config.PLATFORMS.values():
+            for platform_name in platform_type:
+                try:
+                    image_name, image_tag = platform_name.split(":")
+                except ValueError:
+                    log.warning("Wrong platform name {} (must be: image_name:tag)".format(platform_name))
+                    continue
+                log.info("Pull image: {}{}".format(
+                    config.DOCKER_IMAGE_NAME_PREFIX,
+                    platform_name))
+                self.client.pull_image(
+                    name="{}{}".format(config.DOCKER_IMAGE_NAME_PREFIX, image_name),
+                    tag=image_tag
+                )
+
     @property
     def platforms(self):
         return [image for image in self.client.images() if config.DOCKER_IMAGE_NAME_PREFIX in image.name]
@@ -174,6 +190,7 @@ class Platforms(object):
                 self.openstack_platforms.keys())
             )
         if config.USE_DOCKER:
+            self.docker.prepare_platforms()
             self.docker_platforms = {vm.short_name: vm for vm in self.docker.platforms}
             log.info("Docker platforms: {}".format(
                 self.docker_platforms.keys())
