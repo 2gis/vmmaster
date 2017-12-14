@@ -172,6 +172,13 @@ class DockerManageClient:
                 name=name, all=all, filters=filters) if len(image.tags)
         ]
 
+    @exception_handler()
+    def pull_image(self, name=None, tag=None):
+        self.client.images.pull(
+            name=name,
+            tag=tag
+        )
+
     def create_network(self, network_name):
         """
 
