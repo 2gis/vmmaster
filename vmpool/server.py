@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import logging
 from twisted.web.wsgi import WSGIResource
 from twisted.web.server import Site
 from twisted.python.threadpool import ThreadPool
@@ -7,9 +8,10 @@ from twisted.internet.defer import inlineCallbacks, maybeDeferred
 from prometheus_client.twisted import MetricsResource
 
 from vmpool.app import create_app
-from core.logger import log
 from core.config import config
 from core.utils import RootResource
+
+log = logging.getLogger(__name__)
 
 
 class ProviderServer(object):

@@ -617,7 +617,7 @@ class TestSessionSteps(BaseTestFlaskApp):
     )
     def test_add_first_two_steps(self):
         """
-        - exception while waiting endpoint
+        - exception in session.run()
         Expected: session was created, session_step was created
         """
 
@@ -625,7 +625,7 @@ class TestSessionSteps(BaseTestFlaskApp):
             raise Exception('something ugly happened in get_vm')
 
         with patch(
-            'core.db.models.Session.restore', Mock(side_effect=raise_exception)
+            'core.db.models.Session.run', Mock(side_effect=raise_exception)
         ), patch(
             'core.db.models.Session.add_session_step', Mock()
         ) as add_step_mock:

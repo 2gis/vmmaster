@@ -36,9 +36,10 @@ class SessionWorker(Thread):
         self.context = context
 
     def run(self):
+        log.info("SessionWorker started")
         while self.running:
             with self.context():
-                for session in self.sessions.running():
+                for session in self.sessions.running(cached=True):
                     if not session.is_active and session.inactivity > config.SESSION_TIMEOUT:
                         session.timeout()
                 time.sleep(1)
@@ -70,6 +71,9 @@ class SessionCache:
         if len(self._cache) >= self._max_size:
             self._cache.popitem(last=False)
 
+    def values(self):
+        return self._cache.values()
+
     def clear(self):
         with self._cache_lock:
             self._cache.clear()
@@ -100,11 +104,14 @@ class Sessions(object):
     def active(self, provider_id=None):
         return self.db.get_active_sessions(provider_id=provider_id)
 
-    def running(self):
-        return [s for s in self.active() if s.status == "running"]
+    def running(self, cached=False):
+        if cached:
+            return [s for s in self._cache.values() if s.is_running]
+        else:
+            return [s for s in self.active() if s.is_running]
 
     def waiting(self):
-        return [s for s in self.active() if s.status == "waiting"]
+        return [s for s in self.active() if s.is_waiting]
 
     def kill_all(self):
         for session in self.active():
@@ -127,10 +134,6 @@ class Sessions(object):
 
         if session.closed and not maybe_closed:
             raise SessionException("Session {}({}) already closed earlier".format(session_id, session.reason))
-
-        log.debug("Recovering {} from db".format(session))
-        with self.context():
-            session.restore()
 
         if self._cache:
             self._cache[session_id] = session

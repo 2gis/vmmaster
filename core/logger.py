@@ -143,7 +143,7 @@ def set_loggers(log_type, log_level):
         "disable_existing_loggers": False,
         "formatters": {
             "standard": {
-                'format': '%(asctime)s - %(levelname)-7s :: %(name)-6s :: %(message)s',
+                'format': '%(asctime)s - %(levelname)-7s :: %(name)-16s :: %(message)s',
                 'datefmt': '%Y-%m-%d %H:%M:%S'
             }
         },

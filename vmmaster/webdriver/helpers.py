@@ -96,8 +96,9 @@ def take_screenshot_from_response(session, body):
 
 
 def take_screenshot_from_session(session):
-    screenshot = commands.take_screenshot(session) if session.take_screenshot else None
-    save_screenshot(session, screenshot)
+    screenshot = commands.take_screenshot(session)
+    if screenshot:
+        save_screenshot(session, screenshot)
 
 
 def make_thumbnail_for_screenshot(screenshot_path):
@@ -155,6 +156,8 @@ def swap_session(req, desired_session):
 @connection_watcher
 def transparent():
     status, headers, body = None, None, None
+
+    log.debug('Swap session_id={} and selenium_session={}'.format(request.session.id, request.session.selenium_session))
     swap_session(request, request.session.selenium_session)
     try:
         for status, headers, body in request.session.make_request(
@@ -224,6 +227,5 @@ def get_session():
         session.refresh()
         yield session
 
-    session.restore()
     session.run()
     yield session

@@ -29,7 +29,6 @@ class EndpointRemover(Thread):
                 endpoint.service_mode_on()
                 session = self.database.get_session_by_endpoint_id(endpoint.id)
                 if session:
-                    session.restore()
                     self.artifact_collector.save_selenium_log(session)
                     self.artifact_collector.wait_for_complete(session.id)
                 endpoint.delete(try_to_rebuild=try_to_rebuild)
@@ -139,7 +138,6 @@ class EndpointPreparer(Thread):
 
     def start_screencast(self, session):
         session.set_screencast_started(True)
-        session.restore()
         self.artifact_collector.record_screencast(session)
 
     def _run_tasks(self):

@@ -1,7 +1,9 @@
 # coding: utf-8
 
+import time
 import logging
-from threading import Lock
+from functools import wraps
+from threading import Lock, Thread
 
 from sqlalchemy import create_engine, asc, desc
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -13,6 +15,7 @@ log = logging.getLogger(__name__)
 
 
 def transaction(func):
+    @wraps(func)
     def wrapper(self, *args, **kwargs):
         # Try to use passed dbsession
         if 'dbsession' in kwargs.keys():
@@ -28,6 +31,37 @@ def transaction(func):
             dbsession.expunge_all()
             dbsession.close()
     return wrapper
+
+
+class DatabaseQueueWorker(Thread):
+    def __init__(self, task_queue):
+        """
+        :param task_queue: collections.deque
+        """
+        super(DatabaseQueueWorker, self).__init__()
+        self.running = True
+        self.daemon = True
+        self.task_queue = task_queue
+
+    def _poll_and_execute(self):
+        while self.task_queue:
+            task, params = self.task_queue.popleft()
+            log.debug('Executing task from DatabaseQueue: {}, {}'.format(task.__name__, params))
+            try:
+                task(*params)
+            except:
+                log.exception('Error executing task: ({}, {})'.format(task.__name__, params))
+
+    def run(self):
+        log.info('DatabaseQueueWorker started')
+        while self.running:
+            self._poll_and_execute()
+            time.sleep(0.1)
+
+    def stop(self):
+        self.running = False
+        self.join(1)
+        log.info("DatabaseQueueWorker stopped")
 
 
 class Database(object):

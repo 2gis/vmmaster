@@ -2,8 +2,10 @@
 
 import logging
 import threading
+from collections import deque
 
 from flask import Flask
+
 from core.config import config
 from core.utils import JSONEncoder
 
@@ -14,19 +16,25 @@ class Vmmaster(Flask):
     balance_lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
-        from core.db import Database
+        from core.db import Database, DatabaseQueueWorker
         from core.sessions import Sessions
 
         super(Vmmaster, self).__init__(*args, **kwargs)
         self.running = True
         self.json_encoder = JSONEncoder
+
         self.database = Database()
+        self.database_task_queue = deque()
+        self.database_task_worker = DatabaseQueueWorker(self.database_task_queue)
+        self.database_task_worker.start()
+
         self.sessions = Sessions(self.database, self.app_context)
         self.sessions.start_workers()
 
     def cleanup(self):
         log.info("Cleanup...")
         try:
+            self.database_task_worker.stop()
             self.sessions.stop_workers()
             log.info("Cleanup done")
         except:

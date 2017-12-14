@@ -70,6 +70,7 @@ def start_session(request, session):
     )
 
     selenium_session = json.loads(body)["sessionId"]
+    log.debug('Selenium real session_id {} for session {}'.format(selenium_session, session.id))
 
     session.refresh()
     session.selenium_session = selenium_session
@@ -297,10 +298,9 @@ def run_script(request, session):
 
 def vmmaster_label(request, session):
     json_body = json.loads(request.data)
-    label = session.current_log_step
     return 200, {}, json.dumps({"sessionId": session.id, "status": 0,
                                 "value": json_body["label"],
-                                "labelId": label.id})
+                                "labelId": 1})
 
 
 AgentCommands = {

@@ -28,7 +28,6 @@ def handle_errors(error):
 def get_vmmaster_session(request):
     if hasattr(request, 'session'):
         session = request.session
-        session.refresh()
         return session
 
     session_id = commands.get_session_id(request.path)
@@ -121,6 +120,9 @@ def get_session(session_id):
 
 
 def take_screenshot(status, body):
+    if not request.session.take_screenshot:
+        return
+
     words = ["url", "click", "execute", "keys", "value"]
     only_screenshots = ["element", "execute_async"]
     parts = request.path.split("/")

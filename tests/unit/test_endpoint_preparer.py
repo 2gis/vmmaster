@@ -240,5 +240,4 @@ class TestEndpointPreparer(BaseTestCase):
         endpoint_preparer.start_screencast(session)
 
         self.assertTrue(session.set_screencast_started.called)
-        self.assertTrue(session.restore.called)
         self.assertTrue(endpoint_preparer.artifact_collector.record_screencast.called)

@@ -57,6 +57,7 @@ class CommonCommandsTestCase(BaseTestCase):
         cls.app = Flask(__name__)
         cls.app.database = None
         cls.app.sessions = None
+        cls.app.database_task_queue = Mock()
         cls.app.pool = Mock()
 
     def setUp(self):

@@ -53,9 +53,8 @@ class SessionLogSubStep(Base, FeaturesMixin):
     def __init__(self, control_line, body=None, parent_id=None):
         self.control_line = control_line
         self.body = body
-        if parent_id:
-            self.session_log_step_id = parent_id
-        self.add()
+        self.session_log_step_id = parent_id
+        current_app.database_task_queue.append((current_app.database.add, (self,)))
 
 
 class SessionLogStep(Base, FeaturesMixin):
@@ -89,12 +88,14 @@ class SessionLogStep(Base, FeaturesMixin):
             self.session_id = session_id
         if created:
             self.created = created
-        self.add()
+        current_app.database_task_queue.append((current_app.database.add, (self,)))
 
-    def add_sub_step(self, control_line, body):
-        return SessionLogSubStep(control_line=control_line,
-                                 body=body,
-                                 parent_id=self.id)
+    def add_sub_step_to_step(self, control_line, body):
+        SessionLogSubStep(
+            control_line=control_line,
+            body=body,
+            parent_id=self.id
+        )
 
 
 class Session(Base, FeaturesMixin):
@@ -128,13 +129,13 @@ class Session(Base, FeaturesMixin):
     closed = Column(Boolean, default=False)
     keep_forever = Column(Boolean, default=False)
 
-    current_log_step = None
     is_active = True
 
     # Relationships
     session_steps = relationship(
         SessionLogStep,
         cascade="all, delete",
+        lazy='subquery',
         backref=backref(
             "session",
             enable_typechecks=False,
@@ -216,15 +217,18 @@ class Session(Base, FeaturesMixin):
     def is_preparing(self):
         return self.status == 'preparing'
 
+    @property
+    def current_log_step(self):
+        self.refresh()
+        return self.session_steps[-1] if self.session_steps else None
+
     def add_session_step(self, control_line, body=None, created=None):
-        self.current_log_step = SessionLogStep(
+        SessionLogStep(
             control_line=control_line,
             body=body,
             session_id=self.id,
             created=created
         )
-        self.save()
-        return self.current_log_step
 
     @property
     def info(self):
@@ -246,7 +250,6 @@ class Session(Base, FeaturesMixin):
     def start_timer(self):
         self.modified = datetime.now()
         self.is_active = False
-        self.save()
 
     def stop_timer(self):
         self.is_active = True
@@ -270,6 +273,7 @@ class Session(Base, FeaturesMixin):
 
         if getattr(self, "endpoint", None) and getattr(self.endpoint, "send_to_service", None):
             self.endpoint.send_to_service()
+
         log.info("Session %s closed. %s" % (self.id, self.reason))
 
     def succeed(self):
@@ -299,12 +303,6 @@ class Session(Base, FeaturesMixin):
         self.screencast_started = value
         self.save()
 
-    def restore_current_log_step(self):
-        self.current_log_step = current_app.database.get_last_session_step(self.id)
-
-    def restore(self):
-        self.restore_current_log_step()
-
     def run(self):
         self.modified = datetime.now()
         self.status = "running"
@@ -318,9 +316,16 @@ class Session(Base, FeaturesMixin):
     def set_user(self, username):
         self.user = current_app.database.get_user(username=username)
 
+    def _add_sub_step(self, control_line, body, context):
+        with context():
+            _log_step = self.current_log_step
+            if _log_step:
+                _log_step.add_sub_step_to_step(control_line, body)
+            else:
+                log.warning('No log steps found for session {}. Skip adding sub step'.format(self))
+
     def add_sub_step(self, control_line, body=None):
-        if self.current_log_step:
-            return self.current_log_step.add_sub_step(control_line, body)
+        current_app.database_task_queue.append((self._add_sub_step, (control_line, body, current_app.app_context)))
 
     def make_request(self, port, request,
                      timeout=getattr(config, "REQUEST_TIMEOUT", constants.REQUEST_TIMEOUT)):
